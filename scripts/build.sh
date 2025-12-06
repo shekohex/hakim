@@ -42,7 +42,7 @@ info "Building Base Image..."
 docker build -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
 
 # Find variants
-for variant in devcontainers/variants/*; do
+for variant in devcontainers/.devcontainer/images/*; do
     if [ -d "$variant" ]; then
         NAME=$(basename "$variant")
         info "Building Variant: $NAME..."
