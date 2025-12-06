@@ -28,29 +28,42 @@ data "coder_parameter" "image_variant" {
   type         = "string"
   icon         = "/icon/docker.svg"
   option {
-    name  = "Base (Minimal)"
-    value = "base"
-    icon  = "/icon/debian.svg"
+    name        = "Base (Minimal)"
+    description = "Minimal image with only essential tools."
+    value       = "base"
+    icon        = "/icon/debian.svg"
   }
   option {
-    name  = "Laravel with PHP 8.4"
-    value = "php"
-    icon  = "/icon/php.svg"
+    name        = "Laravel with PHP 8.4"
+    description = "Laravel with PHP 8.4 and related tools."
+    value       = "php"
+    icon        = "/icon/php.svg"
   }
   option {
-    name  = ".NET 10.0"
-    value = "dotnet"
-    icon  = "/icon/dotnet.svg"
+    name        = ".NET 10.0"
+    description = ".NET 10.0 with .NET SDK and related tools."
+    value       = "dotnet"
+    icon        = "/icon/dotnet.svg"
   }
+  option {
+    name        = "Custom"
+    icon        = "/emojis/1f5c3.png"
+    description = "Specify a custom repo URL below"
+    value       = "custom"
+  }
+  order = 1
 }
 
 data "coder_parameter" "git_url" {
+  count        = data.coder_parameter.image_variant.value == "custom" ? 1 : 0
   name         = "git_url"
   display_name = "Git Repository URL"
   default      = ""
-  type         = "string"
+  mutable      = true
+  type         = string
   description  = "Optional: Auto-clone a repository on startup."
   icon         = "/icon/git.svg"
+  order        = 2
 }
 
 data "coder_parameter" "opencode_auth" {
@@ -58,84 +71,92 @@ data "coder_parameter" "opencode_auth" {
   display_name = "OpenCode Auth JSON"
   description  = "Paste content of ~/.local/share/opencode/auth.json"
   form_type    = "textarea"
-  type         = "string"
+  type         = string
   default      = "{}"
   mutable      = true
   icon         = "/icon/opencode.svg"
+  order        = 3
 }
 
 data "coder_parameter" "opencode_config" {
   name         = "opencode_config"
   display_name = "OpenCode Config JSON"
   description  = "OpenCode JSON config. https://opencode.ai/docs/config/"
-  type         = "string"
+  type         = string
   form_type    = "textarea"
   default      = "{}"
   mutable      = true
   icon         = "/icon/opencode.svg"
+  order        = 4
 }
 
 data "coder_parameter" "system_prompt" {
   name         = "system_prompt"
   display_name = "System Prompt"
-  type         = "string"
+  type         = string
   form_type    = "textarea"
   description  = "System prompt for the AI agent."
   default      = ""
   mutable      = true
   icon         = "/icon/tasks.svg"
+  order        = 5
 }
 
 data "coder_parameter" "user_env" {
   name         = "user_env"
   display_name = "Environment Variables (JSON)"
   description  = "JSON object of env vars to inject."
-  type         = "string"
+  type         = string
   form_type    = "textarea"
   default      = "{}"
   mutable      = true
   icon         = "/icon/terminal.svg"
+  order        = 6
 }
 
 data "coder_parameter" "secret_env" {
   name         = "secret_env"
   display_name = "Secret Env (JSON)"
   description  = "Masked JSON object for secrets."
-  type         = "string"
+  type         = string
   form_type    = "textarea"
   default      = "{}"
   mutable      = true
-  icon         = "/icon/lock.svg"
+  icon         = "https://cdn.simpleicons.org/dotenv?viewbox=auto"
   styling      = jsonencode({ mask_input = true })
+  order        = 7
 }
 
 data "coder_parameter" "enable_vault" {
   name         = "enable_vault"
   display_name = "Enable Vault CLI"
   description  = "Install and auth Vault via GitHub token."
-  type         = "bool"
+  type         = bool
   default      = false
   icon         = "/icon/vault.svg"
+  order        = 8
 }
 
 data "coder_parameter" "vault_addr" {
   name         = "vault_addr"
   display_name = "Vault Address"
   description  = "Vault server URL."
-  type         = "string"
+  type         = string
   default      = "http://vault:8200"
   mutable      = true
   icon         = "/icon/vault.svg"
+  order        = 9
 }
 
 data "coder_parameter" "vault_github_auth_id" {
   name         = "vault_github_auth_id"
   display_name = "Vault GitHub Auth ID"
   description  = "GitHub auth mount or role used for Vault."
-  type         = "string"
+  type         = string
   default      = ""
   mutable      = true
   icon         = "/icon/github.svg"
+  order        = 10
 }
 
 locals {
