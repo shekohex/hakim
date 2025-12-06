@@ -13,6 +13,13 @@ COPY --from=docker:dind /usr/local/bin/docker /usr/local/bin/
 COPY install-mise.sh /tmp/install-mise.sh
 RUN bash /tmp/install-mise.sh && rm /tmp/install-mise.sh
 
+# Pre-download coder CLI binary to avoid runtime download
+ARG CODER_VERSION=2.29.0
+ARG TARGETARCH=amd64
+RUN curl -fsSL "https://github.com/coder/coder/releases/download/v${CODER_VERSION}/coder_${CODER_VERSION}_linux_${TARGETARCH}.tar.gz" \
+    | tar -xz -C /usr/local/bin coder \
+    && chmod +x /usr/local/bin/coder
+
 # Create coder user
 RUN useradd -m -s /bin/bash coder \
     && echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/coder

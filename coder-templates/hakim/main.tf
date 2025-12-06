@@ -348,8 +348,13 @@ resource "docker_container" "workspace" {
   name     = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
   hostname = data.coder_workspace.me.name
 
-  entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
-  env        = concat(["CODER_AGENT_TOKEN=${coder_agent.main.token}"], [for k, v in local.combined_env : "${k}=${v}"])
+  entrypoint = ["sh", "-c", replace(file("${path.module}/bootstrap.sh"), "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
+  env = concat(
+    ["CODER_AGENT_TOKEN=${coder_agent.main.token}"],
+    ["CODER_AGENT_URL=${replace(data.coder_workspace.me.access_url, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")}"],
+    ["ARCH=${data.coder_provisioner.me.arch}"],
+    [for k, v in local.combined_env : "${k}=${v}"]
+  )
 
   host {
     host = "host.docker.internal"
