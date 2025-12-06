@@ -61,7 +61,7 @@ data "coder_parameter" "opencode_auth" {
   type         = "string"
   default      = "{}"
   mutable      = true
-  icon         = "/icon/lock.svg"
+  icon         = "/icon/opencode.svg"
 }
 
 data "coder_parameter" "opencode_config" {
@@ -72,7 +72,7 @@ data "coder_parameter" "opencode_config" {
   form_type    = "textarea"
   default      = "{}"
   mutable      = true
-  icon         = "/icon/lock.svg"
+  icon         = "/icon/opencode.svg"
 }
 
 data "coder_parameter" "system_prompt" {
@@ -83,7 +83,7 @@ data "coder_parameter" "system_prompt" {
   description  = "System prompt for the AI agent."
   default      = ""
   mutable      = true
-  icon         = "/icon/robot.svg"
+  icon         = "/icon/tasks.svg"
 }
 
 # ------------------------------------------------------------------------------
