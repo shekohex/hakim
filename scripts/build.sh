@@ -38,15 +38,21 @@ function on_exit() {
 
 trap on_exit EXIT
 
-info "Building Base Image..."
-docker build -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
-
 # Build Cache Arguments
 CACHE_ARGS=""
+BASE_BUILD_CMD="docker build"
+
 if [ "$GITHUB_ACTIONS" = "true" ]; then
-    info "Running in GitHub Actions, enabling caching..."
+    info "Running in GitHub Actions, enabling caching and pushing..."
+    # In CI, we use buildx with push to ensure the base image is available to the devcontainer builder (which runs in a separate context)
+    # and to leverage GHA caching.
     CACHE_ARGS="--cache-from type=gha --cache-to type=gha,mode=max"
+    BASE_BUILD_CMD="docker buildx build --push $CACHE_ARGS"
 fi
+
+info "Building Base Image..."
+# Split the command to allow arguments to be processed correctly
+$BASE_BUILD_CMD -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
 
 # Find variants
 for variant in devcontainers/.devcontainer/images/*; do
