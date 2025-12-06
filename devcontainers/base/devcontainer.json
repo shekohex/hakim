@@ -14,6 +14,15 @@
 		"ghcr.io/devcontainers/features/git:1": {
 			"version": "latest",
 			"ppa": "false"
+		},
+		"./../features/mise": {
+			"tools": [
+				"ubi:cli/cli",
+				"ubi:BurntSushi/ripgrep",
+				"ubi:sharkdp/fd",
+				"ubi:junegunn/fzf",
+				"ubi:mwader/static-ffmpeg"
+			]
 		}
 	},
 	"remoteUser": "coder"

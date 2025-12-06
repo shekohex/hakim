@@ -1,0 +1,16 @@
+{
+    "name": "Mise Tools",
+    "id": "mise-tools",
+    "version": "1.0.0",
+    "description": "Installs tools using Mise.",
+    "options": {
+        "tools": {
+            "type": "array",
+            "default": [],
+            "description": "List of tools to install via mise (e.g. ubi:cli/cli, node@20)"
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils"
+    ]
+}

@@ -33,12 +33,12 @@ data "coder_parameter" "image_variant" {
     icon  = "/icon/debian.svg"
   }
   option {
-    name  = "PHP 8.3"
+    name  = "Laravel with PHP 8.4"
     value = "php"
     icon  = "/icon/php.svg"
   }
   option {
-    name  = "DotNet 8"
+    name  = ".NET 10.0"
     value = "dotnet"
     icon  = "/icon/dotnet.svg"
   }
