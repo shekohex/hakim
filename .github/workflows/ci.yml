@@ -16,7 +16,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
-          driver: docker
+          driver-opts: |
+            image=moby/buildkit:master
+            network=host
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v1
