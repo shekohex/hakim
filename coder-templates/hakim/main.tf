@@ -86,7 +86,6 @@ data "coder_parameter" "system_prompt" {
   icon         = "/icon/robot.svg"
 }
 
-
 # ------------------------------------------------------------------------------
 # Agent & AI Task
 # ------------------------------------------------------------------------------
@@ -157,7 +156,7 @@ resource "coder_agent" "main" {
 # Link OpenCode to Coder Tasks UI
 resource "coder_ai_task" "task" {
   count  = data.coder_workspace.me.start_count
-  app_id = module.opencode[count.index].task_app_id
+  app_id = module.opencode.task_app_id
 }
 
 # You can read the task prompt from the `coder_task` data source.
@@ -168,17 +167,16 @@ data "coder_task" "me" {}
 # ------------------------------------------------------------------------------
 
 module "opencode" {
-  source        = "registry.coder.com/coder-labs/opencode/coder"
-  version       = "0.1.1"
-  agent_id      = coder_agent.main.id
-  workdir       = "/home/coder/project"
-  auth_json     = data.coder_parameter.opencode_auth.value
-  config_json   = data.coder_parameter.opencode_config.value
-  order         = 999
-  cli_app       = true
-  report_tasks  = true
-  ai_prompt     = data.coder_task.me.prompt
-  system_prompt = data.coder_parameter.system_prompt.value
+  source       = "registry.coder.com/coder-labs/opencode/coder"
+  version      = "0.1.1"
+  agent_id     = coder_agent.main.id
+  workdir      = "/home/coder/project"
+  auth_json    = data.coder_parameter.opencode_auth.value
+  config_json  = data.coder_parameter.opencode_config.value
+  order        = 999
+  cli_app      = true
+  report_tasks = true
+  ai_prompt    = trimspace("${data.coder_parameter.system_prompt.value}\n${data.coder_task.me.prompt}")
 }
 
 module "git-clone" {
