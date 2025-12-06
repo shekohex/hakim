@@ -39,7 +39,7 @@ function on_exit() {
 trap on_exit EXIT
 
 info "Building Base Image..."
-docker buildx build --load -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
+docker build -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
 
 # Find variants
 for variant in devcontainers/.devcontainer/images/*; do
