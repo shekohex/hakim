@@ -86,6 +86,64 @@ data "coder_parameter" "system_prompt" {
   icon         = "/icon/tasks.svg"
 }
 
+data "coder_parameter" "user_env" {
+  name         = "user_env"
+  display_name = "Environment Variables (JSON)"
+  description  = "JSON object of env vars to inject."
+  type         = "string"
+  form_type    = "textarea"
+  default      = "{}"
+  mutable      = true
+  icon         = "/icon/terminal.svg"
+}
+
+data "coder_parameter" "secret_env" {
+  name         = "secret_env"
+  display_name = "Secret Env (JSON)"
+  description  = "Masked JSON object for secrets."
+  type         = "string"
+  form_type    = "textarea"
+  default      = "{}"
+  mutable      = true
+  icon         = "/icon/lock.svg"
+  styling      = jsonencode({ mask_input = true })
+}
+
+data "coder_parameter" "enable_vault" {
+  name         = "enable_vault"
+  display_name = "Enable Vault CLI"
+  description  = "Install and auth Vault via GitHub token."
+  type         = "bool"
+  default      = false
+  icon         = "/icon/lock.svg"
+}
+
+data "coder_parameter" "vault_addr" {
+  name         = "vault_addr"
+  display_name = "Vault Address"
+  description  = "Vault server URL."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "/icon/link.svg"
+}
+
+data "coder_parameter" "vault_github_auth_id" {
+  name         = "vault_github_auth_id"
+  display_name = "Vault GitHub Auth ID"
+  description  = "GitHub auth mount or role used for Vault."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "/icon/github.svg"
+}
+
+locals {
+  user_env     = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
+  secret_env   = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
+  combined_env = merge(local.user_env, local.secret_env)
+}
+
 # ------------------------------------------------------------------------------
 # Agent & AI Task
 # ------------------------------------------------------------------------------
@@ -93,6 +151,7 @@ data "coder_parameter" "system_prompt" {
 resource "coder_agent" "main" {
   arch           = data.coder_provisioner.me.arch
   os             = "linux"
+  env            = local.combined_env
   startup_script = <<-EOT
     #!/bin/bash
     set -e
@@ -191,6 +250,15 @@ module "dotfiles" {
   agent_id = coder_agent.main.id
 }
 
+module "vault" {
+  count                = data.coder_parameter.enable_vault.value ? 1 : 0
+  source               = "registry.coder.com/modules/vault-github/coder"
+  version              = "1.0.7"
+  agent_id             = coder_agent.main.id
+  vault_addr           = data.coder_parameter.vault_addr.value
+  coder_github_auth_id = data.coder_parameter.vault_github_auth_id.value
+}
+
 module "code-server" {
   count    = data.coder_workspace.me.start_count
   folder   = "/home/coder/project"
@@ -246,13 +314,14 @@ resource "docker_container" "workspace" {
   name     = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
   hostname = data.coder_workspace.me.name
 
-  entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
-  env        = ["CODER_AGENT_TOKEN=${coder_agent.main.token}"]
+  entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\.0\.0\.1/", "host.docker.internal")]
+  env        = concat(["CODER_AGENT_TOKEN=${coder_agent.main.token}"], [for k, v in local.combined_env : "${k}=${v}"])
 
   host {
     host = "host.docker.internal"
     ip   = "host-gateway"
   }
+
 
   volumes {
     container_path = "/home/coder"
