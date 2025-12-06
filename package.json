@@ -1,0 +1,13 @@
+{
+  "name": "hakim",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@devcontainers/cli": "^0.80.2",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
