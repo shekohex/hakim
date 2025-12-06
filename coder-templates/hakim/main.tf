@@ -115,7 +115,7 @@ data "coder_parameter" "enable_vault" {
   description  = "Install and auth Vault via GitHub token."
   type         = "bool"
   default      = false
-  icon         = "/icon/lock.svg"
+  icon         = "/icon/vault.svg"
 }
 
 data "coder_parameter" "vault_addr" {
@@ -123,9 +123,9 @@ data "coder_parameter" "vault_addr" {
   display_name = "Vault Address"
   description  = "Vault server URL."
   type         = "string"
-  default      = ""
+  default      = "http://vault:8200"
   mutable      = true
-  icon         = "/icon/link.svg"
+  icon         = "/icon/vault.svg"
 }
 
 data "coder_parameter" "vault_github_auth_id" {
