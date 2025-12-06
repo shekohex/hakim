@@ -56,7 +56,7 @@ jobs:
         uses: devcontainers/ci@v0.3
         with:
           subFolder: devcontainers
-          configFile: .devcontainer/images/php/.devcontainer/devcontainer.json
+          configFile: devcontainers/.devcontainer/images/php/.devcontainer/devcontainer.json
           imageName: ghcr.io/${{ github.repository_owner }}/hakim-php
           cacheFrom: ghcr.io/${{ github.repository_owner }}/hakim-php
           push: always
