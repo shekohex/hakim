@@ -17,8 +17,7 @@ RUN bash /tmp/install-mise.sh && rm /tmp/install-mise.sh
 ARG CODER_VERSION=2.29.0
 ARG TARGETARCH=amd64
 RUN curl -fsSL "https://github.com/coder/coder/releases/download/v${CODER_VERSION}/coder_${CODER_VERSION}_linux_${TARGETARCH}.tar.gz" \
-    | tar -xz -C /usr/local/bin coder \
-    && chmod +x /usr/local/bin/coder
+    | tar -xzf - -C /tmp && mv /tmp/coder /usr/local/bin/coder && chmod +x /usr/local/bin/coder
 
 # Create coder user
 RUN useradd -m -s /bin/bash coder \
