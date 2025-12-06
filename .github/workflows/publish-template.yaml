@@ -1,0 +1,65 @@
+name: Publish Coder Template
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "coder-templates/hakim/**"
+      - ".github/workflows/publish-template.yaml"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish Hakim Template
+    runs-on: ubuntu-latest
+    env:
+      CODER_TEMPLATE_NAME: "hakim"
+      CODER_TEMPLATE_DIR: "coder-templates/hakim"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+          terraform_wrapper: false
+
+      - name: Set up Coder CLI
+        uses: coder/setup-action@v1
+        with:
+          access_url: ${{ secrets.CODER_ACCESS_URL }}
+          coder_session_token: ${{ secrets.CODER_SESSION_TOKEN }}
+
+      - name: Validate Terraform template
+        run: terraform validate
+        working-directory: ${{ env.CODER_TEMPLATE_DIR }}
+
+      - name: Get version details
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            echo "version_name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            # Use release body for message, handling multiline safely
+            echo "message<<EOF" >> $GITHUB_OUTPUT
+            echo "${{ github.event.release.body }}" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "version_name=nightly-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+            echo "message=$(git log -1 --pretty=%s)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push template to Coder
+        run: |
+          coder templates push ${{ env.CODER_TEMPLATE_NAME }} \
+            --directory ${{ env.CODER_TEMPLATE_DIR }} \
+            --name "${{ steps.vars.outputs.version_name }}" \
+            --message "${{ steps.vars.outputs.message }}" \
+            --yes

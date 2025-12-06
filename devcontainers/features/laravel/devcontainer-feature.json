@@ -1,0 +1,24 @@
+{
+    "name": "Laravel",
+    "id": "laravel",
+    "version": "1.0.0",
+    "description": "Installs the Laravel Installer and related tools.",
+    "options": {
+        "version": {
+            "type": "string",
+            "proposals": [
+                "latest"
+            ],
+            "default": "latest",
+            "description": "Select the version of the Laravel Installer to install."
+        },
+        "tools": {
+            "type": "string",
+            "default": "",
+            "description": "Comma-separated list of extra tools to install. Supported: pint, php-cs-fixer, rector."
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/php"
+    ]
+}
