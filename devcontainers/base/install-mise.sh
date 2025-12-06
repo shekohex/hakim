@@ -5,7 +5,10 @@ curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 
 # Create global config dir
 mkdir -p /etc/mise
-echo 'experimental = true' > /etc/mise/config.toml
+cat << 'EOF' > /etc/mise/config.toml
+[settings]
+experimental = true
+EOF
 
 # Setup profile script for all users
 cat << 'EO_PROFILE' > /etc/profile.d/mise.sh

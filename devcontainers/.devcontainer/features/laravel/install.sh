@@ -51,4 +51,9 @@ if [ -n "$TOOLS" ]; then
     done
 fi
 
+cat << 'EOF' > /etc/profile.d/composer.sh
+export PATH="${COMPOSER_HOME:-$HOME/.composer}/vendor/bin:${PATH}"
+EOF
+chmod +x /etc/profile.d/composer.sh
+
 echo "Done!"
