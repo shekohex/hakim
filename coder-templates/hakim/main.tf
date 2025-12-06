@@ -54,16 +54,27 @@ data "coder_parameter" "image_variant" {
   order = 1
 }
 
-data "coder_parameter" "git_url" {
+data "coder_parameter" "image_url" {
   count        = data.coder_parameter.image_variant.value == "custom" ? 1 : 0
+  name         = "image_url"
+  display_name = "Image URL (Custom)"
+  default      = ""
+  mutable      = true
+  type         = "string"
+  description  = "Optional: Specify a custom image URL if you selected 'Custom' above."
+  icon         = "/icon/docker.svg"
+  order        = 2
+}
+
+data "coder_parameter" "git_url" {
   name         = "git_url"
   display_name = "Git Repository URL"
   default      = ""
   mutable      = true
-  type         = string
+  type         = "string"
   description  = "Optional: Auto-clone a repository on startup."
   icon         = "/icon/git.svg"
-  order        = 2
+  order        = 3
 }
 
 data "coder_parameter" "opencode_auth" {
@@ -71,92 +82,94 @@ data "coder_parameter" "opencode_auth" {
   display_name = "OpenCode Auth JSON"
   description  = "Paste content of ~/.local/share/opencode/auth.json"
   form_type    = "textarea"
-  type         = string
-  default      = "{}"
-  mutable      = true
-  icon         = "/icon/opencode.svg"
-  order        = 3
-}
-
-data "coder_parameter" "opencode_config" {
-  name         = "opencode_config"
-  display_name = "OpenCode Config JSON"
-  description  = "OpenCode JSON config. https://opencode.ai/docs/config/"
-  type         = string
-  form_type    = "textarea"
+  type         = "string"
   default      = "{}"
   mutable      = true
   icon         = "/icon/opencode.svg"
   order        = 4
 }
 
+data "coder_parameter" "opencode_config" {
+  name         = "opencode_config"
+  display_name = "OpenCode Config JSON"
+  description  = "OpenCode JSON config. https://opencode.ai/docs/config/"
+  type         = "string"
+  form_type    = "textarea"
+  default      = "{}"
+  mutable      = true
+  icon         = "/icon/opencode.svg"
+  order        = 5
+}
+
 data "coder_parameter" "system_prompt" {
   name         = "system_prompt"
   display_name = "System Prompt"
-  type         = string
+  type         = "string"
   form_type    = "textarea"
   description  = "System prompt for the AI agent."
   default      = ""
   mutable      = true
   icon         = "/icon/tasks.svg"
-  order        = 5
+  order        = 6
 }
 
 data "coder_parameter" "user_env" {
   name         = "user_env"
   display_name = "Environment Variables (JSON)"
   description  = "JSON object of env vars to inject."
-  type         = string
+  type         = "string"
   form_type    = "textarea"
   default      = "{}"
   mutable      = true
   icon         = "/icon/terminal.svg"
-  order        = 6
+  order        = 7
 }
 
 data "coder_parameter" "secret_env" {
   name         = "secret_env"
   display_name = "Secret Env (JSON)"
   description  = "Masked JSON object for secrets."
-  type         = string
+  type         = "string"
   form_type    = "textarea"
   default      = "{}"
   mutable      = true
   icon         = "https://cdn.simpleicons.org/dotenv?viewbox=auto"
   styling      = jsonencode({ mask_input = true })
-  order        = 7
+  order        = 8
 }
 
 data "coder_parameter" "enable_vault" {
   name         = "enable_vault"
   display_name = "Enable Vault CLI"
   description  = "Install and auth Vault via GitHub token."
-  type         = bool
+  type         = "bool"
   default      = false
-  icon         = "/icon/vault.svg"
-  order        = 8
-}
-
-data "coder_parameter" "vault_addr" {
-  name         = "vault_addr"
-  display_name = "Vault Address"
-  description  = "Vault server URL."
-  type         = string
-  default      = "http://vault:8200"
-  mutable      = true
   icon         = "/icon/vault.svg"
   order        = 9
 }
 
+data "coder_parameter" "vault_addr" {
+  count        = data.coder_parameter.enable_vault.value ? 1 : 0
+  name         = "vault_addr"
+  display_name = "Vault Address"
+  description  = "Vault server URL."
+  type         = "string"
+  default      = "http://vault:8200"
+  mutable      = true
+  icon         = "/icon/vault.svg"
+  order        = 10
+}
+
 data "coder_parameter" "vault_github_auth_id" {
+  count        = data.coder_parameter.enable_vault.value ? 1 : 0
   name         = "vault_github_auth_id"
   display_name = "Vault GitHub Auth ID"
   description  = "GitHub auth mount or role used for Vault."
-  type         = string
+  type         = "string"
   default      = ""
   mutable      = true
   icon         = "/icon/github.svg"
-  order        = 10
+  order        = 11
 }
 
 locals {
@@ -276,8 +289,8 @@ module "vault" {
   source               = "registry.coder.com/modules/vault-github/coder"
   version              = "1.0.7"
   agent_id             = coder_agent.main.id
-  vault_addr           = data.coder_parameter.vault_addr.value
-  coder_github_auth_id = data.coder_parameter.vault_github_auth_id.value
+  vault_addr           = data.coder_parameter.vault_addr[count.index].value
+  coder_github_auth_id = data.coder_parameter.vault_github_auth_id[count.index].value
 }
 
 module "code-server" {
@@ -330,7 +343,7 @@ resource "docker_volume" "home_volume" {
 
 resource "docker_container" "workspace" {
   count = data.coder_workspace.me.start_count
-  image = "ghcr.io/shekohex/hakim-${data.coder_parameter.image_variant.value}:latest"
+  image = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.image_url[count.index].value : "ghcr.io/shekohex/hakim-${data.coder_parameter.image_variant.value}:latest"
 
   name     = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
   hostname = data.coder_workspace.me.name
