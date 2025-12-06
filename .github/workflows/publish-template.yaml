@@ -36,7 +36,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          LATEST_VERSION=$(gh release view --repo coder/coder --json tagName --jq .tagName)
+          LATEST_VERSION=$(gh release view --repo coder/coder --json tagName --jq .tagName | sed 's/^v//')
           echo "CODER_LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV
 
       - name: Cache Coder CLI
