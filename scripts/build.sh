@@ -49,7 +49,8 @@ for variant in devcontainers/variants/*; do
         
         # Use devcontainer CLI to build
         devcontainer build \
-            --workspace-folder "$variant" \
+            --workspace-folder devcontainers \
+            --config "$variant/.devcontainer/devcontainer.json" \
             --image-name "$REGISTRY/hakim-$NAME:latest" \
             --image-name "$REGISTRY/hakim-$NAME:$TIMESTAMP"
     fi
