@@ -1,106 +1,32 @@
+# Hakim Project Knowledge Base
 
-Default to using Bun instead of Node.js.
+Universal Coder templates and DevContainer images for "Hakim".
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Bun automatically loads .env, so don't use dotenv.
+## Infrastructure Project
+This is an Infrastructure-as-Code (IaC) repository, not a traditional web application.
+- **Coder Templates**: Terraform-based templates in `coder-templates/`.
+- **DevContainers**: Docker and DevContainer definitions in `devcontainers/`.
 
-## APIs
+## Commands
+- **Build All Images**: `./scripts/build.sh` (Requires Docker & DevContainer CLI).
+- **Format Terraform**: `terraform fmt -recursive`
+- **Install Deps**: `bun install` (for DevContainer CLI).
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+## Directory Structure
+- `coder-templates/hakim`: Main Coder template (Terraform).
+  - `main.tf`: Main infrastructure definition.
+- `devcontainers/`:
+  - `base/`: Base Debian image definition.
+  - `variants/`: Language-specific variants (PHP, etc.).
+- `scripts/`: Build and utility scripts.
+- `docs/`: Documentation and design plans.
 
-## Testing
-
-Use `bun test` to run tests.
-
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
-```
-
-## Frontend
-
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
-
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
-
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-
-// import .css files directly and it works
-import './index.css';
-
-import { createRoot } from "react-dom/client";
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+## Conventions
+- **Commits**: Follow Conventional Commits (`feat`, `fix`, `chore`, etc.).
+- **Tools**:
+  - Use `bunx devcontainer` or installed `@devcontainers/cli`.
+  - Use `terraform` for template validation.
+- **Workflow**:
+  - Add new variants in `devcontainers/variants/<name>`.
+  - Update `coder-templates/hakim/main.tf` to expose new variants or parameters.
+  - Run `./scripts/build.sh` to build and verify images locally.
