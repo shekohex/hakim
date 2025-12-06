@@ -11,6 +11,21 @@ permissions:
   contents: read
 
 jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      variants: ${{ steps.find.outputs.variants }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find variants
+        id: find
+        run: |
+          variants=$(ls -d devcontainers/.devcontainer/images/*/ 2>/dev/null | xargs -n1 basename | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "variants=$variants" >> $GITHUB_OUTPUT
+          echo "Found variants: $variants"
+
   build-base:
     runs-on: ubuntu-latest
     steps:
@@ -38,9 +53,13 @@ jobs:
           cache-from: type=gha,scope=base
           cache-to: type=gha,mode=max,scope=base
 
-  build-php:
+  build-variants:
     runs-on: ubuntu-latest
-    needs: build-base
+    needs: [discover, build-base]
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: ${{ fromJson(needs.discover.outputs.variants) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,11 +71,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build PHP devcontainer
+      - name: Build ${{ matrix.variant }} devcontainer
         uses: devcontainers/ci@v0.3
         with:
           subFolder: devcontainers
-          configFile: devcontainers/.devcontainer/images/php/.devcontainer/devcontainer.json
-          imageName: ghcr.io/${{ github.repository_owner }}/hakim-php
-          cacheFrom: ghcr.io/${{ github.repository_owner }}/hakim-php
+          configFile: devcontainers/.devcontainer/images/${{ matrix.variant }}/.devcontainer/devcontainer.json
+          imageName: ghcr.io/${{ github.repository_owner }}/hakim-${{ matrix.variant }}
+          cacheFrom: ghcr.io/${{ github.repository_owner }}/hakim-${{ matrix.variant }}
           push: always
