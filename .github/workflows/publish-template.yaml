@@ -32,14 +32,39 @@ jobs:
           terraform_version: latest
           terraform_wrapper: false
 
-      - name: Install Coder CLI
-        run: |
-          curl -fsSL https://coder.com/install.sh | sh
+      - name: Get latest Coder version
         env:
-          CODER_INSTALL_VERSION: "latest"
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LATEST_VERSION=$(gh release view --repo coder/coder --json tagName --jq .tagName)
+          echo "CODER_LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV
+
+      - name: Cache Coder CLI
+        id: cache-coder
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/coder
+          key: coder-cli-${{ runner.os }}-${{ env.CODER_LATEST_VERSION }}
+
+      - name: Install Coder CLI
+        if: steps.cache-coder.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.local/bin
+          curl -fsSL https://coder.com/install.sh | sh
+          # Move binary to cached path if it's not there (install.sh usually puts in /usr/local/bin or ~/.local/bin if writable)
+          # We force move to be sure
+          if [ -f /usr/local/bin/coder ]; then
+             mv /usr/local/bin/coder ~/.local/bin/coder
+          elif [ -f /usr/bin/coder ]; then
+             mv /usr/bin/coder ~/.local/bin/coder
+          fi
+        env:
+          CODER_INSTALL_VERSION: "${{ env.CODER_LATEST_VERSION }}"
 
       - name: Configure Coder CLI
         run: |
+          # Ensure cached path is in PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
           echo "CODER_URL=${{ secrets.CODER_ACCESS_URL }}" >> $GITHUB_ENV
           echo "CODER_SESSION_TOKEN=${{ secrets.CODER_SESSION_TOKEN }}" >> $GITHUB_ENV
 
