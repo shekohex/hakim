@@ -2,14 +2,22 @@
     "name": "Hakim PHP",
     "image": "ghcr.io/shekohex/hakim-base:latest",
     "features": {
-        "ghcr.io/devcontainers/features/php:8": {
-            "version": "8.3",
+        "ghcr.io/devcontainers/features/php:1": {
+            "version": "8.4",
             "installComposer": true
+        },
+        "./../../features/laravel": {
+            "version": "latest"
         }
     },
     "customizations": {
         "vscode": {
-            "extensions": ["DEVSENSE.phptools-vscode"]
+            "extensions": [
+                "DEVSENSE.composer-php-vscode",
+                "phpactor.vscode-phpactor",
+                "laravel.vscode-laravel",
+                "shufo.vscode-blade-formatter"
+            ]
         }
     }
 }
