@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 # Install common dependencies
 RUN apt-get update && apt-get install -y \
