@@ -32,11 +32,16 @@ jobs:
           terraform_version: latest
           terraform_wrapper: false
 
-      - name: Set up Coder CLI
-        uses: coder/setup-action@v1
-        with:
-          access_url: ${{ secrets.CODER_ACCESS_URL }}
-          coder_session_token: ${{ secrets.CODER_SESSION_TOKEN }}
+      - name: Install Coder CLI
+        run: |
+          curl -fsSL https://coder.com/install.sh | sh
+        env:
+          CODER_INSTALL_VERSION: "latest"
+
+      - name: Configure Coder CLI
+        run: |
+          echo "CODER_URL=${{ secrets.CODER_ACCESS_URL }}" >> $GITHUB_ENV
+          echo "CODER_SESSION_TOKEN=${{ secrets.CODER_SESSION_TOKEN }}" >> $GITHUB_ENV
 
       - name: Validate Terraform template
         run: terraform validate
