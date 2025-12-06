@@ -43,6 +43,10 @@ jobs:
           echo "CODER_URL=${{ secrets.CODER_ACCESS_URL }}" >> $GITHUB_ENV
           echo "CODER_SESSION_TOKEN=${{ secrets.CODER_SESSION_TOKEN }}" >> $GITHUB_ENV
 
+      - name: Initialize Terraform
+        run: terraform init
+        working-directory: ${{ env.CODER_TEMPLATE_DIR }}
+
       - name: Validate Terraform template
         run: terraform validate
         working-directory: ${{ env.CODER_TEMPLATE_DIR }}
