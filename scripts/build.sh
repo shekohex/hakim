@@ -41,19 +41,27 @@ trap on_exit EXIT
 info "Building Base Image..."
 docker build -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
 
+# Build Cache Arguments
+CACHE_ARGS=""
+if [ "$GITHUB_ACTIONS" = "true" ]; then
+    info "Running in GitHub Actions, enabling caching..."
+    CACHE_ARGS="--cache-from type=gha --cache-to type=gha,mode=max"
+fi
+
 # Find variants
 for variant in devcontainers/.devcontainer/images/*; do
-    if [ -d "$variant" ]; then
-        NAME=$(basename "$variant")
-        info "Building Variant: $NAME..."
-        
-        # Use devcontainer CLI to build
-        devcontainer build \
-            --workspace-folder devcontainers \
-            --config "$variant/.devcontainer/devcontainer.json" \
-            --image-name "$REGISTRY/hakim-$NAME:latest" \
-            --image-name "$REGISTRY/hakim-$NAME:$TIMESTAMP"
-    fi
+    # The original script had an 'if [ -d "$variant" ]' check.
+    # The provided change removes this check and assumes all entries are directories.
+    # If this assumption is incorrect, the script might fail on non-directory entries.
+    variant_name=$(basename "$variant")
+    info "Building Variant: $variant_name..."
+    
+    # Use devcontainer CLI to build with cache arguments
+    devcontainer build $CACHE_ARGS \
+        --workspace-folder devcontainers \
+        --config "$variant/.devcontainer/devcontainer.json" \
+        --image-name "$REGISTRY/hakim-$variant_name:latest" \
+        --image-name "$REGISTRY/hakim-$variant_name:$TIMESTAMP" .
 done
 
 info "Build Complete!"
