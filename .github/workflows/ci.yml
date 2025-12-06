@@ -44,4 +44,7 @@ jobs:
         run: bun install
 
       - name: Build Images
+        env:
+          ACTIONS_CACHE_URL: ${{ env.ACTIONS_CACHE_URL }}
+          ACTIONS_RUNTIME_TOKEN: ${{ env.ACTIONS_RUNTIME_TOKEN }}
         run: ./scripts/build.sh
