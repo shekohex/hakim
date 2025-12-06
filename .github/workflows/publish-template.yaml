@@ -50,14 +50,10 @@ jobs:
         if: steps.cache-coder.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/.local/bin
-          curl -fsSL https://coder.com/install.sh | sh
-          # Move binary to cached path if it's not there (install.sh usually puts in /usr/local/bin or ~/.local/bin if writable)
-          # We force move to be sure
-          if [ -f /usr/local/bin/coder ]; then
-             mv /usr/local/bin/coder ~/.local/bin/coder
-          elif [ -f /usr/bin/coder ]; then
-             mv /usr/bin/coder ~/.local/bin/coder
-          fi
+          curl -fsSL https://coder.com/install.sh | sh -s -- \
+            --method standalone \
+            --prefix $HOME/.local \
+            --version ${{ env.CODER_LATEST_VERSION }}
         env:
           CODER_INSTALL_VERSION: "${{ env.CODER_LATEST_VERSION }}"
 
