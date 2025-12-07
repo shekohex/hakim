@@ -42,7 +42,7 @@ trap on_exit EXIT
 CACHE_ARGS=""
 BASE_BUILD_CMD="docker build"
 
-if [ "$GITHUB_ACTIONS" = "true" ]; then
+if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
     info "Running in GitHub Actions, enabling caching and pushing..."
     # In CI, we use buildx with push to ensure the base image is available to the devcontainer builder (which runs in a separate context)
     # and to leverage GHA caching.
