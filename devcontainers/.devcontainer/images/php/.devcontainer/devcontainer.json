@@ -8,6 +8,12 @@
         },
         "./../../../features/laravel": {
             "version": "latest"
+        },
+        "../../../features/src/nodejs": {
+            "version": "lts"
+        },
+        "../../../features/src/bun": {
+            "version": "latest"
         }
     },
     "customizations": {
