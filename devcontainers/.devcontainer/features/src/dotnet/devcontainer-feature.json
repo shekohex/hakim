@@ -1,0 +1,15 @@
+{
+    "name": "Dotnet (Wrapper)",
+    "id": "dotnet",
+    "version": "1.0.0",
+    "description": "Installs Dotnet using official feature.",
+    "features": {
+        "ghcr.io/devcontainers/features/dotnet:2": {
+            "version": "latest",
+            "additionalVersions": "10.0-preview"
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils"
+    ]
+}

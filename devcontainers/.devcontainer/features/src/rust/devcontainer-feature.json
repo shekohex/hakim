@@ -1,0 +1,15 @@
+{
+    "name": "Rust (Wrapper)",
+    "id": "rust",
+    "version": "1.0.0",
+    "description": "Installs Rust using official feature.",
+    "features": {
+        "ghcr.io/devcontainers/features/rust:1": {
+            "version": "stable",
+            "profile": "minimal"
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils"
+    ]
+}

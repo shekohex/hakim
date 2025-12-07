@@ -1,0 +1,21 @@
+{
+  "name": "Hakim JS (Node.js + Bun)",
+  "image": "ghcr.io/shekohex/hakim-base:latest",
+  "features": {
+    "../../../features/src/nodejs": {
+      "version": "lts"
+    },
+    "../../../features/src/bun": {
+      "version": "latest"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "oven.bun-vscode"
+      ]
+    }
+  }
+}

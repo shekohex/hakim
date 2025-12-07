@@ -1,0 +1,25 @@
+{
+  "name": "Hakim Rust",
+  "image": "ghcr.io/shekohex/hakim-base:latest",
+  "features": {
+    "../../../features/src/rust": {
+      "version": "stable",
+      "profile": "minimal"
+    },
+    "../../../features/src/nodejs": {
+      "version": "lts"
+    },
+    "../../../features/src/bun": {
+      "version": "latest"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "vadimcn.vscode-lldb"
+      ]
+    }
+  }
+}

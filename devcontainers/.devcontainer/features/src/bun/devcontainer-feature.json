@@ -1,0 +1,22 @@
+{
+    "name": "Bun (via Mise)",
+    "id": "bun",
+    "version": "1.0.0",
+    "description": "Installs Bun using Mise.",
+    "options": {
+        "version": {
+            "type": "string",
+            "proposals": [
+                "latest",
+                "1.1",
+                "1.0"
+            ],
+            "default": "latest",
+            "description": "Select the version of Bun to install."
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils",
+        "../../mise"
+    ]
+}

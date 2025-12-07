@@ -1,0 +1,24 @@
+{
+    "name": "Node.js (via Mise)",
+    "id": "nodejs",
+    "version": "1.0.0",
+    "description": "Installs Node.js using Mise.",
+    "options": {
+        "version": {
+            "type": "string",
+            "proposals": [
+                "latest",
+                "lts",
+                "22",
+                "20",
+                "18"
+            ],
+            "default": "lts",
+            "description": "Select the version of Node.js to install."
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils",
+        "../../mise"
+    ]
+}

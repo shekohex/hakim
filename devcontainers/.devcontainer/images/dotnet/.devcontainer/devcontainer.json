@@ -1,0 +1,24 @@
+{
+  "name": "Hakim Dotnet",
+  "image": "ghcr.io/shekohex/hakim-base:latest",
+  "features": {
+    "../../../features/src/dotnet": {
+      "version": "latest",
+      "additionalVersions": "10.0-preview"
+    },
+    "../../../features/src/nodejs": {
+      "version": "lts"
+    },
+    "../../../features/src/bun": {
+      "version": "latest"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit"
+      ]
+    }
+  }
+}
