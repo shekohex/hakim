@@ -32,6 +32,7 @@ RUN curl -fsSL "https://github.com/coder/coder/releases/download/v${CODER_VERSIO
     | tar -xzf - -C /tmp && mv /tmp/coder /usr/local/bin/coder && chmod +x /usr/local/bin/coder
 
 # Create coder user
-RUN useradd -m -s /bin/bash coder --groups=docker --user-group --uid=1000 \
+RUN groupadd -f docker \
+    && useradd -m -s /bin/bash coder --groups=docker --user-group --uid=1000 \
     && echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/coder
 USER coder
