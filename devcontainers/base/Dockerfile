@@ -7,9 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get upgrade --yes --no-install-recommends --no-install-suggests \
     && apt-get install -y \
     curl wget jq unzip sudo bash htop locales vim \
-    ca-certificates gnupg lsb-release \
-    && add-apt-repository ppa:git-core/ppa \
-    && apt-get install -y git \
+    ca-certificates gnupg lsb-release git \
     && rm -rf /var/lib/apt/lists/*
 
 # Generate the desired locale (en_US.UTF-8)
