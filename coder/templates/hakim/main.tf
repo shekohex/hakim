@@ -298,7 +298,7 @@ data "coder_task" "me" {}
 
 module "opencode" {
   count               = data.coder_workspace.me.start_count
-  source              = "../../modules/opencode"
+  source              = "github.com/shekohex/hakim//coder/modules/opencode?ref=main"
   agent_id            = coder_agent.main.id
   workdir             = local.project_dir
   auth_json           = data.coder_parameter.opencode_auth.value

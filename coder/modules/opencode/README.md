@@ -12,7 +12,7 @@ Run [OpenCode](https://opencode.ai) AI coding assistant in your workspace. This 
 
 ```tf
 module "opencode" {
-  source   = "../../modules/opencode"
+  source   = "github.com/shekohex/hakim//coder/modules/opencode?ref=main"
   agent_id = coder_agent.main.id
   workdir  = "/home/coder/project"
 }
@@ -32,7 +32,7 @@ resource "coder_ai_task" "task" {
 }
 
 module "opencode" {
-  source   = "../../modules/opencode"
+  source   = "github.com/shekohex/hakim//coder/modules/opencode?ref=main"
   agent_id = coder_agent.main.id
   workdir  = "/home/coder/project"
   ai_prompt = coder_ai_task.task.prompt
@@ -57,7 +57,7 @@ EOT
 
 ```tf
 module "opencode" {
-  source       = "../../modules/opencode"
+  source       = "github.com/shekohex/hakim//coder/modules/opencode?ref=main"
   agent_id     = coder_agent.main.id
   workdir      = "/home/coder"
   report_tasks = false

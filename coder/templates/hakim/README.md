@@ -35,4 +35,4 @@ Pre-built DevContainer images for AI-powered development.
 
 ## OpenCode Integration
 
-This template uses a local `opencode` module that runs `opencode serve` directly without the `agentapi` wrapper. The web UI is available on port 4096 with healthcheck at `/project/current`.
+This template uses the `opencode` module from the GitHub repository. The web UI is available on port 4096 with healthcheck at `/project/current`.
