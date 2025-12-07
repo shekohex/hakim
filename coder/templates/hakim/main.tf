@@ -306,6 +306,7 @@ module "opencode" {
   order               = 999
   cli_app             = true
   report_tasks        = true
+  subdomain           = true
   ai_prompt           = trimspace("${data.coder_parameter.system_prompt.value}\n${data.coder_task.me.prompt}")
   post_install_script = data.coder_parameter.setup_script.value
 }
