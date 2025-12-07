@@ -11,7 +11,7 @@ RUN apt-get update && apt-get upgrade --yes --no-install-recommends --no-install
     && rm -rf /var/lib/apt/lists/*
 
 # Generate the desired locale (en_US.UTF-8)
-RUN locale-gen en_US.UTF-8
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
 
 # Make typing unicode characters in the terminal work.
 ENV LANG=en_US.UTF-8
