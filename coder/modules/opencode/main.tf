@@ -86,7 +86,7 @@ variable "ai_prompt" {
 variable "subdomain" {
   type        = bool
   description = "Whether to use a subdomain for the web app."
-  default     = false
+  default     = true
 }
 
 variable "install_opencode" {
