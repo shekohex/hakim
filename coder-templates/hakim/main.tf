@@ -85,6 +85,7 @@ data "coder_parameter" "opencode_auth" {
   type         = "string"
   default      = "{}"
   mutable      = true
+  styling      = jsonencode({ mask_input = true })
   icon         = "/icon/opencode.svg"
   order        = 4
 }
@@ -172,10 +173,34 @@ data "coder_parameter" "vault_github_auth_id" {
   order        = 11
 }
 
+data "coder_parameter" "preview_port" {
+  name         = "preview_port"
+  display_name = "Preview Port"
+  description  = "The port the web app is running to preview in Tasks."
+  type         = "number"
+  default      = "3000"
+  mutable      = true
+  icon         = "/icon/widgets.svg"
+  order        = 12
+}
+
+data "coder_parameter" "setup_script" {
+  name         = "setup_script"
+  display_name = "Setup Script"
+  description  = "Script to run before running the agent (clone repos, start dev servers, etc)."
+  type         = "string"
+  form_type    = "textarea"
+  default      = ""
+  mutable      = false
+  icon         = "/icon/terminal.svg"
+  order        = 13
+}
+
 locals {
   user_env     = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
   secret_env   = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
   combined_env = merge(local.user_env, local.secret_env)
+  project_dir  = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
 }
 
 # ------------------------------------------------------------------------------
@@ -249,7 +274,7 @@ resource "coder_agent" "main" {
 # Link OpenCode to Coder Tasks UI
 resource "coder_ai_task" "task" {
   count  = data.coder_workspace.me.start_count
-  app_id = module.opencode.task_app_id
+  app_id = module.opencode[count.index].task_app_id
 }
 
 # You can read the task prompt from the `coder_task` data source.
@@ -260,16 +285,18 @@ data "coder_task" "me" {}
 # ------------------------------------------------------------------------------
 
 module "opencode" {
-  source       = "registry.coder.com/coder-labs/opencode/coder"
-  version      = "0.1.1"
-  agent_id     = coder_agent.main.id
-  workdir      = "/home/coder/project"
-  auth_json    = data.coder_parameter.opencode_auth.value
-  config_json  = data.coder_parameter.opencode_config.value
-  order        = 999
-  cli_app      = true
-  report_tasks = true
-  ai_prompt    = trimspace("${data.coder_parameter.system_prompt.value}\n${data.coder_task.me.prompt}")
+  count               = data.coder_workspace.me.start_count
+  source              = "registry.coder.com/coder-labs/opencode/coder"
+  version             = "0.1.1"
+  agent_id            = coder_agent.main.id
+  workdir             = local.project_dir
+  auth_json           = data.coder_parameter.opencode_auth.value
+  config_json         = data.coder_parameter.opencode_config.value
+  order               = 999
+  cli_app             = true
+  report_tasks        = true
+  ai_prompt           = trimspace("${data.coder_parameter.system_prompt.value}\n${data.coder_task.me.prompt}")
+  post_install_script = data.coder_parameter.setup_script.value
 }
 
 module "git-clone" {
@@ -277,6 +304,7 @@ module "git-clone" {
   source   = "registry.coder.com/coder/git-clone/coder"
   agent_id = coder_agent.main.id
   url      = data.coder_parameter.git_url.value
+  base_dir = "/home/coder"
 }
 
 module "dotfiles" {
@@ -295,7 +323,7 @@ module "vault" {
 
 module "code-server" {
   count    = data.coder_workspace.me.start_count
-  folder   = "/home/coder/project"
+  folder   = local.project_dir
   source   = "registry.coder.com/coder/code-server/coder"
   version  = "~> 1.0"
   agent_id = coder_agent.main.id
@@ -310,6 +338,62 @@ module "windsurf" {
   source   = "registry.coder.com/coder/windsurf/coder"
   version  = "1.2.0"
   agent_id = coder_agent.main.id
+  folder   = local.project_dir
+}
+
+# ------------------------------------------------------------------------------
+# Workspace Presets
+# ------------------------------------------------------------------------------
+
+data "coder_workspace_preset" "laravel_quick" {
+  name        = "Laravel Quick Start"
+  description = "PHP 8.4 + Laravel for one-off tasks"
+  icon        = "/icon/php.svg"
+  default     = true
+  parameters = {
+    "image_variant" = "php"
+    "git_url"       = ""
+    "system_prompt" = "You are working on a Laravel API project. Use artisan commands."
+  }
+}
+
+data "coder_workspace_preset" "dotnet_quick" {
+  name        = ".NET Quick Start"
+  description = ".NET 10.0 for one-off tasks"
+  icon        = "/icon/dotnet.svg"
+  parameters = {
+    "image_variant" = "dotnet"
+    "git_url"       = ""
+    "system_prompt" = "You are working on a .NET Web API. Use dotnet CLI."
+  }
+}
+
+data "coder_workspace_preset" "base_minimal" {
+  name        = "Minimal Environment"
+  description = "Base image for custom setups"
+  icon        = "/icon/debian.svg"
+  parameters = {
+    "image_variant" = "base"
+    "git_url"       = ""
+    "system_prompt" = ""
+  }
+}
+
+resource "coder_app" "preview" {
+  agent_id     = coder_agent.main.id
+  slug         = "preview"
+  display_name = "Preview"
+  icon         = "/emojis/1f50e.png"
+  url          = "http://localhost:${data.coder_parameter.preview_port.value}"
+  share        = "authenticated"
+  subdomain    = true
+  open_in      = "tab"
+  order        = 0
+  healthcheck {
+    url       = "http://localhost:${data.coder_parameter.preview_port.value}/"
+    interval  = 5
+    threshold = 15
+  }
 }
 
 # ------------------------------------------------------------------------------
