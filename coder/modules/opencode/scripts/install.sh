@@ -51,13 +51,32 @@ install_opencode() {
       else
         VERSION=$ARG_OPENCODE_VERSION curl -fsSL https://opencode.ai/install | bash
       fi
+      
       export PATH=/home/coder/.opencode/bin:$PATH
       printf "Opencode location: %s\n" "$(which opencode)"
-      if ! command_exists opencode; then
+      
+      if command_exists opencode; then
+        echo "Adding opencode to PATH in ~/.bashrc and ~/.zshrc if they exist"
+        # Add to .bashrc
+        if [ -f "$HOME/.bashrc" ] && ! grep -q "/home/coder/.opencode/bin" "$HOME/.bashrc"; then
+          echo 'export PATH=/home/coder/.opencode/bin:$PATH' >> "$HOME/.bashrc"
+        fi
+        # Add to .zshrc
+        if [ -f "$HOME/.zshrc" ] && ! grep -q "/home/coder/.opencode/bin" "$HOME/.zshrc"; then
+          echo 'export PATH=/home/coder/.opencode/bin:$PATH' >> "$HOME/.zshrc"
+        fi
+        
+        # Symlink to global bin if possible (requires sudo usually, but coder usually has sudo)
+        if command_exists sudo; then
+          echo "Symlinking opencode to /usr/local/bin"
+          sudo ln -sf "$(which opencode)" /usr/local/bin/opencode
+        fi
+
+        echo "OpenCode installed successfully"
+      else
         echo "ERROR: Failed to install OpenCode"
         exit 1
       fi
-      echo "OpenCode installed successfully"
     else
       echo "OpenCode already installed"
     fi
