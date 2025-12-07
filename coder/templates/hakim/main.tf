@@ -298,8 +298,7 @@ data "coder_task" "me" {}
 
 module "opencode" {
   count               = data.coder_workspace.me.start_count
-  source              = "registry.coder.com/coder-labs/opencode/coder"
-  version             = "0.1.1"
+  source              = "../../modules/opencode"
   agent_id            = coder_agent.main.id
   workdir             = local.project_dir
   auth_json           = data.coder_parameter.opencode_auth.value

@@ -1,6 +1,6 @@
 ---
 display_name: Hakim AI
-description: Universal Coder templates with different variants and OpenCode agent
+description: Universal Coder template with OpenCode agent and multiple language variants
 icon: https://cdn.simpleicons.org/kongregate?viewbox=auto
 verified: true
 tags: [docker, container, ai]
@@ -8,25 +8,31 @@ tags: [docker, container, ai]
 
 # Hakim Universal Template
 
-This template uses pre-built DevContainer images to provide a robust development environment.
+Pre-built DevContainer images for AI-powered development.
 
 ## Features
 
-- **Base Image**: Debian-based with `mise`, `docker`, and common tools.
-- **Variants**: Base, PHP (Laravel), .NET, or Custom Image.
-- **AI Integration**: OpenCode agent pre-installed with customizable System Prompt.
-- **Security**: Optional Vault integration and masked secret environment variables.
-- **Persistence**: `/home/coder` is persistent.
+- **Variants**: Base, PHP (Laravel), .NET, Node.js/Bun, Rust, or Custom Image
+- **AI Integration**: OpenCode agent with embedded web UI (port 4096)
+- **MCP Support**: Task reporting via Coder MCP server
+- **Security**: Optional Vault integration, masked secrets
+- **Persistence**: `/home/coder` volume persisted
 
-## How to Use
+## Quick Start
 
-1. Select "Hakim Universal" template.
-2. Choose your environment (Base, PHP, .NET, or Custom).
-3. (Optional) Provide a Custom Image URL if using "Custom" variant.
-4. (Optional) Provide a Git URL to clone.
-5. (Optional) Enable Vault and provide address/auth ID.
-6. (Optional) Paste your `opencode_auth.json` and config.
+1. Select "Hakim Universal" template
+2. Choose environment variant
+3. (Optional) Paste `auth.json` for OpenCode authentication
+4. (Optional) Provide Git URL to auto-clone
 
-## Building Images
+## Workspace Presets
 
-Run `scripts/build.sh` locally to rebuild the base and variant images.
+- Laravel Quick Start
+- .NET Quick Start  
+- Node.js/Bun Quick Start
+- Rust Quick Start
+- Minimal Environment
+
+## OpenCode Integration
+
+This template uses a local `opencode` module that runs `opencode serve` directly without the `agentapi` wrapper. The web UI is available on port 4096 with healthcheck at `/project/current`.
