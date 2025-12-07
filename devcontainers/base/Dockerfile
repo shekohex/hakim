@@ -1,10 +1,24 @@
 FROM debian:trixie-slim
 
+SHELL ["/bin/bash", "-c"]
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Install common dependencies
-RUN apt-get update && apt-get install -y \
-    curl wget git jq unzip sudo \
+RUN apt-get update && apt-get upgrade --yes --no-install-recommends --no-install-suggests \
+    && apt-get install -y \
+    curl wget jq unzip sudo bash htop locales vim \
     ca-certificates gnupg lsb-release \
+    && add-apt-repository ppa:git-core/ppa \
+    && apt-get install -y git \
     && rm -rf /var/lib/apt/lists/*
+
+# Generate the desired locale (en_US.UTF-8)
+RUN locale-gen en_US.UTF-8
+
+# Make typing unicode characters in the terminal work.
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
 # Install Docker (client only, host docker socket will be mounted)
 COPY --from=docker:dind /usr/local/bin/docker /usr/local/bin/
@@ -20,6 +34,6 @@ RUN curl -fsSL "https://github.com/coder/coder/releases/download/v${CODER_VERSIO
     | tar -xzf - -C /tmp && mv /tmp/coder /usr/local/bin/coder && chmod +x /usr/local/bin/coder
 
 # Create coder user
-RUN useradd -m -s /bin/bash coder \
+RUN useradd -m -s /bin/bash coder --groups=docker --user-group --uid=1000 \
     && echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/coder
 USER coder
