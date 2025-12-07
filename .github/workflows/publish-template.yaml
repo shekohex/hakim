@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "coder-templates/hakim/**"
+      - "coder/templates/**"
       - ".github/workflows/publish-template.yaml"
   release:
     types: [published]
@@ -16,14 +16,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  publish:
-    name: Publish Hakim Template
+  discover:
+    name: Discover Templates
     runs-on: ubuntu-latest
-    env:
-      CODER_TEMPLATE_NAME: "hakim"
-      CODER_TEMPLATE_DIR: "coder-templates/hakim"
+    outputs:
+      templates: ${{ steps.find.outputs.templates }}
     steps:
-      - name: Checkout repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find templates
+        id: find
+        run: |
+          # List directories in coder/templates, ignore hidden files/dirs
+          # We use ls -d to get directories, basename to get just the folder name
+          # jq to format as JSON array
+          templates=$(find coder/templates -mindepth 1 -maxdepth 1 -type d -not -path '*/.*' | xargs -n1 basename | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "Found templates: $templates"
+          echo "templates=$templates" >> $GITHUB_OUTPUT
+
+  validate:
+    name: Validate ${{ matrix.template }}
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        template: ${{ fromJson(needs.discover.outputs.templates) }}
+    env:
+      CODER_TEMPLATE_DIR: "coder/templates/${{ matrix.template }}"
+    steps:
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Terraform
@@ -31,6 +54,30 @@ jobs:
         with:
           terraform_version: latest
           terraform_wrapper: false
+
+      - name: Initialize Terraform
+        run: terraform init
+        working-directory: ${{ env.CODER_TEMPLATE_DIR }}
+
+      - name: Validate Terraform template
+        run: terraform validate
+        working-directory: ${{ env.CODER_TEMPLATE_DIR }}
+
+  publish:
+    name: Publish ${{ matrix.template }}
+    needs: [discover, validate]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        template: ${{ fromJson(needs.discover.outputs.templates) }}
+    env:
+      CODER_TEMPLATE_NAME: "${{ matrix.template }}"
+      CODER_TEMPLATE_DIR: "coder/templates/${{ matrix.template }}"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Get latest Coder version
         env:
@@ -63,14 +110,6 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           echo "CODER_URL=${{ secrets.CODER_ACCESS_URL }}" >> $GITHUB_ENV
           echo "CODER_SESSION_TOKEN=${{ secrets.CODER_SESSION_TOKEN }}" >> $GITHUB_ENV
-
-      - name: Initialize Terraform
-        run: terraform init
-        working-directory: ${{ env.CODER_TEMPLATE_DIR }}
-
-      - name: Validate Terraform template
-        run: terraform validate
-        working-directory: ${{ env.CODER_TEMPLATE_DIR }}
 
       - name: Get version details
         id: vars

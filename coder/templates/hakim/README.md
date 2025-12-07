@@ -1,3 +1,11 @@
+---
+display_name: Hakim AI
+description: Universal Coder templates with different variants and OpenCode agent
+icon: https://cdn.simpleicons.org/kongregate?viewbox=auto
+verified: true
+tags: [docker, container, ai]
+---
+
 # Hakim Universal Template
 
 This template uses pre-built DevContainer images to provide a robust development environment.
