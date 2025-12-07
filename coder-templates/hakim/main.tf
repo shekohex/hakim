@@ -46,6 +46,18 @@ data "coder_parameter" "image_variant" {
     icon        = "/icon/dotnet.svg"
   }
   option {
+    name        = "Node.js & Bun"
+    description = "Node.js (LTS), Bun (Latest), and related tools."
+    value       = "js"
+    icon        = "/icon/node.svg"
+  }
+  option {
+    name        = "Rust"
+    description = "Rust (Stable) with cargo, rust-analyzer, etc."
+    value       = "rust"
+    icon        = "/icon/rust.svg"
+  }
+  option {
     name        = "Custom"
     icon        = "/emojis/1f5c3.png"
     description = "Specify a custom repo URL below"
@@ -365,6 +377,28 @@ data "coder_workspace_preset" "dotnet_quick" {
     "image_variant" = "dotnet"
     "git_url"       = ""
     "system_prompt" = "You are working on a .NET Web API. Use dotnet CLI."
+  }
+}
+
+data "coder_workspace_preset" "js_quick" {
+  name        = "Node.js/Bun Quick Start"
+  description = "Node.js + Bun environment"
+  icon        = "/icon/node.svg"
+  parameters = {
+    "image_variant" = "js"
+    "git_url"       = ""
+    "system_prompt" = "You are working on a JS/TS project. Use bun or npm."
+  }
+}
+
+data "coder_workspace_preset" "rust_quick" {
+  name        = "Rust Quick Start"
+  description = "Rust environment"
+  icon        = "/icon/rust.svg"
+  parameters = {
+    "image_variant" = "rust"
+    "git_url"       = ""
+    "system_prompt" = "You are working on a Rust project. Use cargo."
   }
 }
 
