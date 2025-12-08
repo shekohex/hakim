@@ -13,3 +13,7 @@ export MISE_YES=1
 mise use --global node@${VERSION}
 
 echo "Node.js installed!"
+
+echo "Verifying Node.js installation..."
+source /etc/profile.d/mise.sh
+node --version

@@ -1,7 +1,7 @@
 {
     "name": "Node.js (via Mise)",
     "id": "nodejs",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Installs Node.js using Mise.",
     "options": {
         "version": {
@@ -9,6 +9,7 @@
             "proposals": [
                 "latest",
                 "lts",
+                "24",
                 "22",
                 "20",
                 "18"

@@ -13,3 +13,7 @@ export MISE_YES=1
 mise use --global bun@${VERSION}
 
 echo "Bun installed!"
+
+echo "Verifying Bun installation..."
+source /etc/profile.d/mise.sh
+bun --version
