@@ -158,8 +158,8 @@ run_post_install_script() {
 }
 
 run_pre_install_script
-install_opencode
 setup_opencode_config
+install_opencode
 run_post_install_script
 
 echo "OpenCode module setup completed."
