@@ -41,6 +41,32 @@ trap on_exit EXIT
 # Build Cache Arguments
 CACHE_ARGS=""
 BASE_BUILD_CMD="docker build"
+CODE_VERSION_ARG=""
+OPENCODE_VERSION_ARG=""
+
+# Parse named arguments
+# Parse named arguments
+function usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Options:
+  --code-version <version>      Specify the version of code-server to install (default: 4.106.3)
+  --opencode-version <version>  Specify the version of opencode to install (default: latest)
+  --help, -h                    Show this help message
+EOF
+    exit 0
+}
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --code-version) CODE_VERSION_ARG="--build-arg CODE_SERVER_VERSION=$2"; shift ;;
+        --opencode-version) OPENCODE_VERSION_ARG="--build-arg OPENCODE_VERSION=$2"; shift ;;
+        --help|-h) usage ;;
+        *) echo "Unknown parameter passed: $1"; usage ;;
+    esac
+    shift
+done
 
 if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
     info "Running in GitHub Actions, enabling caching and pushing..."
@@ -52,7 +78,8 @@ fi
 
 info "Building Base Image..."
 # Split the command to allow arguments to be processed correctly
-$BASE_BUILD_CMD -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
+# shellcheck disable=SC2086
+$BASE_BUILD_CMD $CODE_VERSION_ARG $OPENCODE_VERSION_ARG -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
 
 # Find variants
 for variant in devcontainers/.devcontainer/images/*; do
@@ -63,6 +90,8 @@ for variant in devcontainers/.devcontainer/images/*; do
     info "Building Variant: $variant_name..."
     
     # Use devcontainer CLI to build with cache arguments
+    # Note: devcontainer CLI might not support standard docker build-args easily for nested features, 
+    # but base image args are handled above.
     devcontainer build $CACHE_ARGS \
         --workspace-folder devcontainers \
         --config "$variant/.devcontainer/devcontainer.json" \
