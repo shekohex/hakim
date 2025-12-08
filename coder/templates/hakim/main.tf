@@ -303,6 +303,7 @@ module "opencode" {
   workdir             = local.project_dir
   auth_json           = data.coder_parameter.opencode_auth.value
   config_json         = data.coder_parameter.opencode_config.value
+  install_opencode    = false
   order               = 999
   cli_app             = true
   report_tasks        = true
@@ -334,12 +335,14 @@ module "vault" {
 }
 
 module "code-server" {
-  count    = data.coder_workspace.me.start_count
-  folder   = local.project_dir
-  source   = "registry.coder.com/coder/code-server/coder"
-  version  = "~> 1.0"
-  agent_id = coder_agent.main.id
-  order    = 1
+  count          = data.coder_workspace.me.start_count
+  folder         = local.project_dir
+  source         = "registry.coder.com/coder/code-server/coder"
+  version        = "~> 1.0"
+  agent_id       = coder_agent.main.id
+  order          = 1
+  offline        = true
+  install_prefix = "/usr/local/lib/code-server"
   settings = {
     "workbench.colorTheme" : "Default Dark Modern"
   }
