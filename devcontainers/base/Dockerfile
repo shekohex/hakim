@@ -31,6 +31,22 @@ ARG TARGETARCH=amd64
 RUN curl -fsSL "https://github.com/coder/coder/releases/download/v${CODER_VERSION}/coder_${CODER_VERSION}_linux_${TARGETARCH}.tar.gz" \
     | tar -xzf - -C /tmp && mv /tmp/coder /usr/local/bin/coder && chmod +x /usr/local/bin/coder
 
+# Install code-server
+ARG CODE_SERVER_VERSION=4.106.3
+RUN curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-${TARGETARCH}.tar.gz" \
+    | tar -xzf - -C /tmp && mv /tmp/code-server-${CODE_SERVER_VERSION}-linux-${TARGETARCH} /usr/local/lib/code-server \
+    && ln -s /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server
+
+# Install opencode
+ARG OPENCODE_VERSION=latest
+RUN if [ "$OPENCODE_VERSION" = "latest" ]; then \
+    curl -fsSL https://opencode.ai/install | bash; \
+    else \
+    VERSION=$OPENCODE_VERSION curl -fsSL https://opencode.ai/install | bash; \
+    fi
+# Move opencode to global path
+RUN mv /root/.opencode/bin/opencode /usr/local/bin/opencode
+
 # Create coder user
 RUN groupadd -f docker \
     && useradd -m -s /bin/bash coder --groups=docker --user-group --uid=1000 \
