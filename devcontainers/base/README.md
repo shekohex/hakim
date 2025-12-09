@@ -20,3 +20,15 @@ This image is intended to be used as a base for other variants (PHP, .NET, etc.)
 ## Build
 
 Use the `scripts/build.sh` script in the root of the repository to build this image and its variants.
+
+### Building Manually
+
+To build this image manually, you must provide a GitHub token to avoid rate limits during the `mise` tool installation.
+
+```bash
+export GITHUB_TOKEN=$(gh auth token) # or your PAT
+docker build \
+  --secret id=github_token,env=GITHUB_TOKEN \
+  -f devcontainers/base/Dockerfile .
+```
+
