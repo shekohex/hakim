@@ -14,8 +14,6 @@ EOF
 # /etc/profile.d/ is sourced by login shells and many non-interactive contexts
 cat << 'EO_PROFILE' > /etc/profile.d/mise.sh
 export MISE_INSTALL_PATH=/usr/local/bin/mise
-export MISE_DATA_DIR=/usr/local/share/mise
-export MISE_CONFIG_DIR=/etc/mise
 eval "$(/usr/local/bin/mise activate bash --shims)"
 EO_PROFILE
 chmod +x /etc/profile.d/mise.sh
