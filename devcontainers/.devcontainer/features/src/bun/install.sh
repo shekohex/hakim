@@ -28,3 +28,12 @@ echo "Verifying Bun installation..."
 source /etc/profile.d/mise.sh
 # Run verification as user
 bun --version
+
+echo "Symlinking binaries to /usr/local/bin..."
+for bin_path in $(mise bin-paths); do
+    for bin_file in "$bin_path"/*; do
+        if [ -f "$bin_file" ] && [ -x "$bin_file" ]; then
+            ln -sf "$bin_file" "/usr/local/bin/$(basename "$bin_file")"
+        fi
+    done
+done

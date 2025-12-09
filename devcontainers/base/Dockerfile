@@ -33,7 +33,7 @@ RUN bash /tmp/install-mise.sh && rm /tmp/install-mise.sh
 COPY mise.toml /etc/mise/config.toml
 COPY tasks /etc/mise/tasks
 RUN --mount=type=secret,id=github_token \
-    && if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi \
+    if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi \
     && /usr/local/bin/mise install --yes \
     && /usr/local/bin/mise run -C /etc/mise postinstall --yes \
     && rm -rf /etc/mise/tasks
