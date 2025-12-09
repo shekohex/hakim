@@ -74,6 +74,30 @@ if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
     # and to leverage GHA caching.
     CACHE_ARGS="--cache-from type=gha --cache-to type=gha,mode=max"
     BASE_BUILD_CMD="docker buildx build --push $CACHE_ARGS"
+    # In CI, GITHUB_TOKEN is usually available automatically
+fi
+
+# Token Auto-detection
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+    if command -v gh &> /dev/null; then
+        info "Attempting to fetch GITHUB_TOKEN from gh CLI..."
+        if TOKEN=$(gh auth token 2>/dev/null); then
+            export GITHUB_TOKEN="$TOKEN"
+            info "Successfully loaded GITHUB_TOKEN from gh CLI."
+        else
+            warn "gh CLI found but failed to get token. You may hit GitHub rate limits."
+        fi
+    else
+        warn "gh CLI not found and GITHUB_TOKEN not set. You may hit GitHub rate limits."
+        warn "Install gh CLI or set GITHUB_TOKEN to avoid this."
+    fi
+else
+    info "GITHUB_TOKEN is already set."
+fi
+
+# Add secret to base build command if token is available
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+    BASE_BUILD_CMD="$BASE_BUILD_CMD --secret id=github_token,env=GITHUB_TOKEN"
 fi
 
 info "Building Base Image..."

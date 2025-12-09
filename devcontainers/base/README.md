@@ -23,7 +23,9 @@ Use the `scripts/build.sh` script in the root of the repository to build this im
 
 ### Building Manually
 
-To build this image manually, you must provide a GitHub token to avoid rate limits during the `mise` tool installation.
+The `scripts/build.sh` script now automatically detects your `GITHUB_TOKEN` from the environment or the `gh` CLI to prevent rate limits.
+
+If you prefer to build manually with `docker`:
 
 ```bash
 export GITHUB_TOKEN=$(gh auth token) # or your PAT
