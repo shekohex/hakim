@@ -6,8 +6,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install common dependencies
 RUN apt-get update && apt-get upgrade --yes --no-install-recommends --no-install-suggests \
     && apt-get install -y \
-    curl wget jq unzip sudo bash htop locales vim \
-    ca-certificates gnupg lsb-release git
+    curl wget jq unzip sudo bash htop locales \
+    ca-certificates gnupg lsb-release git lsof \
+    build-essential
 
 # Generate the desired locale (en_US.UTF-8)
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
