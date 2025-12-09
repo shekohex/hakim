@@ -22,6 +22,9 @@ ENV LC_ALL=en_US.UTF-8
 COPY --from=docker:dind /usr/local/bin/docker /usr/local/bin/
 
 # Install Mise
+ENV MISE_DATA_DIR=/usr/local/share/mise \
+    MISE_CONFIG_DIR=/etc/mise \
+    PATH="/usr/local/share/mise/shims:$PATH"
 RUN mkdir -p /usr/local/share/mise /etc/mise && chmod -R 777 /usr/local/share/mise && chmod -R 755 /etc/mise
 COPY install-mise.sh /tmp/install-mise.sh
 RUN bash /tmp/install-mise.sh && rm /tmp/install-mise.sh
@@ -30,10 +33,9 @@ RUN bash /tmp/install-mise.sh && rm /tmp/install-mise.sh
 COPY mise.toml /etc/mise/config.toml
 COPY tasks /etc/mise/tasks
 RUN --mount=type=secret,id=github_token \
-    DEST="/usr/local/bin/mise" \
     && if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi \
-    && MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise $DEST install --yes \
-    && MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise $DEST run -C /etc/mise postinstall --yes \
+    && /usr/local/bin/mise install --yes \
+    && /usr/local/bin/mise run -C /etc/mise postinstall --yes \
     && rm -rf /etc/mise/tasks
 
 

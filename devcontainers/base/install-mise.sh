@@ -10,18 +10,11 @@ cat << 'EOF' > /etc/mise/config.toml
 experimental = true
 EOF
 
-# Setup profile script for non-interactive sessions (IDEs, scripts, etc.)
-# /etc/profile.d/ is sourced by login shells and many non-interactive contexts
+# Configure environment for mise shims without activate
 cat << 'EO_PROFILE' > /etc/profile.d/mise.sh
 export MISE_INSTALL_PATH=/usr/local/bin/mise
-eval "$(/usr/local/bin/mise activate bash --shims)"
+export MISE_DATA_DIR=/usr/local/share/mise
+export MISE_CONFIG_DIR=/etc/mise
+export PATH="/usr/local/share/mise/shims:$PATH"
 EO_PROFILE
 chmod +x /etc/profile.d/mise.sh
-
-# Setup for interactive sessions
-# /etc/bash.bashrc is sourced by interactive non-login bash shells
-cat << 'EO_BASHRC' >> /etc/bash.bashrc
-
-# Mise activation for interactive shells
-eval "$(/usr/local/bin/mise activate bash)"
-EO_BASHRC

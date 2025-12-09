@@ -1,0 +1,17 @@
+#!/bin/bash
+#MISE description="Symlink global tools to /usr/local/bin"
+set -euo pipefail
+
+export MISE_DATA_DIR=${MISE_DATA_DIR:-/usr/local/share/mise}
+MISE_BIN=${MISE_INSTALL_PATH:-/usr/local/bin/mise}
+
+while IFS= read -r bin_path; do
+    [ -d "$bin_path" ] || continue
+    echo "Linking binaries from $bin_path..."
+    for bin_file in "$bin_path"/*; do
+        if [ -f "$bin_file" ] && [ -x "$bin_file" ]; then
+            name=$(basename "$bin_file")
+            ln -sf "$bin_file" "/usr/local/bin/$name"
+        fi
+    done
+done < <("$MISE_BIN" bin-paths)
