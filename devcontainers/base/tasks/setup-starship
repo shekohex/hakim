@@ -1,0 +1,3 @@
+#!/bin/bash
+# mise description="Setup Starship"
+echo 'eval "$(starship init bash)"' >> /etc/bash.bashrc

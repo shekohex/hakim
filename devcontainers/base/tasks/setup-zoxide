@@ -1,0 +1,3 @@
+#!/bin/bash
+# mise description="Setup Zoxide"
+echo 'eval "$(zoxide init bash)"' >> /etc/bash.bashrc

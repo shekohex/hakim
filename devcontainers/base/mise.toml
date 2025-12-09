@@ -1,0 +1,11 @@
+[tools]
+"ubi:starship/starship" = "latest"
+"ubi:ajeetdsouza/zoxide" = "latest"
+"ubi:sharkdp/fd" = "latest"
+"ubi:cli/cli" = "latest"
+"ubi:BurntSushi/ripgrep" = "latest"
+"aqua:ast-grep/ast-grep" = "latest"
+"aqua:sxyazi/yazi" = "latest"
+
+[settings]
+experimental = true

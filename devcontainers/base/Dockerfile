@@ -7,8 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get upgrade --yes --no-install-recommends --no-install-suggests \
     && apt-get install -y \
     curl wget jq unzip sudo bash htop locales vim \
-    ca-certificates gnupg lsb-release git \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates gnupg lsb-release git
 
 # Generate the desired locale (en_US.UTF-8)
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
@@ -22,8 +21,19 @@ ENV LC_ALL=en_US.UTF-8
 COPY --from=docker:dind /usr/local/bin/docker /usr/local/bin/
 
 # Install Mise
+ENV MISE_DATA_DIR=/usr/local/share/mise
+ENV MISE_CONFIG_DIR=/etc/mise
+RUN mkdir -p /usr/local/share/mise /etc/mise && chmod -R 777 /usr/local/share/mise && chmod -R 755 /etc/mise
 COPY install-mise.sh /tmp/install-mise.sh
 RUN bash /tmp/install-mise.sh && rm /tmp/install-mise.sh
+
+# Configure Mise and install tools
+COPY mise.toml /etc/mise/config.toml
+COPY tasks /etc/mise/tasks
+RUN /usr/local/bin/mise install --yes \
+    && /usr/local/bin/mise run postinstall --yes \
+    && rm -rf /etc/mise/tasks
+
 
 # Pre-download coder CLI binary to avoid runtime download
 ARG CODER_VERSION=2.29.0
