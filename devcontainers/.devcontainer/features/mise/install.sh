@@ -23,13 +23,23 @@ if [ "${_REMOTE_USER}" = "root" ]; then
 fi
 
 USER_HOME=$(eval echo ~"${_REMOTE_USER}")
-PROFILE_PATH="$USER_HOME/.profile"
-if [ ! -f "$PROFILE_PATH" ]; then
-    touch "$PROFILE_PATH"
-    chown "${_REMOTE_USER}:${_REMOTE_USER}" "$PROFILE_PATH"
-fi
-if ! grep -q "mise/shims" "$PROFILE_PATH"; then
-    echo 'export PATH="$HOME/.local/share/mise/shims:$PATH"' >> "$PROFILE_PATH"
+MISE_PATH_EXPORT='export PATH="$HOME/.local/share/mise/shims:$PATH"'
+
+add_to_rc() {
+    local file="$1"
+    if [ ! -f "$file" ]; then
+        touch "$file"
+        chown "${_REMOTE_USER}:${_REMOTE_USER}" "$file"
+    fi
+    if ! grep -q "mise/shims" "$file"; then
+        echo "$MISE_PATH_EXPORT" >> "$file"
+    fi
+}
+
+add_to_rc "$USER_HOME/.profile"
+add_to_rc "$USER_HOME/.bashrc"
+if [ -f "$USER_HOME/.zshrc" ] || [ -f "/bin/zsh" ] || [ -f "/usr/bin/zsh" ]; then
+   add_to_rc "$USER_HOME/.zshrc"
 fi
 
 su - "${_REMOTE_USER}" -c "mkdir -p ~/.config/mise ~/.local/share/mise/shims"

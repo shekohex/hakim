@@ -51,6 +51,19 @@ if [ -n "$TOOLS" ]; then
     done
 fi
 
+COMPOSER_PATH_EXPORT='export PATH="${COMPOSER_HOME:-$HOME/.composer}/vendor/bin:${PATH}"'
+
+# Add to bash.bashrc for non-login shells
+if [[ "$(cat /etc/bash.bashrc)" != *"$COMPOSER_PATH_EXPORT"* ]]; then
+    echo "$COMPOSER_PATH_EXPORT" >> /etc/bash.bashrc
+fi
+
+# Add to zshrc if zsh is installed
+if [ -f "/etc/zsh/zshrc" ] && [[ "$(cat /etc/zsh/zshrc)" != *"$COMPOSER_PATH_EXPORT"* ]]; then
+    echo "$COMPOSER_PATH_EXPORT" >> /etc/zsh/zshrc
+fi
+
+# Keep profile.d for login shells
 cat << 'EOF' > /etc/profile.d/composer.sh
 export PATH="${COMPOSER_HOME:-$HOME/.composer}/vendor/bin:${PATH}"
 EOF
