@@ -11,7 +11,8 @@
     },
     "../../../features/src/bun": {
       "version": "latest"
-    }
+    },
+    "../../../features/src/lazyvim": {}
   },
   "customizations": {
     "vscode": {

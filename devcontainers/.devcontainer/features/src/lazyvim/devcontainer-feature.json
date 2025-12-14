@@ -1,0 +1,9 @@
+{
+    "name": "LazyVim",
+    "id": "lazyvim",
+    "version": "1.0.0",
+    "description": "Configures Neovim with LazyVim starter template.",
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils"
+    ]
+}
