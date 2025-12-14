@@ -1,0 +1,11 @@
+.git
+.github
+docs/
+coder/
+scripts/
+*.md
+.envrc
+.gitignore
+bun.lock
+tsconfig.json
+package.json
