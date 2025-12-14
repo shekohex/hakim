@@ -38,6 +38,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Fetch latest tool versions
+        id: versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CODER_VERSION=$(gh release view --repo coder/coder --json tagName -q '.tagName' | sed 's/^v//')
+          CODE_SERVER_VERSION=$(gh release view --repo coder/code-server --json tagName -q '.tagName' | sed 's/^v//')
+          OPENCODE_VERSION=$(gh release view --repo sst/opencode --json tagName -q '.tagName' | sed 's/^v//')
+          echo "coder=$CODER_VERSION" >> $GITHUB_OUTPUT
+          echo "code_server=$CODE_SERVER_VERSION" >> $GITHUB_OUTPUT
+          echo "opencode=$OPENCODE_VERSION" >> $GITHUB_OUTPUT
+          echo "Resolved versions: coder=$CODER_VERSION, code-server=$CODE_SERVER_VERSION, opencode=$OPENCODE_VERSION"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -53,11 +66,17 @@ jobs:
         with:
           context: devcontainers/base
           push: true
+          build-args: |
+            CODER_VERSION=${{ steps.versions.outputs.coder }}
+            CODE_SERVER_VERSION=${{ steps.versions.outputs.code_server }}
+            OPENCODE_VERSION=${{ steps.versions.outputs.opencode }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/hakim-base:latest
             ghcr.io/${{ github.repository_owner }}/hakim-base:${{ github.run_id }}
           cache-from: type=gha,scope=base
           cache-to: type=gha,mode=max,scope=base
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
 
   build-variants:
     runs-on: ubuntu-latest

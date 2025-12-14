@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# Registry prefix
 REGISTRY="ghcr.io/shekohex"
 TIMESTAMP=$(date +%Y%m%d)
 
@@ -38,46 +37,72 @@ function on_exit() {
 
 trap on_exit EXIT
 
-# Build Cache Arguments
 CACHE_ARGS=""
 BASE_BUILD_CMD="docker build"
+CODER_VERSION_ARG=""
 CODE_VERSION_ARG=""
 OPENCODE_VERSION_ARG=""
+FETCH_LATEST=false
 
-# Parse named arguments
-# Parse named arguments
+function fetch_latest_version() {
+    local repo="$1"
+    gh release view --repo "$repo" --json tagName -q '.tagName' | sed 's/^v//'
+}
+
+function fetch_all_latest_versions() {
+    info "Fetching latest tool versions using gh CLI..."
+    LATEST_CODER=$(fetch_latest_version "coder/coder")
+    LATEST_CODE_SERVER=$(fetch_latest_version "coder/code-server")
+    LATEST_OPENCODE=$(fetch_latest_version "sst/opencode")
+    info "Latest versions: coder=$LATEST_CODER, code-server=$LATEST_CODE_SERVER, opencode=$LATEST_OPENCODE"
+}
+
 function usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
 Options:
-  --code-version <version>      Specify the version of code-server to install (default: 4.106.3)
-  --opencode-version <version>  Specify the version of opencode to install (default: latest)
+  --coder-version <version>     Specify the version of coder CLI to install
+  --code-version <version>      Specify the version of code-server to install
+  --opencode-version <version>  Specify the version of opencode to install
+  --fetch-latest                Fetch and use latest versions for all tools (requires gh CLI)
   --help, -h                    Show this help message
+
+If no version is specified, defaults from Dockerfile are used.
+With --fetch-latest, all unspecified versions are resolved to latest.
 EOF
     exit 0
 }
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
+        --coder-version) CODER_VERSION_ARG="--build-arg CODER_VERSION=$2"; shift ;;
         --code-version) CODE_VERSION_ARG="--build-arg CODE_SERVER_VERSION=$2"; shift ;;
         --opencode-version) OPENCODE_VERSION_ARG="--build-arg OPENCODE_VERSION=$2"; shift ;;
+        --fetch-latest) FETCH_LATEST=true ;;
         --help|-h) usage ;;
         *) echo "Unknown parameter passed: $1"; usage ;;
     esac
     shift
 done
 
-if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
-    info "Running in GitHub Actions, enabling caching and pushing..."
-    # In CI, we use buildx with push to ensure the base image is available to the devcontainer builder (which runs in a separate context)
-    # and to leverage GHA caching.
-    CACHE_ARGS="--cache-from type=gha --cache-to type=gha,mode=max"
-    BASE_BUILD_CMD="docker buildx build --push $CACHE_ARGS"
-    # In CI, GITHUB_TOKEN is usually available automatically
+if [ "$FETCH_LATEST" = true ]; then
+    if ! command -v gh &> /dev/null; then
+        error "gh CLI is required for --fetch-latest but not found"
+        exit 1
+    fi
+    fetch_all_latest_versions
+    [ -z "$CODER_VERSION_ARG" ] && CODER_VERSION_ARG="--build-arg CODER_VERSION=$LATEST_CODER"
+    [ -z "$CODE_VERSION_ARG" ] && CODE_VERSION_ARG="--build-arg CODE_SERVER_VERSION=$LATEST_CODE_SERVER"
+    [ -z "$OPENCODE_VERSION_ARG" ] && OPENCODE_VERSION_ARG="--build-arg OPENCODE_VERSION=$LATEST_OPENCODE"
 fi
 
-# Token Auto-detection
+if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+    info "Running in GitHub Actions, enabling caching and pushing..."
+    CACHE_ARGS="--cache-from type=gha --cache-to type=gha,mode=max"
+    BASE_BUILD_CMD="docker buildx build --push $CACHE_ARGS"
+fi
+
 if [ -z "${GITHUB_TOKEN:-}" ]; then
     if command -v gh &> /dev/null; then
         info "Attempting to fetch GITHUB_TOKEN from gh CLI..."
@@ -95,27 +120,18 @@ else
     info "GITHUB_TOKEN is already set."
 fi
 
-# Add secret to base build command if token is available
 if [ -n "${GITHUB_TOKEN:-}" ]; then
     BASE_BUILD_CMD="$BASE_BUILD_CMD --secret id=github_token,env=GITHUB_TOKEN"
 fi
 
 info "Building Base Image..."
-# Split the command to allow arguments to be processed correctly
 # shellcheck disable=SC2086
-$BASE_BUILD_CMD $CODE_VERSION_ARG $OPENCODE_VERSION_ARG -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
+$BASE_BUILD_CMD $CODER_VERSION_ARG $CODE_VERSION_ARG $OPENCODE_VERSION_ARG -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
 
-# Find variants
 for variant in devcontainers/.devcontainer/images/*; do
-    # The original script had an 'if [ -d "$variant" ]' check.
-    # The provided change removes this check and assumes all entries are directories.
-    # If this assumption is incorrect, the script might fail on non-directory entries.
     variant_name=$(basename "$variant")
     info "Building Variant: $variant_name..."
     
-    # Use devcontainer CLI to build with cache arguments
-    # Note: devcontainer CLI might not support standard docker build-args easily for nested features, 
-    # but base image args are handled above.
     devcontainer build $CACHE_ARGS \
         --workspace-folder devcontainers \
         --config "$variant/.devcontainer/devcontainer.json" \
