@@ -3,6 +3,7 @@ set -e
 
 VERSION=${VERSION:-"latest"}
 TOOLS=${TOOLS:-""}
+GLOBAL_COMPOSER_HOME="/usr/local/share/composer"
 
 echo "Activating feature 'laravel'"
 
@@ -16,6 +17,10 @@ if ! exists composer; then
     echo "Composer is not installed. Please install it before using this feature."
     exit 1
 fi
+
+# Set global composer home for installation
+export COMPOSER_HOME="$GLOBAL_COMPOSER_HOME"
+mkdir -p "$COMPOSER_HOME"
 
 # Install Laravel Installer
 echo "Installing Laravel Installer..."
@@ -51,7 +56,10 @@ if [ -n "$TOOLS" ]; then
     done
 fi
 
-COMPOSER_PATH_EXPORT='export PATH="${COMPOSER_HOME:-$HOME/.composer}/vendor/bin:${PATH}"'
+# Fix permissions
+chmod -R 755 "$GLOBAL_COMPOSER_HOME"
+
+COMPOSER_PATH_EXPORT='export PATH="/usr/local/share/composer/vendor/bin:${COMPOSER_HOME:-$HOME/.composer}/vendor/bin:${PATH}"'
 
 # Add to bash.bashrc for non-login shells
 if [[ "$(cat /etc/bash.bashrc)" != *"$COMPOSER_PATH_EXPORT"* ]]; then
@@ -65,7 +73,7 @@ fi
 
 # Keep profile.d for login shells
 cat << 'EOF' > /etc/profile.d/composer.sh
-export PATH="${COMPOSER_HOME:-$HOME/.composer}/vendor/bin:${PATH}"
+export PATH="/usr/local/share/composer/vendor/bin:${COMPOSER_HOME:-$HOME/.composer}/vendor/bin:${PATH}"
 EOF
 chmod +x /etc/profile.d/composer.sh
 
