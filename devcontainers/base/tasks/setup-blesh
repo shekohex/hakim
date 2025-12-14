@@ -1,0 +1,22 @@
+#!/bin/bash
+#MISE description="Setup ble.sh"
+set -e
+
+echo "Installing ble.sh..."
+
+# Clone and build ble.sh
+rm -rf /tmp/ble.sh
+git clone --recursive --depth 1 --shallow-submodules https://github.com/akinomyoga/ble.sh.git /tmp/ble.sh
+make -C /tmp/ble.sh install PREFIX=/usr/local
+rm -rf /tmp/ble.sh
+
+# Add to bashrc
+# We prepend the source command to ensure it runs early, but attach at the end
+# Since we can't easily prepend to /etc/bash.bashrc without a temp file, we will just append the recommended block.
+# The reliable setup from docs:
+cat << 'EOF' >> /etc/bash.bashrc
+
+# ble.sh
+[[ $- == *i* ]] && source -- /usr/local/share/blesh/ble.sh --attach=none
+[[ ! ${BLE_VERSION-} ]] || ble-attach
+EOF

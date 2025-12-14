@@ -8,7 +8,7 @@ RUN apt-get update && apt-get upgrade --yes --no-install-recommends --no-install
     && apt-get install -y \
     curl wget jq unzip sudo bash htop locales \
     ca-certificates gnupg lsb-release git lsof \
-    build-essential
+    build-essential gawk
 
 # Generate the desired locale (en_US.UTF-8)
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
