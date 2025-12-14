@@ -1,0 +1,45 @@
+add_newline = false
+command_timeout = 5000
+
+[character]
+error_symbol = "[❯](bold red)"
+success_symbol = "[❯](bold green)"
+vicmd_symbol = "[❮](bold green)"
+
+[cmd_duration]
+format = "took [$duration]($style) "
+min_time = 500
+
+[directory]
+format = " in [$path]($style)[$read_only]($read_only_style) "
+truncation_length = 4
+
+[git_status]
+ahead = "🏎💨"
+behind = "😰"
+conflicted = "🏳"
+deleted = "🗑"
+diverged = "😵"
+modified = "📝"
+renamed = "👅"
+stashed = "📦"
+untracked = "🤷"
+
+[hostname]
+disabled = false
+format = "@[$hostname]($style)"
+ssh_only = false
+style = "white bold"
+trim_at = "."
+
+[time]
+disabled = true
+time_format = "🕙 [ %r ]"
+use_12hr = false
+
+[username]
+disabled = false
+format = "[$user]($style)"
+show_always = true
+style_root = "yellow bold"
+style_user = "white bold"

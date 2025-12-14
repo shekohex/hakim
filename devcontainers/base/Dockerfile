@@ -32,6 +32,8 @@ RUN bash /tmp/install-mise.sh && rm /tmp/install-mise.sh
 # Configure Mise and install tools
 COPY mise.toml /etc/mise/config.toml
 COPY tasks /etc/mise/tasks
+COPY starship.toml /etc/starship.toml
+ENV STARSHIP_CONFIG=/etc/starship.toml
 RUN --mount=type=secret,id=github_token \
     if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi \
     && /usr/local/bin/mise install --yes \
