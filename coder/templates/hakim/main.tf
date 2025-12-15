@@ -161,6 +161,40 @@ data "coder_parameter" "enable_vault" {
   order        = 9
 }
 
+data "coder_parameter" "enable_resource_limits" {
+  name         = "enable_resource_limits"
+  display_name = "Enable Resource Limits"
+  description  = "Configure CPU and memory limits for the container."
+  type         = "bool"
+  default      = false
+  icon         = "/icon/memory.svg"
+  order        = 14
+}
+
+data "coder_parameter" "container_memory" {
+  count        = data.coder_parameter.enable_resource_limits.value ? 1 : 0
+  name         = "container_memory"
+  display_name = "Memory Limit (MB)"
+  description  = "Hard memory limit in MB. 0 = unlimited."
+  type         = "number"
+  default      = 0
+  mutable      = true
+  icon         = "/icon/memory.svg"
+  order        = 15
+}
+
+data "coder_parameter" "container_cpus" {
+  count        = data.coder_parameter.enable_resource_limits.value ? 1 : 0
+  name         = "container_cpus"
+  display_name = "CPU Limit"
+  description  = "CPU cores limit (e.g., 2 or 1.5). 0 = unlimited."
+  type         = "string"
+  default      = "0"
+  mutable      = true
+  icon         = "/icon/memory.svg"
+  order        = 16
+}
+
 data "coder_parameter" "vault_addr" {
   count        = data.coder_parameter.enable_vault.value ? 1 : 0
   name         = "vault_addr"
@@ -472,6 +506,18 @@ resource "docker_container" "workspace" {
 
   name     = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
   hostname = data.coder_workspace.me.name
+
+  memory = (
+    data.coder_parameter.enable_resource_limits.value &&
+    length(data.coder_parameter.container_memory) > 0 &&
+    data.coder_parameter.container_memory[0].value > 0
+  ) ? data.coder_parameter.container_memory[0].value : null
+
+  cpus = (
+    data.coder_parameter.enable_resource_limits.value &&
+    length(data.coder_parameter.container_cpus) > 0 &&
+    tonumber(data.coder_parameter.container_cpus[0].value) > 0
+  ) ? data.coder_parameter.container_cpus[0].value : null
 
   entrypoint = ["sh", "-c", replace(file("${path.module}/bootstrap.sh"), "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
   env = concat(
