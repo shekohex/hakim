@@ -239,6 +239,12 @@ resource "coder_agent" "main" {
       cp -rT /etc/skel ~
       touch ~/.init_done
     fi
+
+    # Enable access to Docker socket
+    if [ -e /var/run/docker.sock ]; then
+      echo "Granting access to Docker socket..."
+      sudo chmod 666 /var/run/docker.sock
+    fi
   EOT
 
   # Metadata: System Stats
@@ -431,6 +437,10 @@ resource "coder_app" "preview" {
 # Infrastructure (Docker)
 # ------------------------------------------------------------------------------
 
+resource "docker_network" "private_network" {
+  name = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
+}
+
 resource "docker_volume" "home_volume" {
   name = "coder-${data.coder_workspace.me.id}-home"
 
@@ -476,10 +486,19 @@ resource "docker_container" "workspace" {
     ip   = "host-gateway"
   }
 
+  networks_advanced {
+    name = docker_network.private_network.name
+  }
 
   volumes {
     container_path = "/home/coder"
     volume_name    = docker_volume.home_volume.name
+    read_only      = false
+  }
+
+  volumes {
+    container_path = "/var/run/docker.sock"
+    host_path      = "/var/run/docker.sock"
     read_only      = false
   }
 
