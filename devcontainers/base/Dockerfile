@@ -30,6 +30,7 @@ ARG TARGETARCH=amd64
 ARG CODER_VERSION=2.21.0
 ARG CODE_SERVER_VERSION=4.100.3
 ARG OPENCODE_VERSION=0.3.7
+ARG DOCKER_COMPOSE_VERSION=2.29.7
 
 WORKDIR /downloads
 
@@ -41,6 +42,9 @@ RUN curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_S
 
 RUN curl -fsSL "https://github.com/sst/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-x64.tar.gz" \
     | tar -xzf -
+
+RUN ARCH=$(case ${TARGETARCH} in amd64) echo "x86_64" ;; arm64) echo "aarch64" ;; *) echo "${TARGETARCH}" ;; esac) && \
+    curl -fsSL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-${ARCH}" -o docker-compose
 
 # =============================================================================
 # Stage 3: Install mise + tools (config-isolated)
@@ -72,11 +76,14 @@ ENV MISE_DATA_DIR=/usr/local/share/mise \
     STARSHIP_CONFIG=/etc/starship.toml
 
 COPY --from=docker:dind /usr/local/bin/docker /usr/local/bin/
+COPY --from=tool-downloader /downloads/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
 
 COPY --from=tool-downloader /downloads/coder /usr/local/bin/coder
 COPY --from=tool-downloader /downloads/code-server /usr/local/lib/code-server
 COPY --from=tool-downloader /downloads/opencode /usr/local/bin/opencode
 RUN chmod +x /usr/local/bin/coder /usr/local/bin/opencode && \
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose && \
+    ln -s /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose && \
     ln -s /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server
 
 COPY --from=mise-installer /usr/local/bin/mise /usr/local/bin/mise
