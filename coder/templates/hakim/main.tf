@@ -114,6 +114,18 @@ data "coder_parameter" "opencode_config" {
   order        = 5
 }
 
+data "coder_parameter" "openchamber_ui_password" {
+  name         = "openchamber_ui_password"
+  display_name = "OpenChamber UI Password"
+  description  = "Optional password for the OpenChamber UI."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  styling      = jsonencode({ mask_input = true })
+  icon         = "https://raw.githubusercontent.com/btriapitsyn/openchamber/refs/heads/main/docs/references/badges/openchamber-logo-dark.svg"
+  order        = 6.5
+}
+
 data "coder_parameter" "system_prompt" {
   name         = "system_prompt"
   display_name = "System Prompt"
@@ -350,6 +362,23 @@ module "opencode" {
   subdomain           = true
   ai_prompt           = trimspace(data.coder_task.me.prompt) != "" ? trimspace("${data.coder_parameter.system_prompt.value}\n${data.coder_task.me.prompt}") : ""
   post_install_script = data.coder_parameter.setup_script.value
+}
+
+module "openchamber" {
+  count = data.coder_workspace.me.start_count > 0 && contains([
+    "php",
+    "dotnet",
+    "js",
+    "rust"
+  ], data.coder_parameter.image_variant.value) ? 1 : 0
+  source              = "github.com/shekohex/hakim//coder/modules/openchamber?ref=main"
+  agent_id            = coder_agent.main.id
+  workdir             = local.project_dir
+  ui_password         = data.coder_parameter.openchamber_ui_password.value
+  install_openchamber = false
+  order               = 998
+  subdomain           = true
+  depends_on          = [module.opencode]
 }
 
 module "git-clone" {

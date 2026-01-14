@@ -15,6 +15,7 @@
         "../../../features/src/bun": {
             "version": "latest"
         },
+        "../../../features/src/openchamber": {},
         "../../../features/src/lazyvim": {}
     },
     "customizations": {
