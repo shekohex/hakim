@@ -106,14 +106,17 @@ resource "coder_script" "openchamber_install" {
     set -o errexit
     set -o pipefail
 
-    echo -n '${base64encode(local.install_script)}' | base64 -d > /tmp/install.sh
-    chmod +x /tmp/install.sh
+    INSTALL_SCRIPT="/tmp/openchamber-install-$$.sh"
+    echo -n '${base64encode(local.install_script)}' | base64 -d > "$INSTALL_SCRIPT"
+    chmod +x "$INSTALL_SCRIPT"
 
     ARG_OPENCHAMBER_VERSION='${var.openchamber_version}' \
     ARG_INSTALL_OPENCHAMBER='${var.install_openchamber}' \
     ARG_PRE_INSTALL_SCRIPT='${var.pre_install_script != null ? base64encode(var.pre_install_script) : ""}' \
     ARG_POST_INSTALL_SCRIPT='${var.post_install_script != null ? base64encode(var.post_install_script) : ""}' \
-    /tmp/install.sh
+    "$INSTALL_SCRIPT"
+    
+    rm -f "$INSTALL_SCRIPT"
   EOT
   run_on_start = true
 }
@@ -127,13 +130,16 @@ resource "coder_script" "openchamber_start" {
     set -o errexit
     set -o pipefail
 
-    echo -n '${base64encode(local.start_script)}' | base64 -d > /tmp/start.sh
-    chmod +x /tmp/start.sh
+    START_SCRIPT="/tmp/openchamber-start-$$.sh"
+    echo -n '${base64encode(local.start_script)}' | base64 -d > "$START_SCRIPT"
+    chmod +x "$START_SCRIPT"
 
     ARG_WORKDIR='${local.workdir}' \
     ARG_PORT='${var.port}' \
     ARG_UI_PASSWORD='${var.ui_password != null ? base64encode(replace(var.ui_password, "'", "'\\''")) : ""}' \
-    /tmp/start.sh
+    "$START_SCRIPT"
+    
+    rm -f "$START_SCRIPT"
   EOT
   run_on_start = true
   depends_on   = [coder_script.openchamber_install]
