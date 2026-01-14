@@ -1,0 +1,10 @@
+{
+  "name": "OpenChamber",
+  "id": "openchamber",
+  "version": "1.0.0",
+  "description": "Installs OpenChamber web UI.",
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/common-utils",
+    "../bun"
+  ]
+}
