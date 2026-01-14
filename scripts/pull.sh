@@ -34,7 +34,7 @@ function login_ghcr() {
     info "Attempting to login to GHCR via gh CLI..."
     if TOKEN=$(gh auth token 2>/dev/null); then
       export GITHUB_TOKEN="$TOKEN"
-      echo "$TOKEN" | docker login ghcr.io -u "$TOKEN" --password-stdin 2>/dev/null && \
+      echo "$TOKEN" | docker login ghcr.io -u "$TOKEN" --password-stdin 2>/dev/null &&
         success "Logged in to GHCR" && return 0
     fi
   fi
@@ -47,7 +47,7 @@ function pull_image() {
   local display_name="${2:-$image}"
 
   info "Pulling $display_name..."
-  if docker pull --quiet "$image" 2>/dev/null; then
+  if docker pull "$image" 2>/dev/null; then
     success "$display_name"
     ((PULLED++))
   else
