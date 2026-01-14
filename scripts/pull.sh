@@ -49,10 +49,10 @@ function pull_image() {
   info "Pulling $display_name..."
   if docker pull "$image" 2>/dev/null; then
     success "$display_name"
-    ((PULLED++))
+    ((PULLED++)) || true
   else
     error "Failed to pull $display_name"
-    ((FAILED++))
+    ((FAILED++)) || true
   fi
 }
 
