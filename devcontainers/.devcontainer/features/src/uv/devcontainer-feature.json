@@ -1,0 +1,21 @@
+{
+  "name": "UV",
+  "id": "uv",
+  "version": "1.0.0",
+  "description": "Installs uv and Python via uv.",
+  "options": {
+    "pythonVersion": {
+      "type": "string",
+      "proposals": [
+        "3.12",
+        "latest"
+      ],
+      "default": "3.12",
+      "description": "Select the Python version to install via uv."
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/common-utils",
+    "../../mise"
+  ]
+}
