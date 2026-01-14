@@ -123,7 +123,7 @@ data "coder_parameter" "openchamber_ui_password" {
   mutable      = true
   styling      = jsonencode({ mask_input = true })
   icon         = "https://raw.githubusercontent.com/btriapitsyn/openchamber/refs/heads/main/docs/references/badges/openchamber-logo-dark.svg"
-  order        = 6.5
+  order        = 6
 }
 
 data "coder_parameter" "system_prompt" {
