@@ -1,6 +1,14 @@
 # syntax=docker/dockerfile:1.7
 
 # =============================================================================
+# Caching guidelines
+# - Keep version ARGs scoped to the stage that uses them.
+# - Split external downloads into independent stages.
+# - Avoid touching Stage 1 unless absolutely needed.
+# - Prefer adding new stages over modifying shared ones.
+# =============================================================================
+
+# =============================================================================
 # Stage 1: Base system packages (rarely changes)
 # =============================================================================
 FROM debian:trixie-slim AS base-system
@@ -22,30 +30,64 @@ ENV LANG=en_US.UTF-8 \
   LC_ALL=en_US.UTF-8
 
 # =============================================================================
-# Stage 2: Download external binaries (version-isolated)
+# Stage 2a: Download coder (version-isolated)
 # =============================================================================
-FROM base-system AS tool-downloader
+FROM base-system AS coder-downloader
 
 ARG TARGETARCH=amd64
 ARG CODER_VERSION=2.29.1
-ARG CODE_SERVER_VERSION=4.108.0
-ARG OPENCODE_VERSION=1.1.19
-ARG DOCKER_COMPOSE_VERSION=2.29.7
-ARG GOOGLE_CHROME_VERSION=143.0.7499.192-1
 
 WORKDIR /downloads
 
 RUN curl -fsSL "https://github.com/coder/coder/releases/download/v${CODER_VERSION}/coder_${CODER_VERSION}_linux_${TARGETARCH}.tar.gz" \
   | tar -xzf - ./coder
 
+# =============================================================================
+# Stage 2b: Download code-server (version-isolated)
+# =============================================================================
+FROM base-system AS code-server-downloader
+
+ARG TARGETARCH=amd64
+ARG CODE_SERVER_VERSION=4.108.0
+
+WORKDIR /downloads
+
 RUN curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-${TARGETARCH}.tar.gz" \
   | tar -xzf - && mv code-server-${CODE_SERVER_VERSION}-linux-${TARGETARCH} code-server
+
+# =============================================================================
+# Stage 2c: Download opencode (version-isolated)
+# =============================================================================
+FROM base-system AS opencode-downloader
+
+ARG OPENCODE_VERSION=1.1.19
+
+WORKDIR /downloads
 
 RUN curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-x64.tar.gz" \
   | tar -xzf -
 
+# =============================================================================
+# Stage 2d: Download docker-compose (version-isolated)
+# =============================================================================
+FROM base-system AS docker-compose-downloader
+
+ARG TARGETARCH=amd64
+ARG DOCKER_COMPOSE_VERSION=2.29.7
+
+WORKDIR /downloads
+
 RUN ARCH=$(case ${TARGETARCH} in amd64) echo "x86_64" ;; arm64) echo "aarch64" ;; *) echo "${TARGETARCH}" ;; esac) && \
   curl -fsSL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-${ARCH}" -o docker-compose
+
+# =============================================================================
+# Stage 2e: Download Google Chrome (version-isolated)
+# =============================================================================
+FROM base-system AS chrome-downloader
+
+ARG GOOGLE_CHROME_VERSION=143.0.7499.192-1
+
+WORKDIR /downloads
 
 RUN wget -q "https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${GOOGLE_CHROME_VERSION}_amd64.deb" -O google-chrome.deb
 
@@ -79,17 +121,17 @@ ENV MISE_DATA_DIR=/usr/local/share/mise \
   STARSHIP_CONFIG=/etc/starship.toml
 
 COPY --from=docker:dind /usr/local/bin/docker /usr/local/bin/
-COPY --from=tool-downloader /downloads/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
+COPY --from=docker-compose-downloader /downloads/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
 
-COPY --from=tool-downloader /downloads/google-chrome.deb /tmp/google-chrome.deb
+COPY --from=chrome-downloader /downloads/google-chrome.deb /tmp/google-chrome.deb
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
   dpkg -i /tmp/google-chrome.deb || apt --fix-broken install -y && \
   rm /tmp/google-chrome.deb
 
-COPY --from=tool-downloader /downloads/coder /usr/local/bin/coder
-COPY --from=tool-downloader /downloads/code-server /usr/local/lib/code-server
-COPY --from=tool-downloader /downloads/opencode /usr/local/bin/opencode
+COPY --from=coder-downloader /downloads/coder /usr/local/bin/coder
+COPY --from=code-server-downloader /downloads/code-server /usr/local/lib/code-server
+COPY --from=opencode-downloader /downloads/opencode /usr/local/bin/opencode
 RUN chmod +x /usr/local/bin/coder /usr/local/bin/opencode && \
   chmod +x /usr/local/lib/docker/cli-plugins/docker-compose && \
   ln -s /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose && \
