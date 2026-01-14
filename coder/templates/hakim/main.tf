@@ -375,7 +375,7 @@ module "openchamber" {
   agent_id            = coder_agent.main.id
   workdir             = local.project_dir
   ui_password         = data.coder_parameter.openchamber_ui_password.value
-  install_openchamber = false
+  install_openchamber = true
   order               = 998
   subdomain           = true
   depends_on          = [module.opencode]
