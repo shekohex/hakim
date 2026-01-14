@@ -60,7 +60,7 @@ RUN curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_S
 # =============================================================================
 FROM base-system AS opencode-downloader
 
-ARG OPENCODE_VERSION=1.1.19
+ARG OPENCODE_VERSION=1.1.20
 
 WORKDIR /downloads
 
