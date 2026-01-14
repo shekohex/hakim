@@ -24,6 +24,9 @@ mise use --global node@${VERSION}
 
 echo "Node.js installed!"
 
+echo "Installing node-gyp for native module compilation..."
+su - "${_REMOTE_USER:-coder}" -c "npm install -g node-gyp"
+
 echo "Verifying Node.js installation..."
 source /etc/profile.d/mise.sh
 # Run verification as user
