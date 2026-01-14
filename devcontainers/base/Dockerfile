@@ -14,7 +14,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get update && apt-get install -y --no-install-recommends \
   curl wget jq unzip sudo bash htop locales \
   ca-certificates gnupg lsb-release git lsof \
-  build-essential gawk procps && \
+  build-essential gawk procps openssh-client && \
   sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
 
 ENV LANG=en_US.UTF-8 \
