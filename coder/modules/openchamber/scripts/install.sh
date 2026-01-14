@@ -27,10 +27,17 @@ install_openchamber() {
     fi
 
     if ! command_exists openchamber; then
+      LOG_FILE="/tmp/openchamber-install.log"
       if [ "$ARG_OPENCHAMBER_VERSION" = "latest" ]; then
-        bun add -g @openchamber/web
+        if ! bun add -g @openchamber/web 2>&1 | tee "$LOG_FILE"; then
+          echo "ERROR: OpenChamber install failed. See $LOG_FILE"
+          exit 1
+        fi
       else
-        bun add -g "@openchamber/web@${ARG_OPENCHAMBER_VERSION}"
+        if ! bun add -g "@openchamber/web@${ARG_OPENCHAMBER_VERSION}" 2>&1 | tee "$LOG_FILE"; then
+          echo "ERROR: OpenChamber install failed. See $LOG_FILE"
+          exit 1
+        fi
       fi
     fi
 
