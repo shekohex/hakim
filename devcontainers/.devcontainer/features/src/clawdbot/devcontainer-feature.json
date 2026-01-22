@@ -11,10 +11,10 @@
     }
   },
   "dependsOn": {
-    "../nodejs": {}
+    "../../../features/src/nodejs": {}
   },
   "installsAfter": [
     "ghcr.io/devcontainers/features/common-utils",
-    "./../nodejs"
+    "../../../features/src/nodejs"
   ]
 }
