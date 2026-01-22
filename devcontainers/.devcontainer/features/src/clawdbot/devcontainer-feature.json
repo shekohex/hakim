@@ -12,6 +12,6 @@
   },
   "installsAfter": [
     "ghcr.io/devcontainers/features/common-utils",
-    "../nodejs"
+    "nodejs"
   ]
 }
