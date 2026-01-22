@@ -1,0 +1,17 @@
+{
+  "name": "Clawdbot",
+  "id": "clawdbot",
+  "version": "1.0.0",
+  "description": "Installs Clawdbot CLI globally via npm.",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "latest",
+      "description": "Select the version of Clawdbot to install."
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/common-utils",
+    "../nodejs"
+  ]
+}

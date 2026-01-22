@@ -17,6 +17,7 @@
         },
         "../../../features/src/uv": {},
         "../../../features/src/openchamber": {},
+        "../../../features/src/clawdbot": {},
         "../../../features/src/lazyvim": {}
     },
     "customizations": {
