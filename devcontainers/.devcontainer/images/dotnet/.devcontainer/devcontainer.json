@@ -1,6 +1,11 @@
 {
   "name": "Hakim Dotnet",
   "image": "ghcr.io/shekohex/hakim-base:latest",
+  "build": {
+    "args": {
+      "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}"
+    }
+  },
   "features": {
     "../../../features/src/dotnet": {
       "version": "latest",
