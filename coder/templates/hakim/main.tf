@@ -126,6 +126,88 @@ data "coder_parameter" "openchamber_ui_password" {
   order        = 6
 }
 
+data "coder_parameter" "enable_clawdbot_node" {
+  name         = "enable_clawdbot_node"
+  display_name = "Enable Clawdbot Node Host"
+  description  = "Run a Clawdbot node host in this workspace and connect it to a remote gateway bridge."
+  type         = "bool"
+  default      = false
+  icon         = "https://raw.githubusercontent.com/clawdbot/clawdbot/refs/heads/main/docs/assets/pixel-lobster.svg"
+  order        = 17
+}
+
+data "coder_parameter" "clawdbot_bridge_host" {
+  count        = data.coder_parameter.enable_clawdbot_node.value ? 1 : 0
+  name         = "clawdbot_bridge_host"
+  display_name = "Clawdbot Bridge Host"
+  description  = "Remote gateway bridge host (LAN/tailnet)."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "/icon/network.svg"
+  order        = 18
+}
+
+data "coder_parameter" "clawdbot_bridge_port" {
+  count        = data.coder_parameter.enable_clawdbot_node.value ? 1 : 0
+  name         = "clawdbot_bridge_port"
+  display_name = "Clawdbot Bridge Port"
+  description  = "Remote gateway bridge port."
+  type         = "number"
+  default      = 18790
+  mutable      = true
+  icon         = "/icon/network.svg"
+  order        = 19
+}
+
+data "coder_parameter" "clawdbot_bridge_tls" {
+  count        = data.coder_parameter.enable_clawdbot_node.value ? 1 : 0
+  name         = "clawdbot_bridge_tls"
+  display_name = "Clawdbot Bridge TLS"
+  description  = "Use TLS when connecting to the bridge."
+  type         = "bool"
+  default      = false
+  icon         = "/icon/lock.svg"
+  order        = 20
+}
+
+data "coder_parameter" "clawdbot_bridge_tls_fingerprint" {
+  count        = data.coder_parameter.enable_clawdbot_node.value ? 1 : 0
+  name         = "clawdbot_bridge_tls_fingerprint"
+  display_name = "Clawdbot Bridge TLS Fingerprint"
+  description  = "Optional SHA256 fingerprint to pin the bridge certificate."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "/icon/lock.svg"
+  order        = 21
+}
+
+data "coder_parameter" "clawdbot_gateway_ws_url" {
+  count        = data.coder_parameter.enable_clawdbot_node.value ? 1 : 0
+  name         = "clawdbot_gateway_ws_url"
+  display_name = "Clawdbot Gateway WS URL"
+  description  = "Optional: ws://host:18789 used only for auto-approving pairing."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "/icon/link.svg"
+  order        = 22
+}
+
+data "coder_parameter" "clawdbot_gateway_token" {
+  count        = data.coder_parameter.enable_clawdbot_node.value ? 1 : 0
+  name         = "clawdbot_gateway_token"
+  display_name = "Clawdbot Gateway Token"
+  description  = "Optional: gateway token used only for auto-approving pairing."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  styling      = jsonencode({ mask_input = true })
+  icon         = "/icon/lock.svg"
+  order        = 23
+}
+
 data "coder_parameter" "system_prompt" {
   name         = "system_prompt"
   display_name = "System Prompt"
@@ -381,6 +463,35 @@ module "openchamber" {
   depends_on          = [module.opencode]
 }
 
+module "clawdbot_node" {
+  count = (
+    data.coder_workspace.me.start_count > 0 &&
+    data.coder_parameter.enable_clawdbot_node.value &&
+    contains(["php", "dotnet", "js", "rust"], data.coder_parameter.image_variant.value) &&
+    length(data.coder_parameter.clawdbot_bridge_host) > 0 &&
+    trimspace(data.coder_parameter.clawdbot_bridge_host[0].value) != ""
+  ) ? 1 : 0
+
+  source                 = "github.com/shekohex/hakim//coder/modules/clawdbot-node?ref=main"
+  agent_id               = coder_agent.main.id
+  install_clawdbot       = false
+  bridge_host            = data.coder_parameter.clawdbot_bridge_host[0].value
+  bridge_port            = data.coder_parameter.clawdbot_bridge_port[0].value
+  bridge_tls             = data.coder_parameter.clawdbot_bridge_tls[0].value
+  bridge_tls_fingerprint = data.coder_parameter.clawdbot_bridge_tls_fingerprint[0].value
+  display_name           = "coder-${data.coder_workspace_owner.me.name}-${data.coder_workspace.me.name}"
+  gateway_ws_url         = length(data.coder_parameter.clawdbot_gateway_ws_url) > 0 ? data.coder_parameter.clawdbot_gateway_ws_url[0].value : ""
+  gateway_token          = length(data.coder_parameter.clawdbot_gateway_token) > 0 ? data.coder_parameter.clawdbot_gateway_token[0].value : ""
+  auto_approve_pairing = (
+    length(data.coder_parameter.clawdbot_gateway_ws_url) > 0 &&
+    trimspace(data.coder_parameter.clawdbot_gateway_ws_url[0].value) != "" &&
+    length(data.coder_parameter.clawdbot_gateway_token) > 0 &&
+    trimspace(data.coder_parameter.clawdbot_gateway_token[0].value) != ""
+  )
+  order      = 997
+  depends_on = [module.opencode]
+}
+
 module "git-clone" {
   count    = data.coder_parameter.git_url.value != "" ? 1 : 0
   source   = "registry.coder.com/coder/git-clone/coder"
@@ -594,4 +705,3 @@ resource "docker_container" "workspace" {
     value = data.coder_workspace.me.name
   }
 }
-
