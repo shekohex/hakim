@@ -10,6 +10,9 @@
       "description": "Select the version of Clawdbot to install."
     }
   },
+  "dependsOn": {
+    "../nodejs": {}
+  },
   "installsAfter": [
     "ghcr.io/devcontainers/features/common-utils",
     "./../nodejs"
