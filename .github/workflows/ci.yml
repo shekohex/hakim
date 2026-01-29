@@ -45,7 +45,7 @@ jobs:
         run: |
           CODER_VERSION=$(gh release view --repo coder/coder --json tagName -q '.tagName' | sed 's/^v//')
           CODE_SERVER_VERSION=$(gh release view --repo coder/code-server --json tagName -q '.tagName' | sed 's/^v//')
-          OPENCODE_VERSION=$(gh release view --repo sst/opencode --json tagName -q '.tagName' | sed 's/^v//')
+          OPENCODE_VERSION=$(gh release view --repo anomalyco/opencode --json tagName -q '.tagName' | sed 's/^v//')
           echo "coder=$CODER_VERSION" >> $GITHUB_OUTPUT
           echo "code_server=$CODE_SERVER_VERSION" >> $GITHUB_OUTPUT
           echo "opencode=$OPENCODE_VERSION" >> $GITHUB_OUTPUT

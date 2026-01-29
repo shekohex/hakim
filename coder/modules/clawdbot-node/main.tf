@@ -44,7 +44,9 @@ variable "install_clawdbot" {
 variable "clawdbot_version" {
   type        = string
   description = "The version of Clawdbot to install."
-  default     = "latest"
+  # VERSION_UPDATE_BEGIN: clawdbot
+  default = "latest"
+  # VERSION_UPDATE_END: clawdbot
 }
 
 variable "bridge_host" {

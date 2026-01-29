@@ -35,7 +35,9 @@ ENV LANG=en_US.UTF-8 \
 FROM base-system AS coder-downloader
 
 ARG TARGETARCH=amd64
+# VERSION_UPDATE_BEGIN: coder
 ARG CODER_VERSION=2.29.1
+# VERSION_UPDATE_END: coder
 
 WORKDIR /downloads
 
@@ -48,7 +50,9 @@ RUN curl -fsSL "https://github.com/coder/coder/releases/download/v${CODER_VERSIO
 FROM base-system AS code-server-downloader
 
 ARG TARGETARCH=amd64
+# VERSION_UPDATE_BEGIN: code-server
 ARG CODE_SERVER_VERSION=4.108.0
+# VERSION_UPDATE_END: code-server
 
 WORKDIR /downloads
 
@@ -60,7 +64,9 @@ RUN curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_S
 # =============================================================================
 FROM base-system AS opencode-downloader
 
+# VERSION_UPDATE_BEGIN: opencode
 ARG OPENCODE_VERSION=1.1.20
+# VERSION_UPDATE_END: opencode
 
 WORKDIR /downloads
 

@@ -74,7 +74,9 @@ variable "install_openchamber" {
 variable "openchamber_version" {
   type        = string
   description = "The version of OpenChamber to install."
-  default     = "latest"
+  # VERSION_UPDATE_BEGIN: openchamber
+  default = "latest"
+  # VERSION_UPDATE_END: openchamber
 }
 
 variable "port" {

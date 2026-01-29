@@ -1,0 +1,197 @@
+name: Version Updater
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # Tool repositories and npm packages
+  CODER_REPO: coder/coder
+  CODE_SERVER_REPO: coder/code-server
+  OPENCODE_REPO: anomalyco/opencode
+  OPENCHAMBER_PKG: '@openchamber/web'
+  CLAWDBOT_PKG: 'clawdbot'
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Git
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Check for latest versions
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          
+          # Function to safely fetch GitHub release version
+          fetch_github_version() {
+            local repo="$1"
+            local max_retries=3
+            local retry_count=0
+            
+            while [ $retry_count -lt $max_retries ]; do
+              if version=$(gh release view --repo "$repo" --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//'); then
+                if [ -n "$version" ]; then
+                  echo "$version"
+                  return 0
+                fi
+              fi
+              retry_count=$((retry_count + 1))
+              sleep $((retry_count * 2))
+            done
+            
+            echo "Failed to fetch version for $repo after $max_retries attempts" >&2
+            return 1
+          }
+          
+          # Function to safely fetch npm package version
+          fetch_npm_version() {
+            local pkg="$1"
+            local max_retries=3
+            local retry_count=0
+            
+            while [ $retry_count -lt $max_retries ]; do
+              if version=$(npm view "$pkg" version 2>/dev/null); then
+                if [ -n "$version" ]; then
+                  echo "$version"
+                  return 0
+                fi
+              fi
+              retry_count=$((retry_count + 1))
+              sleep $((retry_count * 2))
+            done
+            
+            echo "Failed to fetch version for $pkg after $max_retries attempts" >&2
+            return 1
+          }
+          
+          echo "Fetching latest versions..."
+          
+          # Fetch versions with error handling
+          CODER_VERSION=$(fetch_github_version "$CODER_REPO") || exit 1
+          CODE_SERVER_VERSION=$(fetch_github_version "$CODE_SERVER_REPO") || exit 1
+          OPENCODE_VERSION=$(fetch_github_version "$OPENCODE_REPO") || exit 1
+          OPENCHAMBER_VERSION=$(fetch_npm_version "$OPENCHAMBER_PKG") || exit 1
+          CLAWDBOT_VERSION=$(fetch_npm_version "$CLAWDBOT_PKG") || exit 1
+          
+          echo "coder_version=$CODER_VERSION" >> "$GITHUB_OUTPUT"
+          echo "code_server_version=$CODE_SERVER_VERSION" >> "$GITHUB_OUTPUT"
+          echo "opencode_version=$OPENCODE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "openchamber_version=$OPENCHAMBER_VERSION" >> "$GITHUB_OUTPUT"
+          echo "clawdbot_version=$CLAWDBOT_VERSION" >> "$GITHUB_OUTPUT"
+          
+          echo "Latest versions:"
+          echo "  Coder: $CODER_VERSION"
+          echo "  Code-Server: $CODE_SERVER_VERSION"
+          echo "  OpenCode: $OPENCODE_VERSION"
+          echo "  OpenChamber: $OPENCHAMBER_VERSION"
+          echo "  Clawdbot: $CLAWDBOT_VERSION"
+
+      - name: Update Dockerfile versions
+        run: |
+          set -euo pipefail
+          
+          DOCKERFILE="devcontainers/base/Dockerfile"
+          
+          # Update CODER_VERSION with tag protection
+          sed -i \
+            -e '/# VERSION_UPDATE_BEGIN: coder/,/# VERSION_UPDATE_END: coder/{s/ARG CODER_VERSION=.*/ARG CODER_VERSION=${{ steps.check.outputs.coder_version }}/}' \
+            "$DOCKERFILE"
+          
+          # Update CODE_SERVER_VERSION with tag protection
+          sed -i \
+            -e '/# VERSION_UPDATE_BEGIN: code-server/,/# VERSION_UPDATE_END: code-server/{s/ARG CODE_SERVER_VERSION=.*/ARG CODE_SERVER_VERSION=${{ steps.check.outputs.code_server_version }}/}' \
+            "$DOCKERFILE"
+          
+          # Update OPENCODE_VERSION with tag protection
+          sed -i \
+            -e '/# VERSION_UPDATE_BEGIN: opencode/,/# VERSION_UPDATE_END: opencode/{s/ARG OPENCODE_VERSION=.*/ARG OPENCODE_VERSION=${{ steps.check.outputs.opencode_version }}/}' \
+            "$DOCKERFILE"
+          
+          echo "Updated Dockerfile"
+
+      - name: Update Terraform module versions
+        run: |
+          set -euo pipefail
+          
+          # Update OpenCode module
+          sed -i \
+            -e '/# VERSION_UPDATE_BEGIN: opencode/,/# VERSION_UPDATE_END: opencode/{s/default.*=.*"[^"]*"/default     = "${{ steps.check.outputs.opencode_version }}"/}' \
+            "coder/modules/opencode/main.tf"
+          
+          # Update OpenChamber module
+          sed -i \
+            -e '/# VERSION_UPDATE_BEGIN: openchamber/,/# VERSION_UPDATE_END: openchamber/{s/default.*=.*"[^"]*"/default     = "${{ steps.check.outputs.openchamber_version }}"/}' \
+            "coder/modules/openchamber/main.tf"
+          
+          # Update Clawdbot module
+          sed -i \
+            -e '/# VERSION_UPDATE_BEGIN: clawdbot/,/# VERSION_UPDATE_END: clawdbot/{s/default.*=.*"[^"]*"/default     = "${{ steps.check.outputs.clawdbot_version }}"/}' \
+            "coder/modules/clawdbot-node/main.tf"
+          
+          echo "Updated Terraform modules"
+
+      - name: Check for changes
+        id: git-check
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No version changes detected"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Version changes detected"
+          fi
+
+      - name: Commit and push changes
+        if: steps.git-check.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          
+          # Stage only version-related files
+          git add devcontainers/base/Dockerfile
+          git add coder/modules/opencode/main.tf
+          git add coder/modules/openchamber/main.tf
+          git add coder/modules/clawdbot-node/main.tf
+          
+          # Create commit with all version updates
+          cat > /tmp/commit_msg.txt << 'COMMIT_MSG_EOF'
+          chore(deps): bump tool versions
+          
+          - coder: ${{ steps.check.outputs.coder_version }}
+          - code-server: ${{ steps.check.outputs.code_server_version }}
+          - opencode: ${{ steps.check.outputs.opencode_version }}
+          - openchamber: ${{ steps.check.outputs.openchamber_version }}
+          - clawdbot: ${{ steps.check.outputs.clawdbot_version }}
+          COMMIT_MSG_EOF
+          
+          git commit -F /tmp/commit_msg.txt
+          
+          # Push with retry logic
+          max_retries=3
+          retry_count=0
+          while [ $retry_count -lt $max_retries ]; do
+            if git pull --rebase origin main && git push origin main; then
+              echo "Successfully pushed version updates"
+              exit 0
+            fi
+            retry_count=$((retry_count + 1))
+            echo "Push failed, retrying ($retry_count/$max_retries)..."
+            sleep $((retry_count * 5))
+          done
+          
+          echo "Failed to push after $max_retries attempts" >&2
+          exit 1
