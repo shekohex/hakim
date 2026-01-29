@@ -11,6 +11,7 @@ on:
     paths:
       - "devcontainers/**"
       - ".github/workflows/ci.yml"
+  workflow_dispatch:
 
 permissions:
   packages: write
