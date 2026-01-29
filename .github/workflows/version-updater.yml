@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 env:
   # Tool repositories and npm packages
@@ -23,7 +24,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.VERSION_UPDATER_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Git
         run: |
@@ -195,3 +196,12 @@ jobs:
           
           echo "Failed to push after $max_retries attempts" >&2
           exit 1
+
+      - name: Trigger CI workflow
+        if: steps.git-check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Triggering CI workflow..."
+          gh workflow run CI --repo ${{ github.repository }} --ref main
+          echo "CI workflow triggered successfully"
