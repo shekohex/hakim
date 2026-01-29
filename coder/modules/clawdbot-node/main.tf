@@ -45,7 +45,7 @@ variable "clawdbot_version" {
   type        = string
   description = "The version of Clawdbot to install."
   # VERSION_UPDATE_BEGIN: clawdbot
-  default = "latest"
+  default     = "2026.1.24-3"
   # VERSION_UPDATE_END: clawdbot
 }
 
