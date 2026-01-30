@@ -20,13 +20,5 @@
             "default": true,
             "description": "Pre-seed /etc/skel with phx_new archive so first boot copies to /home/coder."
         }
-    },
-    "dependsOn": {
-        "ghcr.io/devcontainers/features/common-utils": {},
-        ".devcontainer/features/src/elixir": {}
-    },
-    "installsAfter": [
-        "ghcr.io/devcontainers/features/common-utils",
-        ".devcontainer/features/src/elixir"
-    ]
+    }
 }
