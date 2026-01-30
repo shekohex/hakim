@@ -1,0 +1,62 @@
+{
+  "name": "Hakim Elixir + Phoenix",
+  "image": "ghcr.io/shekohex/hakim-base:latest",
+  "build": {
+    "args": {
+      "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}"
+    }
+  },
+  "features": {
+    "../../../features/src/elixir": {
+      "erlangVersion": "27",
+      "elixirVersion": "1.17",
+      "seedUserHome": true
+    },
+    "./../../../features/phoenix": {
+      "version": "latest",
+      "seedUserHome": true
+    },
+    "../../../features/src/postgresql-tools": {
+      "version": "latest"
+    },
+    "../../../features/src/nodejs": {
+      "version": "lts"
+    },
+    "../../../features/src/bun": {
+      "version": "latest"
+    },
+    "../../../features/src/uv": {},
+    "../../../features/src/openchamber": {},
+    "../../../features/src/clawdbot": {},
+    "../../../features/src/lazyvim": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "JakeBecker.elixir-ls",
+        "phoenixframework.phoenix",
+        "bradlc.vscode-tailwindcss",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "[elixir]": {
+          "editor.formatOnSave": true,
+          "editor.insertSpaces": true,
+          "editor.tabSize": 2,
+          "editor.trimAutoWhitespace": true,
+          "editor.formatOnType": true,
+          "editor.wordBasedSuggestions": false
+        },
+        "[phoenix-heex]": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "JakeBecker.elixir-ls"
+        },
+        "emmet.includeLanguages": {
+          "phoenix-heex": "html",
+          "elixir": "html"
+        }
+      }
+    }
+  }
+}
