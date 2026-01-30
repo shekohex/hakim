@@ -13,10 +13,23 @@ if [ -f /etc/profile.d/mise.sh ]; then
     source /etc/profile.d/mise.sh
 fi
 
-if ! command -v mix >/devdev/null 2>&1; then
-    echo "Error: Mix not found. Please install the elixir feature before phoenix."
-    exit 1
-fi
+# Wait for mix to be available (elixir feature should install first via installsAfter)
+MAX_WAIT=30
+WAIT_COUNT=0
+while ! command -v mix >/dev/null 2>&1; do
+    WAIT_COUNT=$((WAIT_COUNT + 1))
+    if [ $WAIT_COUNT -gt $MAX_WAIT ]; then
+        echo "Warning: Mix not found after ${MAX_WAIT}s. Phoenix archive will be installed on first use."
+        # Don't fail - the user can install phx_new manually later
+        exit 0
+    fi
+    echo "Waiting for Elixir/Mix to be available... (${WAIT_COUNT}/${MAX_WAIT})"
+    sleep 1
+    # Re-source mise in case it just became available
+    if [ -f /etc/profile.d/mise.sh ]; then
+        source /etc/profile.d/mise.sh
+    fi
+done
 
 echo "Installing OS dependencies for Phoenix file watching..."
 apt-get update && apt-get install -y --no-install-recommends inotify-tools \
