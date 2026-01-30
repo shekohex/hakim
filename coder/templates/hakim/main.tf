@@ -58,6 +58,12 @@ data "coder_parameter" "image_variant" {
     icon        = "/icon/rust.svg"
   }
   option {
+    name        = "Elixir + Phoenix"
+    description = "Elixir, Phoenix, Node.js, Bun, PostgreSQL client tools."
+    value       = "elixir"
+    icon        = "/icon/elixir.svg"
+  }
+  option {
     name        = "Custom"
     icon        = "/emojis/1f5c3.png"
     description = "Specify a custom repo URL below"
@@ -451,7 +457,8 @@ module "openchamber" {
     "php",
     "dotnet",
     "js",
-    "rust"
+    "rust",
+    "elixir"
   ], data.coder_parameter.image_variant.value) ? 1 : 0
   source              = "github.com/shekohex/hakim//coder/modules/openchamber?ref=main"
   agent_id            = coder_agent.main.id
@@ -467,7 +474,7 @@ module "clawdbot_node" {
   count = (
     data.coder_workspace.me.start_count > 0 &&
     data.coder_parameter.enable_clawdbot_node.value &&
-    contains(["php", "dotnet", "js", "rust"], data.coder_parameter.image_variant.value) &&
+    contains(["php", "dotnet", "js", "rust", "elixir"], data.coder_parameter.image_variant.value) &&
     length(data.coder_parameter.clawdbot_bridge_host) > 0 &&
     trimspace(data.coder_parameter.clawdbot_bridge_host[0].value) != ""
   ) ? 1 : 0
@@ -576,6 +583,18 @@ data "coder_workspace_preset" "rust_quick" {
     "image_variant" = "rust"
     "git_url"       = ""
     "system_prompt" = "You are working on a Rust project. Use cargo."
+  }
+}
+
+data "coder_workspace_preset" "phoenix_quick" {
+  name        = "Phoenix Quick Start"
+  description = "Elixir + Phoenix environment"
+  icon        = "/icon/docker.svg"
+  parameters = {
+    "image_variant" = "elixir"
+    "git_url"       = ""
+    "system_prompt" = "You are working on a Phoenix project. Use mix, phx, and Ecto commands. Prefer mix format and ElixirLS."
+    "preview_port"  = "4000"
   }
 }
 
