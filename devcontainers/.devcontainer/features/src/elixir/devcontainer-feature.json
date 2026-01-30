@@ -1,0 +1,36 @@
+{
+    "name": "Elixir (via Mise)",
+    "id": "elixir",
+    "version": "1.0.0",
+    "description": "Installs Erlang/OTP and Elixir using Mise. Seeds skeleton home with Hex/Rebar for persistence.",
+    "options": {
+        "erlangVersion": {
+            "type": "string",
+            "proposals": [
+                "27",
+                "26",
+                "latest"
+            ],
+            "default": "latest",
+            "description": "Select the version of Erlang/OTP to install."
+        },
+        "elixirVersion": {
+            "type": "string",
+            "proposals": [
+                "1.17",
+                "1.16",
+                "latest"
+            ],
+            "default": "latest",
+            "description": "Select the version of Elixir to install."
+        },
+        "seedUserHome": {
+            "type": "boolean",
+            "default": true,
+            "description": "Pre-seed /etc/skel with Hex/Rebar so first boot copies to /home/coder."
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils"
+    ]
+}
