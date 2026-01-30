@@ -12,7 +12,7 @@
       "elixirVersion": "1.17",
       "seedUserHome": true
     },
-    "./../../../features/phoenix": {
+    "../../../features/phoenix": {
       "version": "latest",
       "seedUserHome": true
     },

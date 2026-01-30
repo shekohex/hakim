@@ -23,10 +23,10 @@
     },
     "dependsOn": {
         "ghcr.io/devcontainers/features/common-utils": {},
-        "../../../features/src/elixir": {}
+        "./.devcontainer/features/src/elixir": {}
     },
     "installsAfter": [
         "ghcr.io/devcontainers/features/common-utils",
-        "../../../features/src/elixir"
+        "./.devcontainer/features/src/elixir"
     ]
 }
