@@ -8,6 +8,10 @@ SEED_USER_HOME=${SEEDUSERHOME:-"true"}
 echo "Activating feature 'elixir'"
 echo "Installing Erlang ${ERLANG_VERSION} and Elixir ${ELIXIR_VERSION} via Mise..."
 
+apt-get update && apt-get install -y --no-install-recommends \
+    libncurses-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 export MISE_YES=1
 export MISE_DATA_DIR=/usr/local/share/mise
 
