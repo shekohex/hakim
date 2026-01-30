@@ -65,7 +65,7 @@ RUN curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_S
 FROM base-system AS opencode-downloader
 
 # VERSION_UPDATE_BEGIN: opencode
-ARG OPENCODE_VERSION=1.1.43
+ARG OPENCODE_VERSION=1.1.44
 # VERSION_UPDATE_END: opencode
 
 WORKDIR /downloads
