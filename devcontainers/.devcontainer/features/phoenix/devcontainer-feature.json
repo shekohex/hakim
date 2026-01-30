@@ -1,0 +1,28 @@
+{
+    "name": "Phoenix Framework",
+    "id": "phoenix",
+    "version": "1.0.0",
+    "description": "Installs the Phoenix installer (phx_new) and OS dependencies for file watching. Seeds skeleton home with phx_new archive.",
+    "options": {
+        "version": {
+            "type": "string",
+            "proposals": [
+                "latest",
+                "1.7.18",
+                "1.7.17",
+                "1.7.16"
+            ],
+            "default": "latest",
+            "description": "Select the version of phx_new to install."
+        },
+        "seedUserHome": {
+            "type": "boolean",
+            "default": true,
+            "description": "Pre-seed /etc/skel with phx_new archive so first boot copies to /home/coder."
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils",
+        "../src/elixir"
+    ]
+}
