@@ -23,6 +23,6 @@
     },
     "installsAfter": [
         "ghcr.io/devcontainers/features/common-utils",
-        "../src/elixir"
+        "../elixir"
     ]
 }
