@@ -8,6 +8,7 @@ echo "Installing PostgreSQL client tools (version: ${VERSION})..."
 
 if [ "$VERSION" = "latest" ]; then
     echo "Installing latest PostgreSQL client from distro repository..."
+    apt-get update
     apt-get install -y --no-install-recommends postgresql-client
 else
     echo "Installing PostgreSQL ${VERSION} client from PGDG repository..."
