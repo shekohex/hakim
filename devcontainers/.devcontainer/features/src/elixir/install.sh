@@ -9,7 +9,10 @@ echo "Activating feature 'elixir'"
 echo "Installing Erlang ${ERLANG_VERSION} and Elixir ${ELIXIR_VERSION} via Mise..."
 
 apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     libncurses-dev \
+    libssl-dev \
+    openssl \
     && rm -rf /var/lib/apt/lists/*
 
 export MISE_YES=1
