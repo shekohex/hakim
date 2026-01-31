@@ -1,13 +1,13 @@
 {
-  "name": "Clawdbot",
-  "id": "clawdbot",
+  "name": "OpenClaw",
+  "id": "openclaw",
   "version": "1.0.0",
-  "description": "Installs Clawdbot CLI globally via npm.",
+  "description": "Installs OpenClaw CLI globally via npm.",
   "options": {
     "version": {
       "type": "string",
       "default": "latest",
-      "description": "Select the version of Clawdbot to install."
+      "description": "Select the version of OpenClaw to install."
     }
   },
   "dependsOn": {

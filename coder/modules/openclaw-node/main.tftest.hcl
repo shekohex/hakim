@@ -6,13 +6,13 @@ run "defaults_are_correct" {
   }
 
   assert {
-    condition     = var.install_clawdbot == true
-    error_message = "Clawdbot installation should be enabled by default"
+    condition     = var.install_openclaw == true
+    error_message = "OpenClaw installation should be enabled by default"
   }
 
   assert {
-    condition     = var.clawdbot_version == "latest"
-    error_message = "Default Clawdbot version should be 'latest'"
+    condition     = length(var.openclaw_version) > 0
+    error_message = "Default OpenClaw version should be set"
   }
 
   assert {
@@ -21,8 +21,8 @@ run "defaults_are_correct" {
   }
 
   assert {
-    condition     = local.app_slug == "clawdbot-node"
-    error_message = "App slug should be 'clawdbot-node'"
+    condition     = local.app_slug == "openclaw-node"
+    error_message = "App slug should be 'openclaw-node'"
   }
 }
 

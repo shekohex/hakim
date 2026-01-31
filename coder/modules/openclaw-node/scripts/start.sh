@@ -18,8 +18,8 @@ if [ -z "${ARG_BRIDGE_HOST}" ]; then
   exit 0
 fi
 
-if ! command_exists clawdbot; then
-  printf "ERROR: clawdbot not installed\n" >&2
+if ! command_exists openclaw; then
+  printf "ERROR: openclaw not installed\n" >&2
   exit 1
 fi
 
@@ -36,7 +36,7 @@ if [ -n "${ARG_DISPLAY_NAME}" ]; then
   node_args+=(--display-name "${ARG_DISPLAY_NAME}")
 fi
 
-nohup clawdbot "${node_args[@]}" >/tmp/clawdbot-node.log 2>&1 &
+nohup openclaw "${node_args[@]}" >/tmp/openclaw-node.log 2>&1 &
 
 if [ "${ARG_AUTO_APPROVE_PAIRING}" != "true" ]; then
   exit 0
@@ -55,13 +55,13 @@ max_attempts=30
 sleep 1
 
 while [ "$attempt" -lt "$max_attempts" ]; do
-  pending_json=$(clawdbot gateway call node.pair.list --url "${ARG_GATEWAY_WS_URL}" --token "${ARG_GATEWAY_TOKEN}" --json 2>/dev/null || true)
+  pending_json=$(openclaw gateway call node.pair.list --url "${ARG_GATEWAY_WS_URL}" --token "${ARG_GATEWAY_TOKEN}" --json 2>/dev/null || true)
 
   if [ -n "${pending_json}" ]; then
     request_id=$(echo "${pending_json}" | jq -r --arg name "${ARG_DISPLAY_NAME}" '((.payload.pending // .pending // [])[]? | select(.displayName == $name) | .requestId) // empty' 2>/dev/null | head -n1 || true)
 
     if [ -n "${request_id}" ] && [ "${request_id}" != "null" ]; then
-      clawdbot gateway call node.pair.approve --url "${ARG_GATEWAY_WS_URL}" --token "${ARG_GATEWAY_TOKEN}" --params "{\"requestId\":\"${request_id}\"}" --json >/dev/null 2>&1 || true
+      openclaw gateway call node.pair.approve --url "${ARG_GATEWAY_WS_URL}" --token "${ARG_GATEWAY_TOKEN}" --params "{\"requestId\":\"${request_id}\"}" --json >/dev/null 2>&1 || true
       exit 0
     fi
   fi

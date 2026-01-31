@@ -15,7 +15,7 @@ env:
   CODE_SERVER_REPO: coder/code-server
   OPENCODE_REPO: anomalyco/opencode
   OPENCHAMBER_PKG: '@openchamber/web'
-  CLAWDBOT_PKG: 'clawdbot'
+  OPENCLAW_PKG: 'openclaw'
 
 jobs:
   check-and-update:
@@ -87,20 +87,20 @@ jobs:
           CODE_SERVER_VERSION=$(fetch_github_version "$CODE_SERVER_REPO") || exit 1
           OPENCODE_VERSION=$(fetch_github_version "$OPENCODE_REPO") || exit 1
           OPENCHAMBER_VERSION=$(fetch_npm_version "$OPENCHAMBER_PKG") || exit 1
-          CLAWDBOT_VERSION=$(fetch_npm_version "$CLAWDBOT_PKG") || exit 1
+          OPENCLAW_VERSION=$(fetch_npm_version "$OPENCLAW_PKG") || exit 1
           
           echo "coder_version=$CODER_VERSION" >> "$GITHUB_OUTPUT"
           echo "code_server_version=$CODE_SERVER_VERSION" >> "$GITHUB_OUTPUT"
           echo "opencode_version=$OPENCODE_VERSION" >> "$GITHUB_OUTPUT"
           echo "openchamber_version=$OPENCHAMBER_VERSION" >> "$GITHUB_OUTPUT"
-          echo "clawdbot_version=$CLAWDBOT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "openclaw_version=$OPENCLAW_VERSION" >> "$GITHUB_OUTPUT"
           
           echo "Latest versions:"
           echo "  Coder: $CODER_VERSION"
           echo "  Code-Server: $CODE_SERVER_VERSION"
           echo "  OpenCode: $OPENCODE_VERSION"
           echo "  OpenChamber: $OPENCHAMBER_VERSION"
-          echo "  Clawdbot: $CLAWDBOT_VERSION"
+          echo "  OpenClaw: $OPENCLAW_VERSION"
 
       - name: Update Dockerfile versions
         run: |
@@ -139,10 +139,10 @@ jobs:
             -e '/# VERSION_UPDATE_BEGIN: openchamber/,/# VERSION_UPDATE_END: openchamber/{s/default.*=.*"[^"]*"/default     = "${{ steps.check.outputs.openchamber_version }}"/}' \
             "coder/modules/openchamber/main.tf"
           
-          # Update Clawdbot module
+          # Update OpenClaw module
           sed -i \
-            -e '/# VERSION_UPDATE_BEGIN: clawdbot/,/# VERSION_UPDATE_END: clawdbot/{s/default.*=.*"[^"]*"/default     = "${{ steps.check.outputs.clawdbot_version }}"/}' \
-            "coder/modules/clawdbot-node/main.tf"
+            -e '/# VERSION_UPDATE_BEGIN: openclaw/,/# VERSION_UPDATE_END: openclaw/{s/default.*=.*"[^"]*"/default     = "${{ steps.check.outputs.openclaw_version }}"/}' \
+            "coder/modules/openclaw-node/main.tf"
           
           echo "Updated Terraform modules"
 
@@ -166,7 +166,7 @@ jobs:
           git add devcontainers/base/Dockerfile
           git add coder/modules/opencode/main.tf
           git add coder/modules/openchamber/main.tf
-          git add coder/modules/clawdbot-node/main.tf
+          git add coder/modules/openclaw-node/main.tf
           
           # Create commit with all version updates
           cat > /tmp/commit_msg.txt << 'COMMIT_MSG_EOF'
@@ -176,7 +176,7 @@ jobs:
           - code-server: ${{ steps.check.outputs.code_server_version }}
           - opencode: ${{ steps.check.outputs.opencode_version }}
           - openchamber: ${{ steps.check.outputs.openchamber_version }}
-          - clawdbot: ${{ steps.check.outputs.clawdbot_version }}
+          - openclaw: ${{ steps.check.outputs.openclaw_version }}
           COMMIT_MSG_EOF
           
           git commit -F /tmp/commit_msg.txt

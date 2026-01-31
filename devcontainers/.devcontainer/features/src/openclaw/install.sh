@@ -10,16 +10,16 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 
 if ! command -v npm >/dev/null 2>&1; then
-  echo "npm is required to install clawdbot" >&2
+  echo "npm is required to install openclaw" >&2
   exit 1
 fi
 
 if [ "${VERSION}" = "latest" ]; then
-  SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install -g clawdbot@latest
+  SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install -g openclaw@latest
 else
-  SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install -g "clawdbot@${VERSION}"
+  SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install -g "openclaw@${VERSION}"
 fi
 
-if command -v clawdbot >/dev/null 2>&1; then
-  clawdbot --version || clawdbot -V || true
+if command -v openclaw >/dev/null 2>&1; then
+  openclaw --version || openclaw -V || true
 fi

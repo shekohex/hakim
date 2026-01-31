@@ -32,21 +32,21 @@ variable "group" {
 variable "icon" {
   type        = string
   description = "The icon to use for the app."
-  default     = "https://raw.githubusercontent.com/clawdbot/clawdbot/refs/heads/main/docs/assets/pixel-lobster.svg"
+  default     = "https://raw.githubusercontent.com/openclaw/openclaw/refs/heads/main/docs/assets/pixel-lobster.svg"
 }
 
-variable "install_clawdbot" {
+variable "install_openclaw" {
   type        = bool
-  description = "Whether to install Clawdbot via npm."
+  description = "Whether to install OpenClaw via npm."
   default     = true
 }
 
-variable "clawdbot_version" {
+variable "openclaw_version" {
   type        = string
-  description = "The version of Clawdbot to install."
-  # VERSION_UPDATE_BEGIN: clawdbot
-  default     = "2026.1.24-3"
-  # VERSION_UPDATE_END: clawdbot
+  description = "The version of OpenClaw to install."
+  # VERSION_UPDATE_BEGIN: openclaw
+  default = "2026.1.24-3"
+  # VERSION_UPDATE_END: openclaw
 }
 
 variable "bridge_host" {
@@ -98,26 +98,26 @@ variable "auto_approve_pairing" {
 }
 
 locals {
-  app_slug       = "clawdbot-node"
+  app_slug       = "openclaw-node"
   install_script = file("${path.module}/scripts/install.sh")
   start_script   = file("${path.module}/scripts/start.sh")
 }
 
-resource "coder_script" "clawdbot_install" {
+resource "coder_script" "openclaw_install" {
   agent_id     = var.agent_id
-  display_name = "Install Clawdbot"
+  display_name = "Install OpenClaw"
   icon         = var.icon
   script       = <<-EOT
     #!/bin/bash
     set -o errexit
     set -o pipefail
 
-    INSTALL_SCRIPT="/tmp/clawdbot-install-$$.sh"
+    INSTALL_SCRIPT="/tmp/openclaw-install-$$.sh"
     echo -n '${base64encode(local.install_script)}' | base64 -d > "$INSTALL_SCRIPT"
     chmod +x "$INSTALL_SCRIPT"
 
-    ARG_INSTALL_CLAWDBOT='${var.install_clawdbot}' \
-    ARG_CLAWDBOT_VERSION='${var.clawdbot_version}' \
+    ARG_INSTALL_OPENCLAW='${var.install_openclaw}' \
+    ARG_OPENCLAW_VERSION='${var.openclaw_version}' \
     "$INSTALL_SCRIPT"
 
     rm -f "$INSTALL_SCRIPT"
@@ -125,16 +125,16 @@ resource "coder_script" "clawdbot_install" {
   run_on_start = true
 }
 
-resource "coder_script" "clawdbot_node_start" {
+resource "coder_script" "openclaw_node_start" {
   agent_id     = var.agent_id
-  display_name = "Start Clawdbot Node Host"
+  display_name = "Start OpenClaw Node Host"
   icon         = var.icon
   script       = <<-EOT
     #!/bin/bash
     set -o errexit
     set -o pipefail
 
-    START_SCRIPT="/tmp/clawdbot-node-start-$$.sh"
+    START_SCRIPT="/tmp/openclaw-node-start-$$.sh"
     echo -n '${base64encode(local.start_script)}' | base64 -d > "$START_SCRIPT"
     chmod +x "$START_SCRIPT"
 
@@ -151,5 +151,5 @@ resource "coder_script" "clawdbot_node_start" {
     rm -f "$START_SCRIPT"
   EOT
   run_on_start = true
-  depends_on   = [coder_script.clawdbot_install]
+  depends_on   = [coder_script.openclaw_install]
 }
