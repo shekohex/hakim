@@ -17,6 +17,8 @@ ARG DOCKER_CLI_IMAGE=docker:28.3.3-cli@sha256:0135662b510037ea581d99c2e5929c5e01
 # =============================================================================
 FROM ${DEBIAN_IMAGE} AS base-system
 
+ARG DEBIAN_SNAPSHOT
+
 SHELL ["/bin/bash", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
 
