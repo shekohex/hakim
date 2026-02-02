@@ -8,10 +8,14 @@
 # - Prefer adding new stages over modifying shared ones.
 # =============================================================================
 
+ARG DEBIAN_IMAGE=debian:bookworm-slim@sha256:56ff6d36d4eb3db13a741b342ec466f121480b5edded42e4b7ee850ce7a418ee
+ARG DEBIAN_SNAPSHOT=2026-02-01T000000Z
+ARG DOCKER_CLI_IMAGE=docker:28.3.3-cli@sha256:0135662b510037ea581d99c2e5929c5e01185139c0b86986a418bd4da0b98a44
+
 # =============================================================================
 # Stage 1: Base system packages (rarely changes)
 # =============================================================================
-FROM debian:trixie-slim AS base-system
+FROM ${DEBIAN_IMAGE} AS base-system
 
 SHELL ["/bin/bash", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
@@ -19,6 +23,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
   rm -f /etc/apt/apt.conf.d/docker-clean && \
+  echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99snapshot && \
+  printf 'deb http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT} bookworm main\n' > /etc/apt/sources.list && \
+  printf 'deb http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT} bookworm-updates main\n' >> /etc/apt/sources.list && \
+  printf 'deb http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT} bookworm-security main\n' >> /etc/apt/sources.list && \
   apt-get update && apt-get install -y --no-install-recommends \
   curl wget jq unzip sudo bash htop locales \
   ca-certificates gnupg lsb-release git lsof \
@@ -97,10 +105,16 @@ WORKDIR /downloads
 
 RUN wget -q "https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${GOOGLE_CHROME_VERSION}_amd64.deb" -O google-chrome.deb
 
+FROM ${DOCKER_CLI_IMAGE} AS docker-cli
+
 # =============================================================================
 # Stage 3: Install mise + tools (config-isolated)
 # =============================================================================
 FROM base-system AS mise-installer
+
+ARG MISE_VERSION=2026.2.1
+ARG MISE_SHA256_X64=436d726c4046dd9e2681831830de5063c336d8a8164a9801de4c221bf5a8f846
+ARG MISE_SHA256_ARM64=6726622825e5b79d4608e74f0ee5b4f1173c39ba3d0548e8d66dfeafdc4f46a0
 
 ENV MISE_DATA_DIR=/usr/local/share/mise \
   MISE_CONFIG_DIR=/etc/mise \
@@ -109,7 +123,7 @@ ENV MISE_DATA_DIR=/usr/local/share/mise \
 RUN mkdir -p /usr/local/share/mise /etc/mise && chmod -R 777 /usr/local/share/mise
 
 COPY install-mise.sh /tmp/
-RUN bash /tmp/install-mise.sh && rm /tmp/install-mise.sh
+RUN MISE_VERSION=${MISE_VERSION} MISE_SHA256_X64=${MISE_SHA256_X64} MISE_SHA256_ARM64=${MISE_SHA256_ARM64} bash /tmp/install-mise.sh && rm /tmp/install-mise.sh
 
 COPY mise.toml /etc/mise/config.toml
 RUN --mount=type=secret,id=github_token \
@@ -126,7 +140,7 @@ ENV MISE_DATA_DIR=/usr/local/share/mise \
   PATH="/usr/local/share/mise/shims:$PATH" \
   STARSHIP_CONFIG=/etc/starship.toml
 
-COPY --from=docker:dind /usr/local/bin/docker /usr/local/bin/
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/
 COPY --from=docker-compose-downloader /downloads/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
 
 COPY --from=chrome-downloader /downloads/google-chrome.deb /tmp/google-chrome.deb

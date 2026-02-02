@@ -1,7 +1,36 @@
 #!/bin/bash
 set -e
-# Install mise to /usr/local/bin/mise
-curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
+MISE_VERSION=${MISE_VERSION:-""}
+MISE_SHA256_X64=${MISE_SHA256_X64:-""}
+MISE_SHA256_ARM64=${MISE_SHA256_ARM64:-""}
+
+if [ -z "$MISE_VERSION" ] || [ -z "$MISE_SHA256_X64" ] || [ -z "$MISE_SHA256_ARM64" ]; then
+    echo "MISE_VERSION and checksums are required" >&2
+    exit 1
+fi
+
+ARCH=$(dpkg --print-architecture)
+case "$ARCH" in
+    amd64)
+        MISE_ARCH="x64"
+        MISE_SHA256="$MISE_SHA256_X64"
+        ;;
+    arm64)
+        MISE_ARCH="arm64"
+        MISE_SHA256="$MISE_SHA256_ARM64"
+        ;;
+    *)
+        echo "Unsupported architecture: $ARCH" >&2
+        exit 1
+        ;;
+esac
+
+MISE_TAR="/tmp/mise.tar.gz"
+MISE_URL="https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-${MISE_ARCH}.tar.gz"
+curl -fsSL "$MISE_URL" -o "$MISE_TAR"
+echo "${MISE_SHA256}  ${MISE_TAR}" | sha256sum -c -
+tar -xzf "$MISE_TAR" -C /usr/local/bin mise
+rm -f "$MISE_TAR"
 
 # Create global config dir
 mkdir -p /etc/mise
