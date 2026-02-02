@@ -83,6 +83,23 @@ WORKDIR /downloads
 RUN curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-x64.tar.gz" \
   | tar -xzf -
 
+FROM base-system AS git-credential-libsecret-builder
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  apt-get update && apt-get install -y --no-install-recommends \
+  libsecret-1-dev libglib2.0-dev pkg-config && \
+  rm -rf /var/lib/apt/lists/*
+
+RUN if [ -d /usr/share/doc/git/contrib/credential/libsecret ]; then \
+    make -C /usr/share/doc/git/contrib/credential/libsecret && \
+    cp /usr/share/doc/git/contrib/credential/libsecret/git-credential-libsecret /tmp/; \
+  else \
+    git clone --depth 1 https://github.com/git/git /tmp/git-src && \
+    make -C /tmp/git-src/contrib/credential/libsecret && \
+    cp /tmp/git-src/contrib/credential/libsecret/git-credential-libsecret /tmp/; \
+  fi
+
 # =============================================================================
 # Stage 2d: Download docker-compose (version-isolated)
 # =============================================================================
@@ -151,10 +168,17 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   dpkg -i /tmp/google-chrome.deb || apt --fix-broken install -y && \
   rm /tmp/google-chrome.deb
 
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  apt-get update && apt-get install -y --no-install-recommends \
+  libsecret-1-0 && \
+  rm -rf /var/lib/apt/lists/*
+
 COPY --from=coder-downloader /downloads/coder /usr/local/bin/coder
 COPY --from=code-server-downloader /downloads/code-server /usr/local/lib/code-server
 COPY --from=opencode-downloader /downloads/opencode /usr/local/bin/opencode
-RUN chmod +x /usr/local/bin/coder /usr/local/bin/opencode && \
+COPY --from=git-credential-libsecret-builder /tmp/git-credential-libsecret /usr/local/bin/git-credential-libsecret
+RUN chmod +x /usr/local/bin/coder /usr/local/bin/opencode /usr/local/bin/git-credential-libsecret && \
   chmod +x /usr/local/lib/docker/cli-plugins/docker-compose && \
   ln -s /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose && \
   ln -s /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server

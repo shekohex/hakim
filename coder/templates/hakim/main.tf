@@ -95,6 +95,94 @@ data "coder_parameter" "git_url" {
   order        = 3
 }
 
+data "coder_parameter" "git_user_name" {
+  name         = "git_user_name"
+  display_name = "Git User Name"
+  default      = ""
+  mutable      = true
+  type         = "string"
+  description  = "Optional: Set git user.name"
+  icon         = "/icon/git.svg"
+  order        = 24
+}
+
+data "coder_parameter" "git_user_email" {
+  name         = "git_user_email"
+  display_name = "Git User Email"
+  default      = ""
+  mutable      = true
+  type         = "string"
+  description  = "Optional: Set git user.email"
+  icon         = "/icon/git.svg"
+  order        = 25
+}
+
+data "coder_parameter" "git_global_gitconfig" {
+  name         = "git_global_gitconfig"
+  display_name = "Git Global Config"
+  description  = "Optional: Raw gitconfig entries"
+  form_type    = "textarea"
+  type         = "string"
+  default      = <<-EOT
+[alias]
+        P = "push"
+        b = "branch"
+        bd = "branch -D"
+        c = "commit"
+        co = "checkout"
+        d = "diff"
+        ds = "diff --staged"
+        f = "fetch"
+        l = "log"
+        ll = "log --graph --decorate --pretty=oneline --abbrev-commit"
+        p = "pull"
+        s = "status"
+        sw = "switch"
+        swc = "switch -c"
+
+[branch]
+        autosetuprebase = "always"
+
+; [commit]
+;       gpgSign = true
+
+[core]
+        editor = "nvim"
+
+[credential "https://gist.github.com"]
+        helper = ""
+        helper = "/usr/local/share/mise/shims/gh auth git-credential"
+
+[credential "https://github.com"]
+        helper = ""
+        helper = "/usr/local/share/mise/shims/gh auth git-credential"
+
+[filter "lfs"]
+        clean = "git-lfs clean -- %f"
+        process = "git-lfs filter-process"
+        required = true
+        smudge = "git-lfs smudge -- %f"
+
+
+[init]
+        defaultBranch = "main"
+EOT
+  mutable      = true
+  icon         = "/icon/git.svg"
+  order        = 26
+}
+
+data "coder_parameter" "git_credential_helper" {
+  name         = "git_credential_helper"
+  display_name = "Git Credential Helper"
+  description  = "Optional: Set to libsecret to enable git-credential-libsecret"
+  type         = "string"
+  default      = "store"
+  mutable      = true
+  icon         = "/icon/git.svg"
+  order        = 27
+}
+
 data "coder_parameter" "opencode_auth" {
   name         = "opencode_auth"
   display_name = "OpenCode Auth JSON"
@@ -343,10 +431,11 @@ data "coder_parameter" "setup_script" {
 }
 
 locals {
-  user_env     = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
-  secret_env   = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
-  combined_env = merge(local.user_env, local.secret_env)
-  project_dir  = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
+  user_env         = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
+  secret_env       = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
+  combined_env     = merge(local.user_env, local.secret_env)
+  project_dir      = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
+  git_setup_script = file("${path.module}/scripts/setup-git.sh")
 }
 
 # ------------------------------------------------------------------------------
@@ -500,16 +589,42 @@ module "openclaw_node" {
 }
 
 module "git-clone" {
-  count    = data.coder_parameter.git_url.value != "" ? 1 : 0
-  source   = "registry.coder.com/coder/git-clone/coder"
-  agent_id = coder_agent.main.id
-  url      = data.coder_parameter.git_url.value
-  base_dir = "/home/coder"
+  count      = data.coder_parameter.git_url.value != "" ? 1 : 0
+  source     = "registry.coder.com/coder/git-clone/coder"
+  agent_id   = coder_agent.main.id
+  url        = data.coder_parameter.git_url.value
+  base_dir   = "/home/coder"
+  depends_on = [coder_script.git_setup]
 }
 
 module "dotfiles" {
   source   = "registry.coder.com/coder/dotfiles/coder"
   agent_id = coder_agent.main.id
+}
+
+resource "coder_script" "git_setup" {
+  agent_id     = coder_agent.main.id
+  display_name = "Configure Git"
+  icon         = "/icon/git.svg"
+  script       = <<-EOT
+    #!/bin/bash
+    set -o errexit
+    set -o pipefail
+
+    SETUP_SCRIPT="/tmp/git-setup-$$.sh"
+    echo -n '${base64encode(local.git_setup_script)}' | base64 -d > "$SETUP_SCRIPT"
+    chmod +x "$SETUP_SCRIPT"
+
+    ARG_GIT_USER_NAME='${data.coder_parameter.git_user_name.value != "" ? base64encode(replace(data.coder_parameter.git_user_name.value, "'", "'\\''")) : ""}' \
+    ARG_GIT_USER_EMAIL='${data.coder_parameter.git_user_email.value != "" ? base64encode(replace(data.coder_parameter.git_user_email.value, "'", "'\\''")) : ""}' \
+    ARG_GIT_GLOBAL_GITCONFIG='${data.coder_parameter.git_global_gitconfig.value != "" ? base64encode(data.coder_parameter.git_global_gitconfig.value) : ""}' \
+    ARG_GIT_CREDENTIAL_HELPER='${data.coder_parameter.git_credential_helper.value}' \
+    "$SETUP_SCRIPT"
+
+    rm -f "$SETUP_SCRIPT"
+  EOT
+  run_on_start = true
+  depends_on   = [module.dotfiles]
 }
 
 module "vault" {
