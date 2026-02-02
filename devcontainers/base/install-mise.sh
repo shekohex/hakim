@@ -29,7 +29,10 @@ MISE_TAR="/tmp/mise.tar.gz"
 MISE_URL="https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-${MISE_ARCH}.tar.gz"
 curl -fsSL "$MISE_URL" -o "$MISE_TAR"
 echo "${MISE_SHA256}  ${MISE_TAR}" | sha256sum -c -
-tar -xzf "$MISE_TAR" -C /usr/local/bin mise
+rm -rf /usr/local/lib/mise /usr/local/bin/mise
+mkdir -p /usr/local/lib
+tar -xzf "$MISE_TAR" -C /usr/local/lib
+ln -s /usr/local/lib/mise/bin/mise /usr/local/bin/mise
 rm -f "$MISE_TAR"
 
 # Create global config dir
