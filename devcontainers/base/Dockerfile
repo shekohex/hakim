@@ -85,20 +85,17 @@ RUN curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${OPENC
 
 FROM base-system AS git-credential-libsecret-builder
 
+ARG GIT_SOURCE_TAG=v2.52.0
+
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
   apt-get update && apt-get install -y --no-install-recommends \
   libsecret-1-dev libglib2.0-dev pkg-config && \
   rm -rf /var/lib/apt/lists/*
 
-RUN if [ -d /usr/share/doc/git/contrib/credential/libsecret ]; then \
-    make -C /usr/share/doc/git/contrib/credential/libsecret && \
-    cp /usr/share/doc/git/contrib/credential/libsecret/git-credential-libsecret /tmp/; \
-  else \
-    git clone --depth 1 https://github.com/git/git /tmp/git-src && \
-    make -C /tmp/git-src/contrib/credential/libsecret && \
-    cp /tmp/git-src/contrib/credential/libsecret/git-credential-libsecret /tmp/; \
-  fi
+RUN git clone --depth 1 --branch "$GIT_SOURCE_TAG" https://github.com/git/git /tmp/git-src && \
+  make -C /tmp/git-src/contrib/credential/libsecret && \
+  cp /tmp/git-src/contrib/credential/libsecret/git-credential-libsecret /tmp/
 
 # =============================================================================
 # Stage 2d: Download docker-compose (version-isolated)
