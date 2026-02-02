@@ -2,7 +2,7 @@
     "name": "Phoenix Framework",
     "id": "phoenix",
     "version": "1.0.0",
-    "description": "Installs the Phoenix installer (phx_new) and OS dependencies for file watching. Seeds skeleton home with phx_new archive.",
+    "description": "Installs the Phoenix installer (phx_new) and OS dependencies for file watching. Uses user home for Mix archives.",
     "options": {
     "version": {
       "type": "string",
@@ -18,7 +18,7 @@
         "seedUserHome": {
             "type": "boolean",
             "default": true,
-            "description": "Pre-seed /etc/skel with phx_new archive so first boot copies to /home/coder."
+            "description": "Install phx_new into the runtime user home during image build."
         }
     },
     "dependsOn": {
