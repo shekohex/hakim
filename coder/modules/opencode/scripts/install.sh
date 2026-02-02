@@ -46,32 +46,31 @@ install_opencode() {
   if [ "$ARG_INSTALL_OPENCODE" = "true" ]; then
     if ! command_exists opencode; then
       echo "Installing OpenCode (version: ${ARG_OPENCODE_VERSION})..."
-      if [ "$ARG_OPENCODE_VERSION" = "latest" ]; then
-        curl -fsSL https://opencode.ai/install | bash
-      else
-        VERSION=$ARG_OPENCODE_VERSION curl -fsSL https://opencode.ai/install | bash
-      fi
-      
-      export PATH=/home/coder/.opencode/bin:$PATH
-      printf "Opencode location: %s\n" "$(which opencode)"
-      
-      if command_exists opencode; then
-        echo "Adding opencode to PATH in ~/.bashrc and ~/.zshrc if they exist"
-        # Add to .bashrc
-        if [ -f "$HOME/.bashrc" ] && ! grep -q "/home/coder/.opencode/bin" "$HOME/.bashrc"; then
-          echo 'export PATH=/home/coder/.opencode/bin:$PATH' >> "$HOME/.bashrc"
-        fi
-        # Add to .zshrc
-        if [ -f "$HOME/.zshrc" ] && ! grep -q "/home/coder/.opencode/bin" "$HOME/.zshrc"; then
-          echo 'export PATH=/home/coder/.opencode/bin:$PATH' >> "$HOME/.zshrc"
-        fi
-        
-        # Symlink to global bin if possible (requires sudo usually, but coder usually has sudo)
-        if command_exists sudo; then
-          echo "Symlinking opencode to /usr/local/bin"
-          sudo ln -sf "$(which opencode)" /usr/local/bin/opencode
+      if command_exists bun; then
+        if [ "$ARG_OPENCODE_VERSION" = "latest" ]; then
+          bun install -g opencode-ai
+        else
+          bun install -g "opencode-ai@${ARG_OPENCODE_VERSION}"
         fi
 
+        GLOBAL_BIN_DIR=$(bun pm bin -g)
+        if [ -n "$GLOBAL_BIN_DIR" ] && [ -f "$GLOBAL_BIN_DIR/opencode" ]; then
+          export PATH="$GLOBAL_BIN_DIR:$PATH"
+          if command_exists sudo; then
+            echo "Symlinking opencode to /usr/local/bin"
+            sudo ln -sf "$GLOBAL_BIN_DIR/opencode" /usr/local/bin/opencode
+          fi
+        fi
+      else
+        if [ "$ARG_OPENCODE_VERSION" = "latest" ]; then
+          curl -fsSL https://opencode.ai/install | bash
+        else
+          VERSION=$ARG_OPENCODE_VERSION curl -fsSL https://opencode.ai/install | bash
+        fi
+        export PATH=/home/coder/.opencode/bin:$PATH
+      fi
+
+      if command_exists opencode; then
         echo "OpenCode installed successfully"
       else
         echo "ERROR: Failed to install OpenCode"
