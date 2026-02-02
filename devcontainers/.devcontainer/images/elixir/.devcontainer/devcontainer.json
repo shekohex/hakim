@@ -13,17 +13,17 @@
       "seedUserHome": true
     },
     "../../../features/src/phoenix": {
-      "version": "latest",
+      "version": "1.8.3",
       "seedUserHome": true
     },
     "../../../features/src/postgresql-tools": {
-      "version": "latest"
+      "version": "17"
     },
     "../../../features/src/nodejs": {
-      "version": "lts"
+      "version": "24.13.0"
     },
     "../../../features/src/bun": {
-      "version": "latest"
+      "version": "1.3.8"
     },
     "../../../features/src/uv": {},
     "../../../features/src/openchamber": {},

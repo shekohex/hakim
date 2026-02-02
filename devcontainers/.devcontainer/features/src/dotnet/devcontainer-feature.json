@@ -5,7 +5,7 @@
     "description": "Installs Dotnet using official feature.",
     "features": {
         "ghcr.io/devcontainers/features/dotnet:2": {
-            "version": "latest",
+            "version": "9.0",
             "additionalVersions": "10.0-preview"
         }
     },

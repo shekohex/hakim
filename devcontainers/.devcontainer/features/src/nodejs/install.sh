@@ -2,7 +2,8 @@
 set -e
 
 
-VERSION=${VERSION:-"lts"}
+VERSION=${VERSION:-"24.13.0"}
+NODE_GYP_VERSION=${NODE_GYP_VERSION:-${NODEGYPVERSION:-"12.2.0"}}
 
 echo "Installing Node.js ${VERSION} via Mise..."
 
@@ -25,7 +26,7 @@ mise use --global node@${VERSION}
 echo "Node.js installed!"
 
 echo "Installing node-gyp for native module compilation..."
-npm install -g node-gyp
+npm install -g "node-gyp@${NODE_GYP_VERSION}"
 
 echo "Verifying Node.js installation..."
 source /etc/profile.d/mise.sh

@@ -3,6 +3,13 @@
   "id": "openchamber",
   "version": "1.0.0",
   "description": "Installs OpenChamber web UI.",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "1.6.2",
+      "description": "Select the version of OpenChamber to install."
+    }
+  },
   "installsAfter": [
     "ghcr.io/devcontainers/features/common-utils",
     "../bun"

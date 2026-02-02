@@ -4,17 +4,17 @@
     "version": "1.0.0",
     "description": "Installs the Phoenix installer (phx_new) and OS dependencies for file watching. Seeds skeleton home with phx_new archive.",
     "options": {
-        "version": {
-            "type": "string",
-            "proposals": [
-                "latest",
-                "1.7.18",
-                "1.7.17",
-                "1.7.16"
-            ],
-            "default": "latest",
-            "description": "Select the version of phx_new to install."
-        },
+    "version": {
+      "type": "string",
+      "proposals": [
+        "latest",
+        "1.7.18",
+        "1.7.17",
+        "1.7.16"
+      ],
+      "default": "1.8.3",
+      "description": "Select the version of phx_new to install."
+    },
         "seedUserHome": {
             "type": "boolean",
             "default": true,

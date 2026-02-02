@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION=${VERSION:-"latest"}
+VERSION=${VERSION:-"2026.1.30"}
 
 if ! command -v npm >/dev/null 2>&1; then
   if [ -f /etc/profile.d/mise.sh ]; then

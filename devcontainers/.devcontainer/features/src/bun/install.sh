@@ -2,7 +2,7 @@
 set -e
 
 
-VERSION=${VERSION:-"latest"}
+VERSION=${VERSION:-"1.3.8"}
 
 echo "Installing Bun ${VERSION} via Mise..."
 

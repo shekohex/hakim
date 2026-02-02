@@ -5,7 +5,7 @@
     "description": "Installs Rust using official feature.",
     "features": {
         "ghcr.io/devcontainers/features/rust:1": {
-            "version": "stable",
+            "version": "1.93.0",
             "profile": "minimal"
         }
     },

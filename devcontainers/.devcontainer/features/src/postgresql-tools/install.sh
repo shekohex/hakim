@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION=${VERSION:-"latest"}
+VERSION=${VERSION:-"17"}
 
 echo "Activating feature 'postgresql-tools'"
 echo "Installing PostgreSQL client tools (version: ${VERSION})..."

@@ -14,8 +14,13 @@
                 "20",
                 "18"
             ],
-            "default": "lts",
+            "default": "24.13.0",
             "description": "Select the version of Node.js to install."
+        },
+        "nodeGypVersion": {
+            "type": "string",
+            "default": "12.2.0",
+            "description": "Select the version of node-gyp to install."
         }
     },
     "installsAfter": [

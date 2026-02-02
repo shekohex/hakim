@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION=${VERSION:-"latest"}
+VERSION=${VERSION:-"5.24.3"}
 TOOLS=${TOOLS:-""}
 GLOBAL_COMPOSER_HOME="/usr/local/share/composer"
 

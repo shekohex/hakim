@@ -4,19 +4,19 @@
     "version": "1.0.0",
     "description": "Installs PostgreSQL client tools (psql, pg_dump, pg_isready, etc.). Supports version pinning via PGDG.",
     "options": {
-        "version": {
-            "type": "string",
-            "proposals": [
-                "latest",
-                "18",
-                "17",
-                "16",
-                "15",
-                "14"
-            ],
-            "default": "latest",
-            "description": "Select the major version of PostgreSQL client tools to install. Use 'latest' for distro package."
-        }
+    "version": {
+      "type": "string",
+      "proposals": [
+        "latest",
+        "18",
+        "17",
+        "16",
+        "15",
+        "14"
+      ],
+      "default": "17",
+      "description": "Select the major version of PostgreSQL client tools to install. Use 'latest' for distro package."
+    }
     },
     "installsAfter": [
         "ghcr.io/devcontainers/features/common-utils"

@@ -2,6 +2,7 @@
 set -e
 
 PACKAGE_NAME="@openchamber/web"
+VERSION=${VERSION:-"1.6.2"}
 
 _REMOTE_USER=${_REMOTE_USER:-"coder"}
 
@@ -18,7 +19,7 @@ if ! command -v bun >/dev/null 2>&1; then
   exit 1
 fi
 
-su - "${_REMOTE_USER}" -c "bun add -g ${PACKAGE_NAME}"
+su - "${_REMOTE_USER}" -c "bun add -g ${PACKAGE_NAME}@${VERSION}"
 
 GLOBAL_BIN_DIR=$(su - "${_REMOTE_USER}" -c "bun pm bin -g")
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION=${VERSION:-"latest"}
+VERSION=${VERSION:-"1.8.3"}
 SEED_USER_HOME=${SEEDUSERHOME:-"true"}
 
 echo "Activating feature 'phoenix'"
