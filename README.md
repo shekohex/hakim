@@ -13,6 +13,7 @@ The images are built using the [DevContainer Features](https://containers.dev/fe
 | `hakim-dotnet` | .NET | `dotnet:10`, `dotnet:latest`, `nodejs`, `bun` | .NET 10 (Preview) & Latest SDKs with JS runtimes. |
 | `hakim-rust` | Rust | `rust:stable`, `nodejs`, `bun` | Rust Stable toolchain with JS runtimes. |
 | `hakim-js` | JS | `nodejs:lts`, `bun:latest` | Unified JavaScript environment with Node.js LTS and Bun. |
+| `hakim-elixir` | Elixir | `elixir`, `phoenix`, `postgresql-tools`, `nodejs`, `bun` | Elixir + Phoenix environment with PostgreSQL client tools and JS runtimes. |
 
 ## 🛠️ Coder Template Options
 
@@ -21,7 +22,7 @@ The `coder-templates/hakim` template exposes several parameters to customize the
 ### Core Parameters
 | Parameter | Description | Default | Options |
 | :--- | :--- | :--- | :--- |
-| **Environment** (`image_variant`) | Selects the environment image. | `base` | `base`, `php`, `dotnet`, `js`, `rust`, `custom` |
+| **Environment** (`image_variant`) | Selects the environment image. | `base` | `base`, `php`, `dotnet`, `js`, `rust`, `elixir`, `custom` |
 | **Git Repository URL** | Repository to clone on startup. | `""` | Any valid Git URL |
 | **Image URL** | Custom Docker image URL (only used if Env is "Custom"). | `""` | |
 
