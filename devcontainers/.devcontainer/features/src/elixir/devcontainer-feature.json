@@ -2,7 +2,7 @@
     "name": "Elixir (via Mise)",
     "id": "elixir",
     "version": "1.0.0",
-    "description": "Installs Erlang/OTP and Elixir using Mise. Seeds skeleton home with Hex/Rebar for persistence.",
+    "description": "Installs Erlang/OTP and Elixir using Mise. Configures Mix/Hex to use user home directories.",
     "options": {
         "erlangVersion": {
             "type": "string",
@@ -27,7 +27,7 @@
         "seedUserHome": {
             "type": "boolean",
             "default": true,
-            "description": "Pre-seed /etc/skel with Hex/Rebar so first boot copies to /home/coder."
+            "description": "Install Hex/Rebar into the runtime user home during image build."
         }
     },
     "installsAfter": [
