@@ -69,20 +69,6 @@ WORKDIR /downloads
 RUN curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-${TARGETARCH}.tar.gz" \
   | tar -xzf - && mv code-server-${CODE_SERVER_VERSION}-linux-${TARGETARCH} code-server
 
-# =============================================================================
-# Stage 2c: Download opencode (version-isolated)
-# =============================================================================
-FROM base-system AS opencode-downloader
-
-# VERSION_UPDATE_BEGIN: opencode
-ARG OPENCODE_VERSION=1.1.49
-# VERSION_UPDATE_END: opencode
-
-WORKDIR /downloads
-
-RUN curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-x64.tar.gz" \
-  | tar -xzf -
-
 FROM base-system AS git-credential-libsecret-builder
 
 ARG GIT_SOURCE_TAG=v2.52.0
@@ -159,11 +145,10 @@ ENV MISE_DATA_DIR=/usr/local/share/mise \
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/
 COPY --from=docker-compose-downloader /downloads/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
 
-COPY --from=chrome-downloader /downloads/google-chrome.deb /tmp/google-chrome.deb
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
-  dpkg -i /tmp/google-chrome.deb || apt --fix-broken install -y && \
-  rm /tmp/google-chrome.deb
+  --mount=type=bind,from=chrome-downloader,source=/downloads/google-chrome.deb,target=/tmp/google-chrome.deb \
+  dpkg -i /tmp/google-chrome.deb || apt --fix-broken install -y
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -173,9 +158,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY --from=coder-downloader /downloads/coder /usr/local/bin/coder
 COPY --from=code-server-downloader /downloads/code-server /usr/local/lib/code-server
-COPY --from=opencode-downloader /downloads/opencode /usr/local/bin/opencode
 COPY --from=git-credential-libsecret-builder /tmp/git-credential-libsecret /usr/local/bin/git-credential-libsecret
-RUN chmod +x /usr/local/bin/coder /usr/local/bin/opencode /usr/local/bin/git-credential-libsecret && \
+RUN chmod +x /usr/local/bin/coder /usr/local/bin/git-credential-libsecret && \
   chmod +x /usr/local/lib/docker/cli-plugins/docker-compose && \
   ln -s /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose && \
   ln -s /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server
