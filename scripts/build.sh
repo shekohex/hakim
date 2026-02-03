@@ -41,7 +41,6 @@ CACHE_ARGS=""
 BASE_BUILD_CMD="docker build"
 CODER_VERSION_ARG=""
 CODE_VERSION_ARG=""
-OPENCODE_VERSION_ARG=""
 CHROME_VERSION_ARG=""
 FETCH_LATEST=false
 
@@ -54,9 +53,8 @@ function fetch_all_latest_versions() {
   info "Fetching latest tool versions..."
   LATEST_CODER=$(fetch_latest_version "coder/coder")
   LATEST_CODE_SERVER=$(fetch_latest_version "coder/code-server")
-  LATEST_OPENCODE=$(fetch_latest_version "anomalyco/opencode")
   LATEST_CHROME=$(curl -sL "https://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages" 2>/dev/null | rg -A1 "^Package: google-chrome-stable" | rg "^Version:" | awk '{print $2}')
-  info "Latest versions: coder=$LATEST_CODER, code-server=$LATEST_CODE_SERVER, opencode=$LATEST_OPENCODE, chrome=$LATEST_CHROME"
+  info "Latest versions: coder=$LATEST_CODER, code-server=$LATEST_CODE_SERVER, chrome=$LATEST_CHROME"
 }
 
 function usage() {
@@ -66,7 +64,6 @@ Usage: $(basename "$0") [OPTIONS]
 Options:
   --coder-version <version>     Specify the version of coder CLI to install
   --code-version <version>      Specify the version of code-server to install
-  --opencode-version <version>  Specify the version of opencode to install
   --chrome-version <version>    Specify the version of Google Chrome to install
   --fetch-latest                Fetch and use latest versions for all tools (requires gh CLI)
   --help, -h                    Show this help message
@@ -85,10 +82,6 @@ while [[ "$#" -gt 0 ]]; do
     ;;
   --code-version)
     CODE_VERSION_ARG="--build-arg CODE_SERVER_VERSION=$2"
-    shift
-    ;;
-  --opencode-version)
-    OPENCODE_VERSION_ARG="--build-arg OPENCODE_VERSION=$2"
     shift
     ;;
   --chrome-version)
@@ -113,7 +106,6 @@ if [ "$FETCH_LATEST" = true ]; then
   fetch_all_latest_versions
   [ -z "$CODER_VERSION_ARG" ] && CODER_VERSION_ARG="--build-arg CODER_VERSION=$LATEST_CODER"
   [ -z "$CODE_VERSION_ARG" ] && CODE_VERSION_ARG="--build-arg CODE_SERVER_VERSION=$LATEST_CODE_SERVER"
-  [ -z "$OPENCODE_VERSION_ARG" ] && OPENCODE_VERSION_ARG="--build-arg OPENCODE_VERSION=$LATEST_OPENCODE"
   [ -z "$CHROME_VERSION_ARG" ] && CHROME_VERSION_ARG="--build-arg GOOGLE_CHROME_VERSION=$LATEST_CHROME"
 fi
 
@@ -146,7 +138,11 @@ fi
 
 info "Building Base Image..."
 # shellcheck disable=SC2086
-$BASE_BUILD_CMD $CODER_VERSION_ARG $CODE_VERSION_ARG $OPENCODE_VERSION_ARG $CHROME_VERSION_ARG -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
+$BASE_BUILD_CMD $CODER_VERSION_ARG $CODE_VERSION_ARG $CHROME_VERSION_ARG -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
+
+info "Building Tooling Image..."
+# shellcheck disable=SC2086
+$BASE_BUILD_CMD --build-arg BASE_IMAGE="$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-tooling:latest" -t "$REGISTRY/hakim-tooling:$TIMESTAMP" devcontainers/tooling
 
 for variant in devcontainers/.devcontainer/images/*; do
   variant_name=$(basename "$variant")

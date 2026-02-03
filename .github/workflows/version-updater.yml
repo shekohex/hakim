@@ -118,11 +118,6 @@ jobs:
             -e '/# VERSION_UPDATE_BEGIN: code-server/,/# VERSION_UPDATE_END: code-server/{s/ARG CODE_SERVER_VERSION=.*/ARG CODE_SERVER_VERSION=${{ steps.check.outputs.code_server_version }}/}' \
             "$DOCKERFILE"
           
-          # Update OPENCODE_VERSION with tag protection
-          sed -i \
-            -e '/# VERSION_UPDATE_BEGIN: opencode/,/# VERSION_UPDATE_END: opencode/{s/ARG OPENCODE_VERSION=.*/ARG OPENCODE_VERSION=${{ steps.check.outputs.opencode_version }}/}' \
-            "$DOCKERFILE"
-          
           echo "Updated Dockerfile"
 
       - name: Update Terraform module versions

@@ -56,6 +56,10 @@ function pull_image() {
   fi
 }
 
+function dangling_images() {
+  docker images -f dangling=true -q 2>/dev/null || true
+}
+
 login_ghcr
 
 info "Pulling base images..."
@@ -66,3 +70,10 @@ for variant_dir in devcontainers/.devcontainer/images/*; do
   variant=$(basename "$variant_dir")
   pull_image "$REGISTRY/hakim-$variant:latest" "$variant:latest"
 done
+
+dangling=$(dangling_images)
+if [ -n "$dangling" ]; then
+  count=$(printf "%s\n" "$dangling" | wc -l | tr -d ' ')
+  warn "Found $count dangling images"
+  info "Cleanup: docker image prune -f"
+fi
