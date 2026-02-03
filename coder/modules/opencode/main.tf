@@ -171,7 +171,7 @@ resource "coder_script" "opencode_start" {
     ARG_OPENCODE_CONFIG='${var.config_json != null ? base64encode(replace(var.config_json, "'", "'\\''")) : ""}' \
     ARG_PRE_INSTALL_SCRIPT='${var.pre_install_script != null ? base64encode(var.pre_install_script) : ""}' \
     ARG_POST_INSTALL_SCRIPT='${var.post_install_script != null ? base64encode(var.post_install_script) : ""}' \
-    "$INSTALL_SCRIPT"
+    bash -lc "$INSTALL_SCRIPT"
 
     echo -n '${base64encode(local.start_script)}' | base64 -d > "$START_SCRIPT"
     chmod +x "$START_SCRIPT"
@@ -183,7 +183,7 @@ resource "coder_script" "opencode_start" {
     ARG_CONTINUE='${var.continue}' \
     ARG_PORT='${var.port}' \
     ARG_HOSTNAME='${var.hostname}' \
-    "$START_SCRIPT"
+    bash -lc "$START_SCRIPT"
 
     rm -f "$INSTALL_SCRIPT" "$START_SCRIPT"
   EOT
@@ -213,7 +213,7 @@ resource "coder_app" "opencode_cli" {
   slug         = "${local.app_slug}-cli"
   display_name = var.cli_app_display_name
   agent_id     = var.agent_id
-  command      = "opencode"
+  command      = "bash -lc \"opencode\""
   icon         = var.icon
   order        = var.order != null ? var.order + 1 : null
   group        = var.group

@@ -118,7 +118,7 @@ resource "coder_script" "openchamber_start" {
     ARG_INSTALL_OPENCHAMBER='${var.install_openchamber}' \
     ARG_PRE_INSTALL_SCRIPT='${var.pre_install_script != null ? base64encode(var.pre_install_script) : ""}' \
     ARG_POST_INSTALL_SCRIPT='${var.post_install_script != null ? base64encode(var.post_install_script) : ""}' \
-    "$INSTALL_SCRIPT"
+    bash -lc "$INSTALL_SCRIPT"
 
     echo -n '${base64encode(local.start_script)}' | base64 -d > "$START_SCRIPT"
     chmod +x "$START_SCRIPT"
@@ -126,7 +126,7 @@ resource "coder_script" "openchamber_start" {
     ARG_WORKDIR='${local.workdir}' \
     ARG_PORT='${var.port}' \
     ARG_UI_PASSWORD='${var.ui_password != null ? base64encode(replace(var.ui_password, "'", "'\\''")) : ""}' \
-    "$START_SCRIPT"
+    bash -lc "$START_SCRIPT"
 
     rm -f "$INSTALL_SCRIPT" "$START_SCRIPT"
   EOT
