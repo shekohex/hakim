@@ -1,8 +1,11 @@
 ARG BASE_IMAGE=ghcr.io/shekohex/hakim-base:latest
 FROM ${BASE_IMAGE}
 
+USER root
 SHELL ["/bin/bash", "-c"]
 ENV MISE_YES=1
+
+RUN chmod -R 777 /usr/local/share/mise
 
 ARG NODE_VERSION=24.12.0
 ARG NODE_GYP_VERSION=12.2.0
@@ -42,3 +45,5 @@ RUN source /etc/profile.d/mise.sh && \
       fi; \
     done; \
   done
+
+USER coder
