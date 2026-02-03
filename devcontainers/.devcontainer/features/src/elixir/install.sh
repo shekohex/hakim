@@ -54,7 +54,7 @@ source /etc/profile.d/mise.sh
 erl -version || true
 elixir --version
 
-MIX_ENV_EXPORT='export MIX_HOME="${MIX_HOME:-$HOME/.mix}"\nexport HEX_HOME="${HEX_HOME:-$HOME/.hex}"\nexport MIX_ARCHIVES="${MIX_ARCHIVES:-$MIX_HOME/archives}"'
+MIX_ENV_EXPORT='export MIX_HOME="$HOME/.mix"\nexport HEX_HOME="$HOME/.hex"\nexport MIX_ARCHIVES="$MIX_HOME/archives"'
 
 if [[ "$(cat /etc/bash.bashrc)" != *"$MIX_ENV_EXPORT"* ]]; then
     echo -e "$MIX_ENV_EXPORT" >> /etc/bash.bashrc
@@ -65,9 +65,9 @@ if [ -f "/etc/zsh/zshrc" ] && [[ "$(cat /etc/zsh/zshrc)" != *"$MIX_ENV_EXPORT"* 
 fi
 
 cat << 'EOF' > /etc/profile.d/elixir-mix.sh
-export MIX_HOME="${MIX_HOME:-$HOME/.mix}"
-export HEX_HOME="${HEX_HOME:-$HOME/.hex}"
-export MIX_ARCHIVES="${MIX_ARCHIVES:-$MIX_HOME/archives}"
+export MIX_HOME="$HOME/.mix"
+export HEX_HOME="$HOME/.hex"
+export MIX_ARCHIVES="$MIX_HOME/archives"
 EOF
 chmod +x /etc/profile.d/elixir-mix.sh
 
