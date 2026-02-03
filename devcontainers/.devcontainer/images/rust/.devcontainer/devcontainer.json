@@ -1,6 +1,6 @@
 {
   "name": "Hakim Rust",
-  "image": "ghcr.io/shekohex/hakim-base:latest",
+  "image": "ghcr.io/shekohex/hakim-tooling:latest",
   "build": {
     "args": {
       "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}"
@@ -11,15 +11,6 @@
       "version": "1.93.0",
       "profile": "minimal"
     },
-    "../../../features/src/nodejs": {
-      "version": "24.13.0"
-    },
-    "../../../features/src/bun": {
-      "version": "1.3.8"
-    },
-    "../../../features/src/uv": {},
-    "../../../features/src/openchamber": {},
-    "../../../features/src/openclaw": {},
     "../../../features/src/lazyvim": {}
   },
   "customizations": {
