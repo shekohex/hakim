@@ -5,6 +5,14 @@ command_exists() {
   command -v "$1" > /dev/null 2>&1
 }
 
+if command_exists bun; then
+  export PATH="$HOME/.bun/bin:$PATH"
+  GLOBAL_BIN_DIR=$(bun pm bin -g 2> /dev/null || true)
+  if [ -n "$GLOBAL_BIN_DIR" ]; then
+    export PATH="$GLOBAL_BIN_DIR:$PATH"
+  fi
+fi
+
 ARG_OPENCHAMBER_VERSION=${ARG_OPENCHAMBER_VERSION:-latest}
 ARG_INSTALL_OPENCHAMBER=${ARG_INSTALL_OPENCHAMBER:-true}
 ARG_PRE_INSTALL_SCRIPT=$(echo -n "${ARG_PRE_INSTALL_SCRIPT:-}" | base64 -d 2> /dev/null || echo "")
