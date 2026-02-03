@@ -46,7 +46,7 @@ FROM base-system AS coder-downloader
 
 ARG TARGETARCH=amd64
 # VERSION_UPDATE_BEGIN: coder
-ARG CODER_VERSION=2.28.9
+ARG CODER_VERSION=2.29.5
 # VERSION_UPDATE_END: coder
 
 WORKDIR /downloads
