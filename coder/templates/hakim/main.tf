@@ -532,7 +532,7 @@ module "opencode" {
   workdir             = local.project_dir
   auth_json           = data.coder_parameter.opencode_auth.value
   config_json         = data.coder_parameter.opencode_config.value
-  install_opencode    = false
+  install_opencode    = true
   order               = 999
   cli_app             = true
   report_tasks        = true
@@ -553,7 +553,7 @@ module "openchamber" {
   agent_id            = coder_agent.main.id
   workdir             = local.project_dir
   ui_password         = data.coder_parameter.openchamber_ui_password.value
-  install_openchamber = false
+  install_openchamber = true
   order               = 998
   subdomain           = true
   depends_on          = [module.opencode]
