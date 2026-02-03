@@ -99,7 +99,7 @@ variable "opencode_version" {
   type        = string
   description = "The version of OpenCode to install."
   # VERSION_UPDATE_BEGIN: opencode
-  default     = "1.1.49"
+  default = "1.1.49"
   # VERSION_UPDATE_END: opencode
 }
 
@@ -147,17 +147,20 @@ locals {
   module_dir_name = ".opencode-module"
 }
 
-resource "coder_script" "opencode_install" {
+resource "coder_script" "opencode_start" {
   agent_id     = var.agent_id
-  display_name = "Install OpenCode"
+  display_name = "Start OpenCode Server"
   icon         = var.icon
   script       = <<-EOT
     #!/bin/bash
     set -o errexit
     set -o pipefail
 
-    echo -n '${base64encode(local.install_script)}' | base64 -d > /tmp/install.sh
-    chmod +x /tmp/install.sh
+    INSTALL_SCRIPT="/tmp/opencode-install-$$.sh"
+    START_SCRIPT="/tmp/opencode-start-$$.sh"
+
+    echo -n '${base64encode(local.install_script)}' | base64 -d > "$INSTALL_SCRIPT"
+    chmod +x "$INSTALL_SCRIPT"
 
     ARG_OPENCODE_VERSION='${var.opencode_version}' \
     ARG_MCP_APP_STATUS_SLUG='${local.app_slug}' \
@@ -168,22 +171,10 @@ resource "coder_script" "opencode_install" {
     ARG_OPENCODE_CONFIG='${var.config_json != null ? base64encode(replace(var.config_json, "'", "'\\''")) : ""}' \
     ARG_PRE_INSTALL_SCRIPT='${var.pre_install_script != null ? base64encode(var.pre_install_script) : ""}' \
     ARG_POST_INSTALL_SCRIPT='${var.post_install_script != null ? base64encode(var.post_install_script) : ""}' \
-    /tmp/install.sh
-  EOT
-  run_on_start = true
-}
+    "$INSTALL_SCRIPT"
 
-resource "coder_script" "opencode_start" {
-  agent_id     = var.agent_id
-  display_name = "Start OpenCode Server"
-  icon         = var.icon
-  script       = <<-EOT
-    #!/bin/bash
-    set -o errexit
-    set -o pipefail
-
-    echo -n '${base64encode(local.start_script)}' | base64 -d > /tmp/start.sh
-    chmod +x /tmp/start.sh
+    echo -n '${base64encode(local.start_script)}' | base64 -d > "$START_SCRIPT"
+    chmod +x "$START_SCRIPT"
 
     ARG_WORKDIR='${local.workdir}' \
     ARG_AI_PROMPT='${base64encode(var.ai_prompt)}' \
@@ -192,10 +183,11 @@ resource "coder_script" "opencode_start" {
     ARG_CONTINUE='${var.continue}' \
     ARG_PORT='${var.port}' \
     ARG_HOSTNAME='${var.hostname}' \
-    /tmp/start.sh
+    "$START_SCRIPT"
+
+    rm -f "$INSTALL_SCRIPT" "$START_SCRIPT"
   EOT
   run_on_start = true
-  depends_on   = [coder_script.opencode_install]
 }
 
 resource "coder_app" "opencode_web" {

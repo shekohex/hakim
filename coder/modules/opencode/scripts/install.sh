@@ -5,6 +5,14 @@ command_exists() {
   command -v "$1" > /dev/null 2>&1
 }
 
+if command_exists bun; then
+  export PATH="$HOME/.bun/bin:$PATH"
+  GLOBAL_BIN_DIR=$(bun pm bin -g 2> /dev/null || true)
+  if [ -n "$GLOBAL_BIN_DIR" ]; then
+    export PATH="$GLOBAL_BIN_DIR:$PATH"
+  fi
+fi
+
 ARG_WORKDIR=${ARG_WORKDIR:-"$HOME"}
 ARG_REPORT_TASKS=${ARG_REPORT_TASKS:-true}
 ARG_MCP_APP_STATUS_SLUG=${ARG_MCP_APP_STATUS_SLUG:-}
