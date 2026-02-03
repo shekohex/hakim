@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "coder/templates/**"
+      - "coder/modules/**"
       - ".github/workflows/publish-template.yaml"
   release:
     types: [published]
