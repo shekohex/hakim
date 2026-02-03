@@ -14,11 +14,13 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
+export NPM_CONFIG_CACHE=/tmp/.npm
 if [ "${VERSION}" = "latest" ]; then
   SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install -g openclaw@latest
 else
   SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm install -g "openclaw@${VERSION}"
 fi
+rm -rf /tmp/.npm /root/.npm
 
 if command -v openclaw >/dev/null 2>&1; then
   openclaw --version || openclaw -V || true

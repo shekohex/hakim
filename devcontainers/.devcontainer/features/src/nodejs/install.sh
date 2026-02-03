@@ -26,7 +26,9 @@ mise use --global node@${VERSION}
 echo "Node.js installed!"
 
 echo "Installing node-gyp for native module compilation..."
+export NPM_CONFIG_CACHE=/tmp/.npm
 npm install -g "node-gyp@${NODE_GYP_VERSION}"
+rm -rf /tmp/.npm /root/.npm
 
 echo "Verifying Node.js installation..."
 source /etc/profile.d/mise.sh

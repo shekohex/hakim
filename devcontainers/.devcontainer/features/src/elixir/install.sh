@@ -38,6 +38,8 @@ mise use --global erlang@${ERLANG_VERSION}
 echo "Installing Elixir ${ELIXIR_VERSION}..."
 mise use --global elixir@${ELIXIR_VERSION}
 
+rm -rf /root/.cache/mise
+
 echo "Symlinking binaries to /usr/local/bin..."
 for bin_path in $(mise bin-paths); do
     for bin_file in "$bin_path"/*; do
