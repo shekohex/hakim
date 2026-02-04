@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+export MIX_HOME=/home/coder/.mix
+export HEX_HOME=/home/coder/.hex
+export MIX_ARCHIVES=/home/coder/.mix/archives
+
 export PATH="$HOME/.bun/bin:$PATH"
 if command -v bun > /dev/null 2>&1; then
   GLOBAL_BIN_DIR=$(bun pm bin -g 2> /dev/null || true)

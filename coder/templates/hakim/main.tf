@@ -431,9 +431,14 @@ data "coder_parameter" "setup_script" {
 }
 
 locals {
-  user_env         = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
-  secret_env       = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
-  combined_env     = merge(local.user_env, local.secret_env)
+  user_env   = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
+  secret_env = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
+  default_env = {
+    MIX_HOME     = "/home/coder/.mix"
+    HEX_HOME     = "/home/coder/.hex"
+    MIX_ARCHIVES = "/home/coder/.mix/archives"
+  }
+  combined_env     = merge(local.default_env, local.user_env, local.secret_env)
   project_dir      = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script = file("${path.module}/scripts/setup-git.sh")
 }
