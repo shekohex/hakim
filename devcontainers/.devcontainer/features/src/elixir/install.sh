@@ -18,13 +18,6 @@ fi
 echo "Activating feature 'elixir'"
 echo "Installing Erlang ${ERLANG_VERSION} and Elixir ${ELIXIR_VERSION} via Mise..."
 
-apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    libncurses-dev \
-    libssl-dev \
-    openssl \
-    && rm -rf /var/lib/apt/lists/*
-
 export MISE_YES=1
 export MISE_DATA_DIR=/usr/local/share/mise
 
@@ -32,7 +25,31 @@ if [ -f /etc/profile.d/mise.sh ]; then
     source /etc/profile.d/mise.sh
 fi
 
-echo "Installing Erlang/OTP ${ERLANG_VERSION}..."
+# Install build dependencies for compiling Erlang from source
+apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    autoconf \
+    m4 \
+    libncurses5-dev \
+    libncurses-dev \
+    libwxgtk3.2-dev \
+    libgl1-mesa-dev \
+    libglu1-mesa-dev \
+    libpng-dev \
+    libssh-dev \
+    unixodbc-dev \
+    xsltproc \
+    fop \
+    libxml2-utils \
+    libssl-dev \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Force Erlang compilation from source to ensure compatibility with current glibc
+export MISE_ERLANG_COMPILE=1
+
+echo "Installing Erlang/OTP ${ERLANG_VERSION} (compiling from source)..."
 mise use --global erlang@${ERLANG_VERSION}
 
 echo "Installing Elixir ${ELIXIR_VERSION}..."
