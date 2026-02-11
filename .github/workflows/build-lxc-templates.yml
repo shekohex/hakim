@@ -34,9 +34,11 @@ jobs:
           echo "/snap/bin" >> "$GITHUB_PATH"
 
       - name: Build variant template
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           sudo /snap/bin/distrobuilder --version
-          sudo --preserve-env=PATH ./distrobuilder/scripts/build-variant.sh "${{ matrix.variant }}" "bookworm" "amd64"
+          sudo --preserve-env=PATH,GITHUB_TOKEN ./distrobuilder/scripts/build-variant.sh "${{ matrix.variant }}" "bookworm" "amd64"
           sudo chown -R "$USER:$USER" distrobuilder/out .tmp/distrobuilder || true
 
       - name: Verify variant checksums

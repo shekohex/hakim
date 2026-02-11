@@ -119,6 +119,11 @@ install_mise() {
 
   source_mise
 
+  # Export GITHUB_TOKEN if available to avoid rate limits
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    export GITHUB_TOKEN
+  fi
+
   MISE_YES=1 mise install --yes
 
   if [ -x /etc/mise/tasks/postinstall ]; then
