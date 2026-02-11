@@ -121,10 +121,8 @@ install_mise() {
 
   MISE_YES=1 mise install --yes
 
-  if [ -d "${ASSETS_DIR}/tasks" ]; then
-    rm -rf /etc/mise/tasks
-    mkdir -p /etc/mise
-    cp -R "${ASSETS_DIR}/tasks" /etc/mise/tasks
+  if [ -x /etc/mise/tasks/postinstall ]; then
+    chmod +x /etc/mise/tasks/*
     MISE_YES=1 mise run -C /etc/mise postinstall --yes
     rm -rf /etc/mise/tasks
   fi

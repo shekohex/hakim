@@ -62,8 +62,25 @@ files:
     source: ../devcontainers/base/starship.toml
     path: /usr/local/share/hakim/assets/starship.toml
   - generator: copy
-    source: ../devcontainers/base/tasks
-    path: /usr/local/share/hakim/assets/tasks
+    source: ../devcontainers/base/tasks/postinstall
+    path: /etc/mise/tasks/postinstall
+    mode: "0755"
+  - generator: copy
+    source: ../devcontainers/base/tasks/expose-tools
+    path: /etc/mise/tasks/expose-tools
+    mode: "0755"
+  - generator: copy
+    source: ../devcontainers/base/tasks/setup-starship
+    path: /etc/mise/tasks/setup-starship
+    mode: "0755"
+  - generator: copy
+    source: ../devcontainers/base/tasks/setup-zoxide
+    path: /etc/mise/tasks/setup-zoxide
+    mode: "0755"
+  - generator: copy
+    source: ../devcontainers/base/tasks/setup-blesh
+    path: /etc/mise/tasks/setup-blesh
+    mode: "0755"
   - generator: copy
     source: ../devcontainers/.devcontainer/features/src/elixir/install.sh
     path: /usr/local/share/hakim/assets/features/elixir-install.sh
