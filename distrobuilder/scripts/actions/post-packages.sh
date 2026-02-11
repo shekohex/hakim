@@ -7,7 +7,7 @@ FEATURES_DIR=/usr/local/share/hakim/assets/features
 
 CODER_VERSION=${CODER_VERSION:-2.29.5}
 CODE_SERVER_VERSION=${CODE_SERVER_VERSION:-4.108.2}
-DOCKER_CLI_VERSION=${DOCKER_CLI_VERSION:-28.3.3}
+DOCKER_CLI_VERSION=${DOCKER_CLI_VERSION:-29.2.0}
 DOCKER_COMPOSE_VERSION=${DOCKER_COMPOSE_VERSION:-2.29.7}
 GOOGLE_CHROME_VERSION=${GOOGLE_CHROME_VERSION:-143.0.7499.192-1}
 GIT_SOURCE_TAG=${GIT_SOURCE_TAG:-v2.52.0}
@@ -77,7 +77,7 @@ install_git_credential_libsecret() {
 }
 
 install_docker_cli() {
-  docker_arch="${ARCH}"
+  docker_arch=$(case "${ARCH}" in amd64) echo "x86_64" ;; arm64) echo "aarch64" ;; *) echo "${ARCH}" ;; esac)
   tmp_tar="/tmp/docker-cli.tgz"
   curl -fsSL "https://download.docker.com/linux/static/stable/${docker_arch}/docker-${DOCKER_CLI_VERSION}.tgz" -o "${tmp_tar}"
   tar -xzf "${tmp_tar}" -C /tmp
