@@ -33,6 +33,12 @@ jobs:
           # We use ls -d to get directories, basename to get just the folder name
           # jq to format as JSON array
           templates=$(find coder/templates -mindepth 1 -maxdepth 1 -type d -not -path '*/.*' | xargs -n1 basename | jq -R -s -c 'split("\n") | map(select(length > 0))')
+
+          if ! echo "$templates" | jq -e 'index("hakim") and index("hakim-proxmox")' > /dev/null; then
+            echo "Required templates not found. Expected both hakim and hakim-proxmox." >&2
+            exit 1
+          fi
+
           echo "Found templates: $templates"
           echo "templates=$templates" >> $GITHUB_OUTPUT
 
