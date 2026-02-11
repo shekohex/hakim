@@ -47,10 +47,25 @@ apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Force Erlang compilation from source to ensure compatibility with current glibc
-export MISE_ERLANG_COMPILE=1
+# Install kerl and use it to compile Erlang from source
+KERL_VERSION="4.2.0"
+curl -fsSL "https://raw.githubusercontent.com/kerl/kerl/${KERL_VERSION}/kerl" -o /usr/local/bin/kerl
+chmod +x /usr/local/bin/kerl
 
-echo "Installing Erlang/OTP ${ERLANG_VERSION} (compiling from source)..."
-mise use --global erlang@${ERLANG_VERSION}
+# Configure kerl to build from source with proper options
+export KERL_CONFIGURE_OPTIONS="--disable-debug --without-javac --without-wx"
+export KERL_BUILD_DOCS="no"
+
+echo "Installing Erlang/OTP ${ERLANG_VERSION} (compiling from source with kerl)..."
+kerl build "${ERLANG_VERSION}" "${ERLANG_VERSION}"
+kerl install "${ERLANG_VERSION}" /usr/local/share/mise/installs/erlang/${ERLANG_VERSION}
+
+# Link erlang binaries
+for bin in /usr/local/share/mise/installs/erlang/${ERLANG_VERSION}/bin/*; do
+    if [ -f "$bin" ] && [ -x "$bin" ]; then
+        ln -sf "$bin" "/usr/local/bin/$(basename "$bin")"
+    fi
+done
 
 echo "Installing Elixir ${ELIXIR_VERSION}..."
 mise use --global elixir@${ELIXIR_VERSION}
