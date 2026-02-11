@@ -102,13 +102,19 @@ files:
 actions:
   - trigger: post-files
     action: |-
+      #!/bin/bash
+      set -euo pipefail
       /bin/bash /usr/local/share/hakim/actions/post-unpack.sh
 
   - trigger: post-files
     pongo: true
     action: |-
+      #!/bin/bash
+      set -euo pipefail
       /bin/bash /usr/local/share/hakim/actions/post-packages.sh {{ image.variant }}
 
   - trigger: post-files
     action: |-
+      #!/bin/bash
+      set -euo pipefail
       /bin/bash /usr/local/share/hakim/actions/post-files.sh

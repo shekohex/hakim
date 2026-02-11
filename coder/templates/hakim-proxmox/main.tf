@@ -415,7 +415,7 @@ data "coder_parameter" "proxmox_api_token" {
   display_name = "Proxmox API Token"
   description  = "API token in the form user@realm!tokenid=secret"
   type         = "string"
-  default      = ""
+  default      = "root@pam!coder-template=dummy"
   mutable      = true
   styling      = jsonencode({ mask_input = true })
   icon         = "/icon/proxmox.svg"
