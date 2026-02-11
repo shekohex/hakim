@@ -132,10 +132,27 @@ install_mise() {
 
 install_coder_cli() {
   tmp_tar="/tmp/coder.tar.gz"
+  tmp_dir="/tmp/coder-extract"
   curl -fsSL "https://github.com/coder/coder/releases/download/v${CODER_VERSION}/coder_${CODER_VERSION}_linux_${RELEASE_ARCH}.tar.gz" -o "${tmp_tar}"
-  tar -xzf "${tmp_tar}" -C /usr/local/bin coder
+  rm -rf "${tmp_dir}"
+  mkdir -p "${tmp_dir}"
+  tar -xzf "${tmp_tar}" -C "${tmp_dir}"
+  # Find and install the coder binary
+  if [ -f "${tmp_dir}/coder" ]; then
+    cp "${tmp_dir}/coder" /usr/local/bin/coder
+  else
+    # Try to find it in subdirectories
+    coder_bin=$(find "${tmp_dir}" -name "coder" -type f -executable | head -1)
+    if [ -n "${coder_bin}" ]; then
+      cp "${coder_bin}" /usr/local/bin/coder
+    else
+      echo "ERROR: Could not find coder binary in tarball" >&2
+      ls -la "${tmp_dir}"
+      exit 1
+    fi
+  fi
   chmod +x /usr/local/bin/coder
-  rm -f "${tmp_tar}"
+  rm -rf "${tmp_tar}" "${tmp_dir}"
 }
 
 install_code_server() {
