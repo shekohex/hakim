@@ -504,7 +504,7 @@ data "coder_parameter" "proxmox_network_firewall" {
   description  = "Enable Proxmox firewall flag on the primary NIC."
   type         = "bool"
   default      = false
-  icon         = "/icon/shield.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/shield.svg"
   order        = 39
 }
 
@@ -558,7 +558,7 @@ data "coder_parameter" "enable_nesting" {
   description  = "Enable LXC nesting. Disabled by default."
   type         = "bool"
   default      = false
-  icon         = "/icon/shield.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/shield.svg"
   order        = 44
 }
 
@@ -593,7 +593,7 @@ data "coder_parameter" "proxmox_ssh_private_key" {
   default      = ""
   mutable      = true
   styling      = jsonencode({ mask_input = true })
-  icon         = "/icon/key.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/key.svg"
   order        = 46
 }
 
@@ -604,7 +604,7 @@ data "coder_parameter" "template_release" {
   type         = "string"
   default      = "bookworm"
   mutable      = true
-  icon         = "/icon/tag.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/tag.svg"
   order        = 47
 }
 
@@ -615,7 +615,7 @@ data "coder_parameter" "template_arch" {
   type         = "string"
   default      = "amd64"
   mutable      = true
-  icon         = "/icon/cpu.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/cpu.svg"
   order        = 48
 }
 
