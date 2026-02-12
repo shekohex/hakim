@@ -129,6 +129,15 @@ actions:
       /bin/bash /usr/local/share/hakim/actions/post-unpack.sh
 
   - trigger: post-files
+    action: |-
+      #!/bin/bash
+      set -euo pipefail
+      # Fix permissions on mise downloads directory to allow writes
+      if [ -d /usr/local/share/mise/downloads ]; then
+        chmod -R 777 /usr/local/share/mise/downloads
+      fi
+
+  - trigger: post-files
     pongo: true
     action: |-
       #!/bin/bash
