@@ -224,8 +224,8 @@ install_rust_stack() {
 
 install_elixir_stack() {
   # Compile Erlang from source for glibc compatibility (LXC uses older glibc than CI precompiled binaries)
-  local erlang_version="27.2"
-  local elixir_version="1.17"
+  local erlang_version="28.3.1"
+  local elixir_version="1.19.5"
 
   echo "Installing Erlang/OTP ${erlang_version} (compiling from source for glibc compatibility)..."
 
