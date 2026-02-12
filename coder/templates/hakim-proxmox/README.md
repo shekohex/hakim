@@ -30,8 +30,7 @@ Provisions Hakim workspaces on Proxmox LXC using Distrobuilder-built golden temp
 - Variants: `base`, `php`, `dotnet`, `js`, `rust`, `elixir`
 - Artifact: `hakim-<variant>-<release>-<arch>.tar.xz`
 - Checksum file: `sha256sums.txt`
-- Build script (single): `distrobuilder/scripts/build-variant.sh`
-- Build script (all): `distrobuilder/scripts/build-all.sh`
+- Build script (unified): `distrobuilder/scripts/build.sh` (supports --all, --cached, --variant flags)
 
 ## Required Template Inputs
 
@@ -57,8 +56,10 @@ sudo apt-get update
 sudo apt-get install -y debootstrap rsync gnupg squashfs-tools curl xz-utils
 sudo snap install distrobuilder --classic
 
-./distrobuilder/scripts/build-variant.sh base bookworm amd64
-./distrobuilder/scripts/build-all.sh bookworm amd64
+./distrobuilder/scripts/build.sh --variant base           # Build single variant
+./distrobuilder/scripts/build.sh --all                    # Build all variants
+./distrobuilder/scripts/build.sh --all --cached           # Build all with cache
+./distrobuilder/scripts/build.sh --variant elixir --cached # Build elixir with cache
 ```
 
 Outputs are written under `distrobuilder/out/<variant>/`.
@@ -109,8 +110,7 @@ Example: add package only to `php` variant.
 To add variant `go`, update all of these:
 
 1. Distrobuilder build contract:
-   - `distrobuilder/scripts/build-variant.sh` variant allowlist.
-   - `distrobuilder/scripts/build-all.sh` variant loop.
+   - `distrobuilder/scripts/build.sh` variant allowlist (in the case statement).
 2. Variant install logic:
    - Add branch in `distrobuilder/scripts/actions/post-packages.sh`.
 3. Coder Proxmox template:
@@ -123,7 +123,7 @@ To add variant `go`, update all of these:
 5. Validate:
 
 ```bash
-bash -n distrobuilder/scripts/build-variant.sh distrobuilder/scripts/build-all.sh distrobuilder/scripts/actions/post-packages.sh
+bash -n distrobuilder/scripts/build.sh distrobuilder/scripts/actions/post-packages.sh
 ruby -e 'require "yaml"; YAML.load_file("distrobuilder/hakim.yaml"); puts "ok"'
 terraform fmt -recursive
 terraform init && terraform validate
