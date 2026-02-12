@@ -265,13 +265,11 @@ install_elixir_stack() {
   VERSION=1.8.3 SEEDUSERHOME=true _REMOTE_USER=coder bash "${FEATURES_DIR}/phoenix-install.sh"
   VERSION=17 bash "${FEATURES_DIR}/postgresql-tools-install.sh"
 
-  # Setup user environment
+  # Setup user directories for mix/hex (hex and rebar will be installed on first use)
   USER_HOME=$(getent passwd "coder" | cut -d: -f6)
   if [ -n "$USER_HOME" ]; then
     mkdir -p "$USER_HOME/.mix" "$USER_HOME/.hex" "$USER_HOME/.cache"
     chown -R coder:coder "$USER_HOME/.mix" "$USER_HOME/.hex" "$USER_HOME/.cache"
-    su - coder -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" mix local.hex --force"
-    su - coder -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" mix local.rebar --force"
   fi
 }
 
