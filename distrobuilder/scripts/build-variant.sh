@@ -49,6 +49,12 @@ fi
 echo "Found tarball: ${tarballs[0]}"
 ls -lh "${tarballs[0]}"
 
+# Debug: Check what's in the tarball
+echo "=== Contents of tarball ==="
+tar -tvJf "${tarballs[0]}" | head -20
+echo "=== Total files ==="
+tar -tvJf "${tarballs[0]}" | wc -l
+
 cp "${tarballs[0]}" "${OUT_DIR}/${ARTIFACT_NAME}"
 
 (
