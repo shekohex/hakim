@@ -461,7 +461,7 @@ data "coder_parameter" "proxmox_container_datastore_id" {
   type         = "string"
   default      = "local-lvm"
   mutable      = true
-  icon         = "/icon/database.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/database.svg"
   order        = 35
 }
 
@@ -472,7 +472,7 @@ data "coder_parameter" "proxmox_template_datastore_id" {
   type         = "string"
   default      = "local"
   mutable      = true
-  icon         = "/icon/database.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/database.svg"
   order        = 36
 }
 
@@ -548,7 +548,7 @@ data "coder_parameter" "container_disk_gb" {
   type         = "number"
   default      = 20
   mutable      = true
-  icon         = "/icon/database.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/database.svg"
   order        = 43
 }
 
