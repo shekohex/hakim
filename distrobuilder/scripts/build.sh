@@ -132,14 +132,14 @@ fi
 # Setup caching if enabled
 setup_cache() {
   if [ "$CACHED" = true ]; then
-    CACHE_DIR="${REPO_ROOT}/.cache/distrobuilder"
-    APT_CACHE_DIR="${CACHE_DIR}/apt"
-    MISE_CACHE_DIR="${CACHE_DIR}/mise"
+    # Distrobuilder cache (for source downloads)
+    CACHE_DIR="${REPO_ROOT}/.cache/distrobuilder/sources"
     
-    mkdir -p "${CACHE_DIR}" "${APT_CACHE_DIR}" "${MISE_CACHE_DIR}"
+    # Mise cache (for tool downloads - this actually works)
+    MISE_CACHE_DIR="${REPO_ROOT}/.cache/distrobuilder/mise"
     
-    export APT_CACHE_DIR
-    export DEBOOTSTRAP_OPTS="--cache-dir=${APT_CACHE_DIR}"
+    mkdir -p "${CACHE_DIR}" "${MISE_CACHE_DIR}"
+    
     export MISE_CACHE_DIR
     export HAKIM_MISE_CACHE="${MISE_CACHE_DIR}"
     
@@ -150,12 +150,11 @@ setup_cache() {
     ln -sf "${MISE_CACHE_DIR}/downloads" "${DISTROBUILDER_DIR}/cache/mise/downloads"
     
     echo "Cache enabled:"
-    echo "  APT:  ${APT_CACHE_DIR} ($(du -sh ${APT_CACHE_DIR} 2>/dev/null | cut -f1 || echo 'empty'))"
-    echo "  Mise: ${MISE_CACHE_DIR} ($(du -sh ${MISE_CACHE_DIR} 2>/dev/null | cut -f1 || echo 'empty'))"
+    echo "  Sources: ${CACHE_DIR} ($(du -sh ${CACHE_DIR} 2>/dev/null | cut -f1 || echo 'empty'))"
+    echo "  Mise:    ${MISE_CACHE_DIR} ($(du -sh ${MISE_CACHE_DIR} 2>/dev/null | cut -f1 || echo 'empty'))"
   else
     # Still need to create empty cache directory for distrobuilder
     mkdir -p "${DISTROBUILDER_DIR}/cache/mise/downloads"
-    echo "Created empty cache directory: ${DISTROBUILDER_DIR}/cache/mise/downloads"
   fi
 }
 
@@ -293,9 +292,12 @@ echo "distrobuilder: $(distrobuilder --version 2>/dev/null || echo 'unknown')"
     if [ "$CACHED" = true ]; then
       echo ""
       echo "Cache Statistics:"
-      echo "  APT:  $(du -sh ${APT_CACHE_DIR} 2>/dev/null | cut -f1 || echo '0')"
-      echo "  Mise: $(du -sh ${MISE_CACHE_DIR} 2>/dev/null | cut -f1 || echo '0')"
+      echo "  Sources: $(du -sh ${CACHE_DIR} 2>/dev/null | cut -f1 || echo '0')"
+      echo "  Mise:    $(du -sh ${MISE_CACHE_DIR} 2>/dev/null | cut -f1 || echo '0')"
       echo "  Mise files: $(find ${MISE_CACHE_DIR}/downloads -type f 2>/dev/null | wc -l)"
+      echo ""
+      echo "Note: APT packages are not cached. Each build downloads fresh packages."
+      echo "      To cache APT packages, install apt-cacher-ng on your system."
     fi
     
     echo ""
