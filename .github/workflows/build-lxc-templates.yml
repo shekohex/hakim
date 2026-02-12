@@ -38,6 +38,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           sudo /snap/bin/distrobuilder --version
+          # Create mise cache directory so copy generator doesn't fail (can be empty)
+          sudo mkdir -p distrobuilder/cache/mise/downloads
           sudo --preserve-env=PATH,GITHUB_TOKEN ./distrobuilder/scripts/build-variant.sh "${{ matrix.variant }}" "bookworm" "amd64"
           sudo chown -R "$USER:$USER" distrobuilder/out .tmp/distrobuilder || true
 
