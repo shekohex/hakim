@@ -37,11 +37,17 @@ export HAKIM_DISTROBUILDER_DIR="${DISTROBUILDER_DIR}"
   distrobuilder build-lxc "hakim.yaml" -o "image.variant=${VARIANT}" -o "image.release=${RELEASE}" -o "image.architecture=${ARCH}" "${TMP_DIR}"
 )
 
+echo "Contents of ${TMP_DIR}:"
+ls -lah "${TMP_DIR}"
+
 tarballs=("${TMP_DIR}"/*.tar.xz)
 if [ ! -e "${tarballs[0]}" ]; then
   echo "No template tarball produced in ${TMP_DIR}" >&2
   exit 1
 fi
+
+echo "Found tarball: ${tarballs[0]}"
+ls -lh "${tarballs[0]}"
 
 cp "${tarballs[0]}" "${OUT_DIR}/${ARTIFACT_NAME}"
 
