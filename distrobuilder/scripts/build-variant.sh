@@ -39,6 +39,12 @@ export HAKIM_DISTROBUILDER_DIR="${DISTROBUILDER_DIR}"
 
 echo "Contents of ${TMP_DIR}:"
 ls -lah "${TMP_DIR}"
+echo ""
+echo "=== Recursive listing of ${TMP_DIR} ==="
+find "${TMP_DIR}" -type f -o -type d | head -30
+echo ""
+echo "=== Looking for rootfs or any directories ==="
+ls -la "${TMP_DIR}" | grep -E "^d"
 
 tarballs=("${TMP_DIR}"/*.tar.xz)
 if [ ! -e "${tarballs[0]}" ]; then
