@@ -1,7 +1,7 @@
 ---
 display_name: Hakim AI (Proxmox)
 description: Proxmox LXC template using Distrobuilder golden images
-icon: /icon/proxmox.svg
+icon: https://cdn.simpleicons.org/proxmox?viewbox=auto
 verified: false
 tags: [proxmox, lxc, ai]
 ---
