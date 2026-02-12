@@ -131,12 +131,15 @@ actions:
   - trigger: post-files
     action: |-
       #!/bin/bash
-      set -euo pipefail
+      set -uo pipefail
       # Ensure mise downloads directory exists with proper permissions
-      mkdir -p /usr/local/share/mise/downloads
-      chmod -R 777 /usr/local/share/mise/downloads
+      # Handle both regular directories and symlinks
+      if [ ! -e /usr/local/share/mise/downloads ]; then
+        mkdir -p /usr/local/share/mise/downloads
+      fi
+      chmod -R 777 /usr/local/share/mise/downloads 2>/dev/null || true
       # Make sure we can write to the parent directory too
-      chmod 777 /usr/local/share/mise
+      chmod 777 /usr/local/share/mise 2>/dev/null || true
 
   - trigger: post-files
     pongo: true
