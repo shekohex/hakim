@@ -52,15 +52,21 @@ Provisions Hakim workspaces on Proxmox LXC using Distrobuilder-built golden temp
 ### Manually (Linux/Proxmox host)
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y debootstrap rsync gnupg squashfs-tools curl xz-utils
-sudo snap install distrobuilder --classic
+# Install distrobuilder from source (no snap required)
+./scripts/install-distrobuilder.sh
 
+# Build templates
 ./distrobuilder/scripts/build.sh --variant base           # Build single variant
 ./distrobuilder/scripts/build.sh --all                    # Build all variants
 ./distrobuilder/scripts/build.sh --all --cached           # Build all with cache
 ./distrobuilder/scripts/build.sh --variant elixir --cached # Build elixir with cache
 ```
+
+The install script will:
+- Install Go and build dependencies
+- Compile distrobuilder from source
+- Install to `/usr/local/bin/distrobuilder`
+- Check Go version and upgrade if needed (requires 1.21+)
 
 Outputs are written under `distrobuilder/out/<variant>/`.
 

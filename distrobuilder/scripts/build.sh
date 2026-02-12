@@ -217,8 +217,23 @@ build_variant() {
 
 # Main build process
 main() {
-  echo "Hakim LXC Template Builder"
-  echo "=========================="
+# Check for distrobuilder
+if ! command -v distrobuilder &> /dev/null; then
+  echo "ERROR: distrobuilder not found in PATH" >&2
+  echo "" >&2
+  echo "Install options:" >&2
+  echo "  1. From source (recommended for Proxmox):" >&2
+  echo "     sudo ./scripts/install-distrobuilder.sh" >&2
+  echo "" >&2
+  echo "  2. Via snap:" >&2
+  echo "     sudo snap install distrobuilder --classic" >&2
+  echo "" >&2
+  exit 1
+fi
+
+echo "Hakim LXC Template Builder"
+echo "=========================="
+echo "distrobuilder: $(distrobuilder --version 2>/dev/null || echo 'unknown')"
   
   # Setup cache
   setup_cache
