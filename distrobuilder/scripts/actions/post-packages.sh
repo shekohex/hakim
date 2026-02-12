@@ -227,7 +227,7 @@ install_elixir_stack() {
   require_file "${FEATURES_DIR}/phoenix-install.sh"
   require_file "${FEATURES_DIR}/postgresql-tools-install.sh"
 
-  ERLANG_VERSION=27 ELIXIR_VERSION=1.17 SEEDUSERHOME=true _REMOTE_USER=coder bash "${FEATURES_DIR}/elixir-install.sh"
+  ERLANG_VERSION=27.2 ELIXIR_VERSION=1.17 SEEDUSERHOME=true _REMOTE_USER=coder bash "${FEATURES_DIR}/elixir-install.sh"
   VERSION=1.8.3 SEEDUSERHOME=true _REMOTE_USER=coder bash "${FEATURES_DIR}/phoenix-install.sh"
   VERSION=17 bash "${FEATURES_DIR}/postgresql-tools-install.sh"
 }
