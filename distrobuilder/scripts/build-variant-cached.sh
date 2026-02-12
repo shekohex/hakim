@@ -43,8 +43,18 @@ echo "Building with cache: ${CACHE_DIR}"
 echo "APT cache: ${APT_CACHE_DIR}"
 echo "MISE cache: ${MISE_CACHE_DIR}"
 
-# Note: Mise cache is extracted after build, not injected during build
-# This avoids breaking CI builds while still enabling local caching
+# Prepare mise cache directory for injection into build
+# This MUST exist before distrobuilder runs, even if empty
+mkdir -p "${MISE_CACHE_DIR}/downloads"
+mkdir -p "${DISTROBUILDER_DIR}/cache/mise"
+rm -rf "${DISTROBUILDER_DIR}/cache/mise/downloads"
+ln -sf "${MISE_CACHE_DIR}/downloads" "${DISTROBUILDER_DIR}/cache/mise/downloads"
+
+if [ -n "$(ls -A ${MISE_CACHE_DIR}/downloads 2>/dev/null)" ]; then
+  echo "Using existing mise cache with $(find ${MISE_CACHE_DIR}/downloads -type f 2>/dev/null | wc -l) files"
+else
+  echo "MISE cache empty or not present - will populate after build"
+fi
 
 (
   cd "${DISTROBUILDER_DIR}"
