@@ -132,10 +132,11 @@ actions:
     action: |-
       #!/bin/bash
       set -euo pipefail
-      # Fix permissions on mise downloads directory to allow writes
-      if [ -d /usr/local/share/mise/downloads ]; then
-        chmod -R 777 /usr/local/share/mise/downloads
-      fi
+      # Ensure mise downloads directory exists with proper permissions
+      mkdir -p /usr/local/share/mise/downloads
+      chmod -R 777 /usr/local/share/mise/downloads
+      # Make sure we can write to the parent directory too
+      chmod 777 /usr/local/share/mise
 
   - trigger: post-files
     pongo: true
