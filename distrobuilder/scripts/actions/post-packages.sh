@@ -223,13 +223,56 @@ install_rust_stack() {
 }
 
 install_elixir_stack() {
-  require_file "${FEATURES_DIR}/elixir-install.sh"
+  # Compile Erlang from source for glibc compatibility (LXC uses older glibc than CI precompiled binaries)
+  local erlang_version="27.2"
+  local elixir_version="1.17"
+
+  echo "Installing Erlang/OTP ${erlang_version} (compiling from source for glibc compatibility)..."
+
+  # Install build dependencies
+  apt-get update && apt-get install -y --no-install-recommends \
+    build-essential autoconf m4 libncurses5-dev libncurses-dev \
+    libssl-dev openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+  # Install kerl
+  curl -fsSL "https://raw.githubusercontent.com/kerl/kerl/4.2.0/kerl" -o /usr/local/bin/kerl
+  chmod +x /usr/local/bin/kerl
+
+  # Configure kerl for compilation
+  export KERL_CONFIGURE_OPTIONS="--disable-debug --without-javac --without-wx"
+  export KERL_BUILD_DOCS="no"
+
+  # Build and install Erlang
+  kerl build "${erlang_version}" "${erlang_version}"
+  kerl install "${erlang_version}" /usr/local/share/mise/installs/erlang/${erlang_version}
+
+  # Link binaries
+  for bin in /usr/local/share/mise/installs/erlang/${erlang_version}/bin/*; do
+    if [ -f "$bin" ] && [ -x "$bin" ]; then
+      ln -sf "$bin" "/usr/local/bin/$(basename "$bin")"
+    fi
+  done
+
+  echo "Installing Elixir ${elixir_version}..."
+  source_mise
+  MISE_YES=1 mise use --global elixir@${elixir_version}
+  link_mise_bins
+
+  # Install Phoenix and PostgreSQL tools
   require_file "${FEATURES_DIR}/phoenix-install.sh"
   require_file "${FEATURES_DIR}/postgresql-tools-install.sh"
-
-  ERLANG_VERSION=27.2 ELIXIR_VERSION=1.17 SEEDUSERHOME=true _REMOTE_USER=coder bash "${FEATURES_DIR}/elixir-install.sh"
   VERSION=1.8.3 SEEDUSERHOME=true _REMOTE_USER=coder bash "${FEATURES_DIR}/phoenix-install.sh"
   VERSION=17 bash "${FEATURES_DIR}/postgresql-tools-install.sh"
+
+  # Setup user environment
+  USER_HOME=$(getent passwd "coder" | cut -d: -f6)
+  if [ -n "$USER_HOME" ]; then
+    mkdir -p "$USER_HOME/.mix" "$USER_HOME/.hex" "$USER_HOME/.cache"
+    chown -R coder:coder "$USER_HOME/.mix" "$USER_HOME/.hex" "$USER_HOME/.cache"
+    su - coder -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" mix local.hex --force"
+    su - coder -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" mix local.rebar --force"
+  fi
 }
 
 install_lazyvim() {
