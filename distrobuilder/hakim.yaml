@@ -115,31 +115,12 @@ files:
       export MISE_DATA_DIR=/usr/local/share/mise
       export MISE_CONFIG_DIR=/etc/mise
       export PATH="/usr/local/share/mise/shims:$PATH"
-  # Mount mise cache from host if available (directory must exist, can be empty)
-  - generator: copy
-    source: cache/mise/downloads
-    path: /usr/local/share/mise/downloads
-    mode: "0755"
-
 actions:
   - trigger: post-files
     action: |-
       #!/bin/bash
       set -euo pipefail
       /bin/bash /usr/local/share/hakim/actions/post-unpack.sh
-
-  - trigger: post-files
-    action: |-
-      #!/bin/bash
-      set -uo pipefail
-      # Ensure mise downloads directory exists with proper permissions
-      # Handle both regular directories and symlinks
-      if [ ! -e /usr/local/share/mise/downloads ]; then
-        mkdir -p /usr/local/share/mise/downloads
-      fi
-      chmod -R 777 /usr/local/share/mise/downloads 2>/dev/null || true
-      # Make sure we can write to the parent directory too
-      chmod 777 /usr/local/share/mise 2>/dev/null || true
 
   - trigger: post-files
     pongo: true

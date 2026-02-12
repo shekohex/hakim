@@ -13,7 +13,7 @@
 #
 # Options:
 #   -a, --all           Build all variants (default if no variant specified)
-#   -c, --cached        Enable APT and mise caching for faster rebuilds
+#   -c, --cached        Enable source and mise caching for faster rebuilds
 #   -v, --variant NAME  Build specific variant (alternative to positional arg)
 #   -r, --release NAME  Debian release (default: bookworm)
 #   -A, --arch ARCH     Architecture (default: amd64)
@@ -154,32 +154,17 @@ if [ -n "$APT_PROXY" ]; then
   export HTTPS_PROXY="$APT_PROXY"
 fi
 
-# Always set up mise cache directory (needed for distrobuilder)
-MISE_CACHE_DIR="${REPO_ROOT}/.cache/distrobuilder/mise"
+# Setup cache directories
+CACHE_DIR="${REPO_ROOT}/.cache/distrobuilder"
+SOURCES_CACHE="${CACHE_DIR}/sources"
+MISE_CACHE="${CACHE_DIR}/mise"
 
-# Setup caching if enabled
 setup_cache() {
   if [ "$CACHED" = true ]; then
-    # Distrobuilder cache (for source downloads)
-    CACHE_DIR="${REPO_ROOT}/.cache/distrobuilder/sources"
-    
-    mkdir -p "${CACHE_DIR}" "${MISE_CACHE_DIR}"
-    
-    export MISE_CACHE_DIR
-    export HAKIM_MISE_CACHE="${MISE_CACHE_DIR}"
-    
-    # Prepare mise cache directory for injection into build
-    mkdir -p "${MISE_CACHE_DIR}/downloads"
-    mkdir -p "${DISTROBUILDER_DIR}/cache/mise"
-    rm -rf "${DISTROBUILDER_DIR}/cache/mise/downloads"
-    ln -sf "${MISE_CACHE_DIR}/downloads" "${DISTROBUILDER_DIR}/cache/mise/downloads"
+    mkdir -p "${SOURCES_CACHE}"
     
     echo "Cache enabled:"
-    echo "  Sources: ${CACHE_DIR} ($(du -sh ${CACHE_DIR} 2>/dev/null | cut -f1 || echo 'empty'))"
-    echo "  Mise:    ${MISE_CACHE_DIR} ($(du -sh ${MISE_CACHE_DIR} 2>/dev/null | cut -f1 || echo 'empty'))"
-  else
-    # Still need to create empty cache directory for distrobuilder
-    mkdir -p "${DISTROBUILDER_DIR}/cache/mise/downloads"
+    echo "  Sources: ${SOURCES_CACHE} ($(du -sh ${SOURCES_CACHE} 2>/dev/null | cut -f1 || echo 'empty'))"
   fi
 }
 
@@ -205,28 +190,12 @@ build_variant() {
   export HAKIM_REPO_ROOT="${REPO_ROOT}"
   export HAKIM_DISTROBUILDER_DIR="${DISTROBUILDER_DIR}"
   
-  # Verify cache directory exists (handle symlink properly)
-  if [ -L "${DISTROBUILDER_DIR}/cache/mise/downloads" ]; then
-    # It's a symlink, make sure target exists
-    if [ ! -e "${DISTROBUILDER_DIR}/cache/mise/downloads" ]; then
-      echo "Cache symlink broken, recreating..."
-      rm -f "${DISTROBUILDER_DIR}/cache/mise/downloads"
-      mkdir -p "${MISE_CACHE_DIR}/downloads"
-      ln -sf "${MISE_CACHE_DIR}/downloads" "${DISTROBUILDER_DIR}/cache/mise/downloads"
-    fi
-  elif [ ! -d "${DISTROBUILDER_DIR}/cache/mise/downloads" ]; then
-    echo "Creating cache directory before build..."
-    mkdir -p "${DISTROBUILDER_DIR}/cache/mise/downloads"
-  fi
-  
   # Run distrobuilder
   (
     cd "${DISTROBUILDER_DIR}"
-    echo "Running distrobuilder from $(pwd)"
-    ls -la cache/mise/downloads 2>/dev/null || echo "Cache dir check: cache/mise/downloads"
     if [ "$CACHED" = true ]; then
       distrobuilder build-lxc \
-        --cache-dir "${CACHE_DIR}" \
+        --cache-dir "${SOURCES_CACHE}" \
         -o "image.variant=${variant}" \
         -o "image.release=${release}" \
         -o "image.architecture=${arch}" \
@@ -258,13 +227,21 @@ build_variant() {
   cd "${out_dir}"
   sha256sum "${artifact_name}" > sha256sums.txt
   
-  # Extract mise cache if caching is enabled
+  # Extract mise downloads from built image to populate cache
   if [ "$CACHED" = true ]; then
-    echo "Extracting mise cache from ${variant} build..."
-    mkdir -p "${MISE_CACHE_DIR}/downloads"
+    echo "Extracting mise downloads from ${variant} build..."
+    mkdir -p "${MISE_CACHE}"
     if tar -tf "${tmp_dir}/rootfs.tar.xz" 2>/dev/null | grep -q "usr/local/share/mise/downloads"; then
-      tar -xf "${tmp_dir}/rootfs.tar.xz" -C "${MISE_CACHE_DIR}/downloads" --strip-components=4 \
-        usr/local/share/mise/downloads/ 2>/dev/null || true
+      # Extract to temp location first
+      local extract_dir="${tmp_dir}/mise-extract"
+      mkdir -p "${extract_dir}"
+      tar -xf "${tmp_dir}/rootfs.tar.xz" -C "${extract_dir}" usr/local/share/mise/downloads/ 2>/dev/null || true
+      
+      # Move files to cache, merging with existing
+      if [ -d "${extract_dir}/usr/local/share/mise/downloads" ]; then
+        find "${extract_dir}/usr/local/share/mise/downloads" -type f -exec cp -v {} "${MISE_CACHE}/" \; 2>/dev/null || true
+        echo "Updated mise cache: $(du -sh ${MISE_CACHE} 2>/dev/null | cut -f1)"
+      fi
     fi
   fi
   
@@ -274,23 +251,23 @@ build_variant() {
 
 # Main build process
 main() {
-# Check for distrobuilder
-if ! command -v distrobuilder &> /dev/null; then
-  echo "ERROR: distrobuilder not found in PATH" >&2
-  echo "" >&2
-  echo "Install options:" >&2
-  echo "  1. From source (recommended for Proxmox):" >&2
-  echo "     sudo ./scripts/install-distrobuilder.sh" >&2
-  echo "" >&2
-  echo "  2. Via snap:" >&2
-  echo "     sudo snap install distrobuilder --classic" >&2
-  echo "" >&2
-  exit 1
-fi
+  # Check for distrobuilder
+  if ! command -v distrobuilder &> /dev/null; then
+    echo "ERROR: distrobuilder not found in PATH" >&2
+    echo "" >&2
+    echo "Install options:" >&2
+    echo "  1. From source (recommended for Proxmox):" >&2
+    echo "     sudo ./scripts/install-distrobuilder.sh" >&2
+    echo "" >&2
+    echo "  2. Via snap:" >&2
+    echo "     sudo snap install distrobuilder --classic" >&2
+    echo "" >&2
+    exit 1
+  fi
 
-echo "Hakim LXC Template Builder"
-echo "=========================="
-echo "distrobuilder: $(distrobuilder --version 2>/dev/null || echo 'unknown')"
+  echo "Hakim LXC Template Builder"
+  echo "=========================="
+  echo "distrobuilder: $(distrobuilder --version 2>/dev/null || echo 'unknown')"
   
   # Setup cache
   setup_cache
@@ -325,12 +302,11 @@ echo "distrobuilder: $(distrobuilder --version 2>/dev/null || echo 'unknown')"
     if [ "$CACHED" = true ]; then
       echo ""
       echo "Cache Statistics:"
-      echo "  Sources: $(du -sh ${CACHE_DIR} 2>/dev/null | cut -f1 || echo '0')"
-      echo "  Mise:    $(du -sh ${MISE_CACHE_DIR} 2>/dev/null | cut -f1 || echo '0')"
-      echo "  Mise files: $(find ${MISE_CACHE_DIR}/downloads -type f 2>/dev/null | wc -l)"
+      echo "  Sources: $(du -sh ${SOURCES_CACHE} 2>/dev/null | cut -f1 || echo '0')"
+      echo "  Mise:    $(du -sh ${MISE_CACHE} 2>/dev/null | cut -f1 || echo '0')"
       echo ""
-      echo "Note: APT packages are not cached. Each build downloads fresh packages."
-      echo "      To cache APT packages, install apt-cacher-ng on your system."
+      echo "Note: Downloads are cached after each successful build."
+      echo "      Subsequent builds will be faster as cache grows."
     fi
     
     echo ""
