@@ -270,7 +270,7 @@ data "coder_parameter" "openclaw_bridge_tls" {
   description  = "Use TLS when connecting to the bridge."
   type         = "bool"
   default      = false
-  icon         = "/icon/lock.svg"
+  icon         = "https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/lock.svg"
   order        = 20
 }
 
@@ -282,7 +282,7 @@ data "coder_parameter" "openclaw_bridge_tls_fingerprint" {
   type         = "string"
   default      = ""
   mutable      = true
-  icon         = "/icon/lock.svg"
+  icon         = "https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/lock.svg"
   order        = 21
 }
 
@@ -307,7 +307,7 @@ data "coder_parameter" "openclaw_gateway_token" {
   default      = ""
   mutable      = true
   styling      = jsonencode({ mask_input = true })
-  icon         = "/icon/lock.svg"
+  icon         = "https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/lock.svg"
   order        = 23
 }
 
@@ -428,7 +428,7 @@ data "coder_parameter" "proxmox_insecure" {
   description  = "Skip TLS verification for the Proxmox API."
   type         = "bool"
   default      = true
-  icon         = "/icon/lock.svg"
+  icon         = "https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/lock.svg"
   order        = 32
 }
 
