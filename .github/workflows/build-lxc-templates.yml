@@ -45,6 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "distrobuilder/out/${{ matrix.variant }}"
+          ls -lah
           sha256sum -c sha256sums.txt
           test -f "hakim-${{ matrix.variant }}-bookworm-amd64.tar.xz"
 

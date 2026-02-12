@@ -54,5 +54,6 @@ cp "${tarballs[0]}" "${OUT_DIR}/${ARTIFACT_NAME}"
   fi
 )
 
+ls -lh "${OUT_DIR}/${ARTIFACT_NAME}"
 echo "Built ${OUT_DIR}/${ARTIFACT_NAME}"
 echo "Checksum: ${OUT_DIR}/sha256sums.txt"
