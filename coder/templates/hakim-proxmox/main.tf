@@ -29,7 +29,7 @@ data "coder_parameter" "image_variant" {
   description  = "Select the programming language environment."
   default      = "base"
   type         = "string"
-  icon         = "/icon/proxmox.svg"
+  icon         = "https://cdn.simpleicons.org/proxmox?viewbox=auto"
   option {
     name        = "Base (Minimal)"
     description = "Minimal image with only essential tools."
@@ -83,7 +83,7 @@ data "coder_parameter" "custom_template_file_id" {
   default      = ""
   mutable      = true
   type         = "string"
-  icon         = "/icon/proxmox.svg"
+  icon         = "https://cdn.simpleicons.org/proxmox?viewbox=auto"
   order        = 2
 }
 
@@ -406,7 +406,7 @@ data "coder_parameter" "proxmox_endpoint" {
   type         = "string"
   default      = "https://proxmox.example.com:8006/"
   mutable      = true
-  icon         = "/icon/proxmox.svg"
+  icon         = "https://cdn.simpleicons.org/proxmox?viewbox=auto"
   order        = 30
 }
 
@@ -418,7 +418,7 @@ data "coder_parameter" "proxmox_api_token" {
   default      = "root@pam!coder-template=dummy"
   mutable      = true
   styling      = jsonencode({ mask_input = true })
-  icon         = "/icon/proxmox.svg"
+  icon         = "https://cdn.simpleicons.org/proxmox?viewbox=auto"
   order        = 31
 }
 
@@ -439,7 +439,7 @@ data "coder_parameter" "proxmox_node_name" {
   type         = "string"
   default      = "pve"
   mutable      = true
-  icon         = "/icon/proxmox.svg"
+  icon         = "https://cdn.simpleicons.org/proxmox?viewbox=auto"
   order        = 33
 }
 
@@ -450,7 +450,7 @@ data "coder_parameter" "proxmox_pool_id" {
   type         = "string"
   default      = ""
   mutable      = true
-  icon         = "/icon/proxmox.svg"
+  icon         = "https://cdn.simpleicons.org/proxmox?viewbox=auto"
   order        = 34
 }
 
@@ -515,7 +515,7 @@ data "coder_parameter" "proxmox_vm_id" {
   type         = "number"
   default      = 0
   mutable      = true
-  icon         = "/icon/proxmox.svg"
+  icon         = "https://cdn.simpleicons.org/proxmox?viewbox=auto"
   order        = 40
 }
 
