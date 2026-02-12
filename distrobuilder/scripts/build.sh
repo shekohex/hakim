@@ -42,9 +42,25 @@
 
 set -euo pipefail
 
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-DISTROBUILDER_DIR=$(cd "${SCRIPT_DIR}/.." && pwd)
-REPO_ROOT=$(cd "${DISTROBUILDER_DIR}/.." && pwd)
+# Find repo root using git (works regardless of where script is run from)
+if ! REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null); then
+  echo "ERROR: Not in a git repository. Please run from within the hakim repo." >&2
+  exit 1
+fi
+
+SCRIPT_DIR="${REPO_ROOT}/distrobuilder/scripts"
+DISTROBUILDER_DIR="${REPO_ROOT}/distrobuilder"
+
+# Verify directories exist
+if [ ! -d "${DISTROBUILDER_DIR}" ]; then
+  echo "ERROR: distrobuilder directory not found at ${DISTROBUILDER_DIR}" >&2
+  exit 1
+fi
+
+if [ ! -f "${DISTROBUILDER_DIR}/hakim.yaml" ]; then
+  echo "ERROR: hakim.yaml not found at ${DISTROBUILDER_DIR}/hakim.yaml" >&2
+  exit 1
+fi
 
 # Default values
 VARIANT=""
