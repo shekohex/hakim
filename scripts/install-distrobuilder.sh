@@ -83,11 +83,21 @@ git checkout "${LATEST_TAG}"
 
 # Build
 echo "Compiling distrobuilder..."
-# Build explicitly to avoid confusion with source directory
-go build -v -o /tmp/distrobuilder-binary .
+# Build using make (distrobuilder has proper Makefile)
+make
 
-# Install to /usr/local/bin
-mv /tmp/distrobuilder-binary /usr/local/bin/distrobuilder
+# Find and install the binary
+if [ -f "distrobuilder" ]; then
+    # Binary is in current directory
+    cp distrobuilder /usr/local/bin/distrobuilder
+elif [ -f "./distrobuilder/distrobuilder" ]; then
+    # Binary is in subdirectory
+    cp ./distrobuilder/distrobuilder /usr/local/bin/distrobuilder
+else
+    echo "ERROR: Could not find distrobuilder binary after build"
+    find . -name "distrobuilder" -type f 2>/dev/null | head -5
+    exit 1
+fi
 chmod +x /usr/local/bin/distrobuilder
 
 # Verify
