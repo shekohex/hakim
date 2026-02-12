@@ -139,6 +139,7 @@ setup_cache() {
   else
     # Still need to create empty cache directory for distrobuilder
     mkdir -p "${DISTROBUILDER_DIR}/cache/mise/downloads"
+    echo "Created empty cache directory: ${DISTROBUILDER_DIR}/cache/mise/downloads"
   fi
 }
 
@@ -164,9 +165,17 @@ build_variant() {
   export HAKIM_REPO_ROOT="${REPO_ROOT}"
   export HAKIM_DISTROBUILDER_DIR="${DISTROBUILDER_DIR}"
   
+  # Verify cache directory exists
+  if [ ! -d "${DISTROBUILDER_DIR}/cache/mise/downloads" ]; then
+    echo "Creating cache directory before build..."
+    mkdir -p "${DISTROBUILDER_DIR}/cache/mise/downloads"
+  fi
+  
   # Run distrobuilder
   (
     cd "${DISTROBUILDER_DIR}"
+    echo "Running distrobuilder from $(pwd)"
+    ls -la cache/mise/downloads 2>/dev/null || echo "Cache dir check: cache/mise/downloads"
     if [ "$CACHED" = true ]; then
       distrobuilder build-lxc \
         --cache-dir "${CACHE_DIR}" \
