@@ -83,10 +83,11 @@ git checkout "${LATEST_TAG}"
 
 # Build
 echo "Compiling distrobuilder..."
-make
+# Build explicitly to avoid confusion with source directory
+go build -v -o /tmp/distrobuilder-binary .
 
 # Install to /usr/local/bin
-cp distrobuilder /usr/local/bin/
+mv /tmp/distrobuilder-binary /usr/local/bin/distrobuilder
 chmod +x /usr/local/bin/distrobuilder
 
 # Verify
