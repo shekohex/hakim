@@ -84,17 +84,22 @@ git checkout "${LATEST_TAG}"
 # Build
 echo "Compiling distrobuilder..."
 # Build using make (distrobuilder has proper Makefile)
+# go install puts binary in $GOPATH/bin
 make
 
 # Find and install the binary
-if [ -f "distrobuilder" ]; then
+GOPATH=$(go env GOPATH)
+if [ -f "${GOPATH}/bin/distrobuilder" ]; then
+    # Binary is in $GOPATH/bin (go install location)
+    cp "${GOPATH}/bin/distrobuilder" /usr/local/bin/distrobuilder
+elif [ -f "distrobuilder" ]; then
     # Binary is in current directory
     cp distrobuilder /usr/local/bin/distrobuilder
-elif [ -f "./distrobuilder/distrobuilder" ]; then
-    # Binary is in subdirectory
-    cp ./distrobuilder/distrobuilder /usr/local/bin/distrobuilder
 else
     echo "ERROR: Could not find distrobuilder binary after build"
+    echo "Searched in:"
+    echo "  - ${GOPATH}/bin/distrobuilder"
+    echo "  - ./distrobuilder"
     find . -name "distrobuilder" -type f 2>/dev/null | head -5
     exit 1
 fi
