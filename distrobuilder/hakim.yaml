@@ -115,6 +115,11 @@ files:
       export MISE_DATA_DIR=/usr/local/share/mise
       export MISE_CONFIG_DIR=/etc/mise
       export PATH="/usr/local/share/mise/shims:$PATH"
+  # Mount mise cache from host if available (for local builds with caching)
+  - generator: copy
+    source: cache/mise/downloads
+    path: /usr/local/share/mise/downloads
+    mode: "0755"
 
 actions:
   - trigger: post-files

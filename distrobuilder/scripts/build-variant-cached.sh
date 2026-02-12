@@ -19,11 +19,16 @@ fi
 # Create cache directories
 CACHE_DIR="${REPO_ROOT}/.cache/distrobuilder"
 APT_CACHE_DIR="${CACHE_DIR}/apt"
-mkdir -p "${CACHE_DIR}" "${APT_CACHE_DIR}"
+MISE_CACHE_DIR="${CACHE_DIR}/mise"
+mkdir -p "${CACHE_DIR}" "${APT_CACHE_DIR}" "${MISE_CACHE_DIR}"
 
 # Set up apt caching via environment
 export APT_CACHE_DIR
 export DEBOOTSTRAP_OPTS="--cache-dir=${APT_CACHE_DIR}"
+
+# Set up mise caching - we'll mount this into the build
+export MISE_CACHE_DIR
+export HAKIM_MISE_CACHE="${MISE_CACHE_DIR}"
 
 OUT_DIR="${DISTROBUILDER_DIR}/out/${VARIANT}"
 TMP_DIR="${REPO_ROOT}/.tmp/distrobuilder/${VARIANT}-${RELEASE}-${ARCH}"
@@ -36,6 +41,19 @@ export HAKIM_DISTROBUILDER_DIR="${DISTROBUILDER_DIR}"
 
 echo "Building with cache: ${CACHE_DIR}"
 echo "APT cache: ${APT_CACHE_DIR}"
+echo "MISE cache: ${MISE_CACHE_DIR}"
+
+# Prepare mise cache for injection into build
+# Create symlink so distrobuilder can copy cached downloads into container
+if [ -d "${MISE_CACHE_DIR}/downloads" ]; then
+  echo "Using existing mise cache with $(find ${MISE_CACHE_DIR}/downloads -type f 2>/dev/null | wc -l) files"
+else
+  echo "Creating new mise cache"
+  mkdir -p "${MISE_CACHE_DIR}/downloads"
+fi
+mkdir -p "${DISTROBUILDER_DIR}/cache/mise"
+rm -rf "${DISTROBUILDER_DIR}/cache/mise/downloads"
+ln -sf "${MISE_CACHE_DIR}/downloads" "${DISTROBUILDER_DIR}/cache/mise/downloads"
 
 (
   cd "${DISTROBUILDER_DIR}"
@@ -64,6 +82,20 @@ tar -cJf "${OUT_DIR}/${ARTIFACT_NAME}" rootfs.tar.xz meta.tar.xz
 cd "${OUT_DIR}"
 sha256sum "${ARTIFACT_NAME}" > sha256sums.txt
 
+# Extract updated mise cache from built image for future builds
+echo ""
+echo "Extracting mise cache from build..."
+mkdir -p "${MISE_CACHE_DIR}/downloads"
+if tar -tf "${TMP_DIR}/rootfs.tar.xz" | grep -q "usr/local/share/mise/downloads"; then
+  tar -xf "${TMP_DIR}/rootfs.tar.xz" -C "${MISE_CACHE_DIR}/downloads" --strip-components=4 \
+    usr/local/share/mise/downloads/ 2>/dev/null || true
+  echo "Updated mise cache with $(find ${MISE_CACHE_DIR}/downloads -type f 2>/dev/null | wc -l) files"
+fi
+
+echo ""
 echo "Built: ${OUT_DIR}/${ARTIFACT_NAME}"
-echo "Cache location: ${CACHE_DIR}"
-echo "Cache size: $(du -sh ${CACHE_DIR} | cut -f1)"
+echo ""
+echo "=== Cache Statistics ==="
+echo "APT cache: $(du -sh ${APT_CACHE_DIR} 2>/dev/null | cut -f1 || echo '0')"
+echo "MISE cache: $(du -sh ${MISE_CACHE_DIR} 2>/dev/null | cut -f1 || echo '0')"
+echo "Total: $(du -sh ${CACHE_DIR} | cut -f1)"
