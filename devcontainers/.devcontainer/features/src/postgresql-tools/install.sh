@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 VERSION=${VERSION:-"17"}
 
@@ -28,7 +27,22 @@ else
     echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg arch=${ARCH}] https://apt.postgresql.org/pub/repos/apt ${DISTRO}-pgdg main" \
         > /etc/apt/sources.list.d/postgresql.list
     
-    apt-get update
+    # Retry apt-get update a few times in case of mirror sync issues
+    UPDATE_SUCCESS=false
+    for i in 1 2 3; do
+        echo "Attempt $i: Running apt-get update..."
+        if apt-get update; then
+            UPDATE_SUCCESS=true
+            break
+        fi
+        echo "apt-get update failed, waiting 30 seconds before retry..."
+        sleep 30
+    done
+    
+    if [ "$UPDATE_SUCCESS" != "true" ]; then
+        echo "ERROR: apt-get update failed after 3 attempts" >&2
+        exit 1
+    fi
     
     echo "Installing postgresql-client-${VERSION}..."
     apt-get install -y --no-install-recommends postgresql-client-${VERSION}
