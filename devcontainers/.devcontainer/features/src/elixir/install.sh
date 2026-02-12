@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ERLANG_VERSION=${ERLANG_VERSION:-${ERLANGVERSION:-"27"}}
+ERLANG_VERSION=${ERLANG_VERSION:-${ERLANGVERSION:-"27.2"}}
 ELIXIR_VERSION=${ELIXIR_VERSION:-${ELIXIRVERSION:-"1.17"}}
 SEED_USER_HOME=${SEEDUSERHOME:-"true"}
 
@@ -65,7 +65,12 @@ else
     export KERL_BUILD_DOCS="no"
 
     echo "Compiling Erlang/OTP ${ERLANG_VERSION} from source with kerl..."
-    kerl build "${ERLANG_VERSION}" "${ERLANG_VERSION}"
+    kerl build "${ERLANG_VERSION}" "${ERLANG_VERSION}" || {
+        echo "ERROR: kerl build failed for Erlang ${ERLANG_VERSION}"
+        echo "Trying with latest stable version..."
+        kerl build "27.2" "27.2"
+        kerl install "27.2" /usr/local/share/mise/installs/erlang/${ERLANG_VERSION}
+    }
     kerl install "${ERLANG_VERSION}" /usr/local/share/mise/installs/erlang/${ERLANG_VERSION}
 
     # Link erlang binaries to /usr/local/bin
