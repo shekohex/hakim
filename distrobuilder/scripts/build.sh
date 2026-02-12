@@ -17,6 +17,7 @@
 #   -v, --variant NAME  Build specific variant (alternative to positional arg)
 #   -r, --release NAME  Debian release (default: bookworm)
 #   -A, --arch ARCH     Architecture (default: amd64)
+#   -p, --apt-proxy URL Use apt-cacher-ng proxy (e.g., http://localhost:3142)
 #   -h, --help          Show this help message
 #
 # Examples:
@@ -33,9 +34,12 @@
 #   # Build base variant for arm64
 #   ./build.sh --variant base --arch arm64
 #
+#   # Build using apt-cacher-ng proxy
+#   ./build.sh --all --apt-proxy http://localhost:3142
+#
 # Cache Locations:
-#   APT cache:  .cache/distrobuilder/apt/
-#   Mise cache: .cache/distrobuilder/mise/
+#   Sources:  .cache/distrobuilder/sources/
+#   Mise:     .cache/distrobuilder/mise/
 #
 # Environment Variables:
 #   GITHUB_TOKEN    GitHub API token (for mise tool downloads)
@@ -68,6 +72,7 @@ RELEASE="bookworm"
 ARCH="amd64"
 CACHED=false
 BUILD_ALL=false
+APT_PROXY=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -90,6 +95,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -A|--arch)
       ARCH="$2"
+      shift 2
+      ;;
+    -p|--apt-proxy)
+      APT_PROXY="$2"
       shift 2
       ;;
     -h|--help)
@@ -129,14 +138,30 @@ if [ -n "$VARIANT" ]; then
   esac
 fi
 
+# Validate and setup APT proxy if provided
+if [ -n "$APT_PROXY" ]; then
+  # Basic URL validation
+  if [[ ! "$APT_PROXY" =~ ^http://.* ]] && [[ ! "$APT_PROXY" =~ ^https://.* ]]; then
+    echo "ERROR: Invalid APT proxy URL '$APT_PROXY'" >&2
+    echo "URL must start with http:// or https://" >&2
+    exit 1
+  fi
+  
+  echo "APT proxy enabled: $APT_PROXY"
+  export http_proxy="$APT_PROXY"
+  export https_proxy="$APT_PROXY"
+  export HTTP_PROXY="$APT_PROXY"
+  export HTTPS_PROXY="$APT_PROXY"
+fi
+
+# Always set up mise cache directory (needed for distrobuilder)
+MISE_CACHE_DIR="${REPO_ROOT}/.cache/distrobuilder/mise"
+
 # Setup caching if enabled
 setup_cache() {
   if [ "$CACHED" = true ]; then
     # Distrobuilder cache (for source downloads)
     CACHE_DIR="${REPO_ROOT}/.cache/distrobuilder/sources"
-    
-    # Mise cache (for tool downloads - this actually works)
-    MISE_CACHE_DIR="${REPO_ROOT}/.cache/distrobuilder/mise"
     
     mkdir -p "${CACHE_DIR}" "${MISE_CACHE_DIR}"
     
@@ -180,8 +205,16 @@ build_variant() {
   export HAKIM_REPO_ROOT="${REPO_ROOT}"
   export HAKIM_DISTROBUILDER_DIR="${DISTROBUILDER_DIR}"
   
-  # Verify cache directory exists
-  if [ ! -d "${DISTROBUILDER_DIR}/cache/mise/downloads" ]; then
+  # Verify cache directory exists (handle symlink properly)
+  if [ -L "${DISTROBUILDER_DIR}/cache/mise/downloads" ]; then
+    # It's a symlink, make sure target exists
+    if [ ! -e "${DISTROBUILDER_DIR}/cache/mise/downloads" ]; then
+      echo "Cache symlink broken, recreating..."
+      rm -f "${DISTROBUILDER_DIR}/cache/mise/downloads"
+      mkdir -p "${MISE_CACHE_DIR}/downloads"
+      ln -sf "${MISE_CACHE_DIR}/downloads" "${DISTROBUILDER_DIR}/cache/mise/downloads"
+    fi
+  elif [ ! -d "${DISTROBUILDER_DIR}/cache/mise/downloads" ]; then
     echo "Creating cache directory before build..."
     mkdir -p "${DISTROBUILDER_DIR}/cache/mise/downloads"
   fi
