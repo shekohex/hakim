@@ -37,41 +37,33 @@ export HAKIM_DISTROBUILDER_DIR="${DISTROBUILDER_DIR}"
   distrobuilder build-lxc "hakim.yaml" -o "image.variant=${VARIANT}" -o "image.release=${RELEASE}" -o "image.architecture=${ARCH}" "${TMP_DIR}"
 )
 
-echo "Contents of ${TMP_DIR}:"
-ls -lah "${TMP_DIR}"
-echo ""
-echo "=== Recursive listing of ${TMP_DIR} ==="
-find "${TMP_DIR}" -type f -o -type d | head -30
-echo ""
-echo "=== Looking for rootfs or any directories ==="
-ls -la "${TMP_DIR}" | grep -E "^d"
+# distrobuilder creates two files: meta.tar.xz (metadata) and rootfs.tar.xz (filesystem)
+# We need rootfs.tar.xz which contains the actual container image
+ROOTFS_TARBALL="${TMP_DIR}/rootfs.tar.xz"
+META_TARBALL="${TMP_DIR}/meta.tar.xz"
 
-tarballs=("${TMP_DIR}"/*.tar.xz)
-if [ ! -e "${tarballs[0]}" ]; then
-  echo "No template tarball produced in ${TMP_DIR}" >&2
+if [ ! -f "${ROOTFS_TARBALL}" ]; then
+  echo "ERROR: rootfs.tar.xz not found in ${TMP_DIR}" >&2
+  echo "Contents of ${TMP_DIR}:" >&2
+  ls -la "${TMP_DIR}" >&2
   exit 1
 fi
 
-echo "Found tarball: ${tarballs[0]}"
-ls -lh "${tarballs[0]}"
+echo "Found rootfs tarball: ${ROOTFS_TARBALL}"
+ls -lh "${ROOTFS_TARBALL}"
 
-# Debug: Check what's in the tarball
-echo "=== Contents of tarball ==="
-tar -tvJf "${tarballs[0]}" | head -20
-echo "=== Total files ==="
-tar -tvJf "${tarballs[0]}" | wc -l
+# For LXC templates, we can optionally include metadata
+# Create a combined tarball with both rootfs and metadata
+cd "${TMP_DIR}"
+tar -cJf "${OUT_DIR}/${ARTIFACT_NAME}" rootfs.tar.xz meta.tar.xz
 
-cp "${tarballs[0]}" "${OUT_DIR}/${ARTIFACT_NAME}"
+cd "${OUT_DIR}"
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256sum "${ARTIFACT_NAME}" > sha256sums.txt
+else
+  shasum -a 256 "${ARTIFACT_NAME}" > sha256sums.txt
+fi
 
-(
-  cd "${OUT_DIR}"
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "${ARTIFACT_NAME}" > sha256sums.txt
-  else
-    shasum -a 256 "${ARTIFACT_NAME}" > sha256sums.txt
-  fi
-)
-
-ls -lh "${OUT_DIR}/${ARTIFACT_NAME}"
+ls -lh "${ARTIFACT_NAME}"
 echo "Built ${OUT_DIR}/${ARTIFACT_NAME}"
 echo "Checksum: ${OUT_DIR}/sha256sums.txt"
