@@ -29,6 +29,9 @@ ARTIFACT_NAME="hakim-${VARIANT}-${RELEASE}-${ARCH}.tar.xz"
 
 mkdir -p "${OUT_DIR}" "${TMP_DIR}"
 
+# Create mise cache directory so copy generator doesn't fail (can be empty)
+mkdir -p "${DISTROBUILDER_DIR}/cache/mise/downloads"
+
 export HAKIM_REPO_ROOT="${REPO_ROOT}"
 export HAKIM_DISTROBUILDER_DIR="${DISTROBUILDER_DIR}"
 
