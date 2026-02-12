@@ -18,17 +18,6 @@ fi
 echo "Activating feature 'elixir'"
 echo "Installing Erlang ${ERLANG_VERSION} and Elixir ${ELIXIR_VERSION} via Mise..."
 
-# Check glibc version - compile from source if too old (precompiled needs 2.38+)
-GLIBC_VERSION=$(ldd --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1 || echo "0")
-GLIBC_MAJOR=$(echo "$GLIBC_VERSION" | cut -d. -f1)
-GLIBC_MINOR=$(echo "$GLIBC_VERSION" | cut -d. -f2)
-NEEDS_COMPILE=false
-
-if [ "$GLIBC_MAJOR" -lt 2 ] || ([ "$GLIBC_MAJOR" -eq 2 ] && [ "$GLIBC_MINOR" -lt 38 ]); then
-    echo "GLIBC ${GLIBC_VERSION} detected (< 2.38), will compile Erlang from source"
-    NEEDS_COMPILE=true
-fi
-
 export MISE_YES=1
 export MISE_DATA_DIR=/usr/local/share/mise
 
@@ -36,7 +25,7 @@ if [ -f /etc/profile.d/mise.sh ]; then
     source /etc/profile.d/mise.sh
 fi
 
-# Install basic dependencies
+# Install basic dependencies (needed for both methods)
 apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libncurses-dev \
@@ -44,8 +33,14 @@ apt-get update && apt-get install -y --no-install-recommends \
     openssl \
     && rm -rf /var/lib/apt/lists/*
 
-if [ "$NEEDS_COMPILE" = "true" ]; then
-    # Install additional build dependencies for compiling Erlang from source
+# Try precompiled Erlang first (faster, works on newer glibc)
+echo "Attempting to install Erlang/OTP ${ERLANG_VERSION} using precompiled binaries..."
+if mise use --global erlang@${ERLANG_VERSION} 2>/dev/null; then
+    echo "Successfully installed precompiled Erlang"
+else
+    echo "Precompiled Erlang failed (likely glibc version mismatch), compiling from source..."
+    
+    # Install build dependencies for compiling Erlang from source
     apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         autoconf \
@@ -62,7 +57,7 @@ if [ "$NEEDS_COMPILE" = "true" ]; then
         libxml2-utils \
         && rm -rf /var/lib/apt/lists/*
 
-    # Install kerl and compile Erlang from source
+    # Install kerl
     KERL_VERSION="4.2.0"
     curl -fsSL "https://raw.githubusercontent.com/kerl/kerl/${KERL_VERSION}/kerl" -o /usr/local/bin/kerl
     chmod +x /usr/local/bin/kerl
@@ -70,19 +65,16 @@ if [ "$NEEDS_COMPILE" = "true" ]; then
     export KERL_CONFIGURE_OPTIONS="--disable-debug --without-javac --without-wx"
     export KERL_BUILD_DOCS="no"
 
-    echo "Installing Erlang/OTP ${ERLANG_VERSION} (compiling from source with kerl)..."
+    echo "Compiling Erlang/OTP ${ERLANG_VERSION} from source with kerl..."
     kerl build "${ERLANG_VERSION}" "${ERLANG_VERSION}"
     kerl install "${ERLANG_VERSION}" /usr/local/share/mise/installs/erlang/${ERLANG_VERSION}
 
-    # Link erlang binaries
+    # Link erlang binaries to /usr/local/bin
     for bin in /usr/local/share/mise/installs/erlang/${ERLANG_VERSION}/bin/*; do
         if [ -f "$bin" ] && [ -x "$bin" ]; then
             ln -sf "$bin" "/usr/local/bin/$(basename "$bin")"
         fi
     done
-else
-    echo "Installing Erlang/OTP ${ERLANG_VERSION} (using precompiled binaries)..."
-    mise use --global erlang@${ERLANG_VERSION}
 fi
 
 echo "Installing Elixir ${ELIXIR_VERSION}..."
