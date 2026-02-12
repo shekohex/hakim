@@ -247,7 +247,7 @@ data "coder_parameter" "openclaw_bridge_host" {
   type         = "string"
   default      = ""
   mutable      = true
-  icon         = "/icon/network.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/network.svg"
   order        = 18
 }
 
@@ -259,7 +259,7 @@ data "coder_parameter" "openclaw_bridge_port" {
   type         = "number"
   default      = 18790
   mutable      = true
-  icon         = "/icon/network.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/network.svg"
   order        = 19
 }
 
@@ -483,7 +483,7 @@ data "coder_parameter" "proxmox_network_bridge" {
   type         = "string"
   default      = "vmbr0"
   mutable      = true
-  icon         = "/icon/network.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/network.svg"
   order        = 37
 }
 
@@ -494,7 +494,7 @@ data "coder_parameter" "proxmox_vlan_id" {
   type         = "number"
   default      = 0
   mutable      = true
-  icon         = "/icon/network.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/network.svg"
   order        = 38
 }
 
@@ -568,7 +568,7 @@ data "coder_parameter" "egress_mode" {
   description  = "Network egress policy hint."
   type         = "string"
   default      = "open"
-  icon         = "/icon/network.svg"
+  icon         = "https://esm.sh/lucide-static@latest/icons/network.svg"
   option {
     name  = "Open"
     value = "open"
