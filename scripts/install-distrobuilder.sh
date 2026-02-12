@@ -35,8 +35,13 @@ if [ "$GO_MAJOR" -lt 1 ] || ([ "$GO_MAJOR" -eq 1 ] && [ "$GO_MINOR" -lt 21 ]); t
     echo "Go version $GO_VERSION is too old. Need 1.21+"
     echo "Fetching latest Go version..."
     
-    # Get latest stable Go version
-    GO_LATEST=$(curl -s "https://go.dev/dl/?mode=json" | grep -o '"version": "go[^"]*"' | grep -o 'go[0-9.]*' | head -1 | sed 's/go//')
+    # Get latest stable Go version (use jq if available, otherwise grep)
+    GO_JSON=$(curl -s "https://go.dev/dl/?mode=json")
+    if command -v jq &> /dev/null; then
+        GO_LATEST=$(echo "$GO_JSON" | jq -r '.[0].version' | sed 's/go//')
+    else
+        GO_LATEST=$(echo "$GO_JSON" | grep -o '"version": "go[^"]*"' | grep -o 'go[0-9.]*' | head -1 | sed 's/go//')
+    fi
     if [ -z "$GO_LATEST" ]; then
         echo "Failed to fetch latest Go version, using fallback 1.26.0"
         GO_LATEST="1.26.0"
