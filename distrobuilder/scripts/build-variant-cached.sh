@@ -43,17 +43,8 @@ echo "Building with cache: ${CACHE_DIR}"
 echo "APT cache: ${APT_CACHE_DIR}"
 echo "MISE cache: ${MISE_CACHE_DIR}"
 
-# Prepare mise cache for injection into build
-# Create symlink so distrobuilder can copy cached downloads into container
-if [ -d "${MISE_CACHE_DIR}/downloads" ]; then
-  echo "Using existing mise cache with $(find ${MISE_CACHE_DIR}/downloads -type f 2>/dev/null | wc -l) files"
-else
-  echo "Creating new mise cache"
-  mkdir -p "${MISE_CACHE_DIR}/downloads"
-fi
-mkdir -p "${DISTROBUILDER_DIR}/cache/mise"
-rm -rf "${DISTROBUILDER_DIR}/cache/mise/downloads"
-ln -sf "${MISE_CACHE_DIR}/downloads" "${DISTROBUILDER_DIR}/cache/mise/downloads"
+# Note: Mise cache is extracted after build, not injected during build
+# This avoids breaking CI builds while still enabling local caching
 
 (
   cd "${DISTROBUILDER_DIR}"
