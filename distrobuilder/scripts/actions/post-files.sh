@@ -52,7 +52,7 @@ if ! grep -RqsE '^iface[[:space:]]+eth0[[:space:]]+inet[[:space:]]+' /etc/networ
 fi
 
 if [ "${RELEASE}" = "trixie" ]; then
-  printf '%s\n' 'root:root' | chpasswd
+  printf '%s\n' 'root:password' | chpasswd
   mkdir -p /etc/ssh/sshd_config.d
   printf '%s\n' 'PermitRootLogin yes' 'PasswordAuthentication yes' > /etc/ssh/sshd_config.d/00-hakim-bootstrap.conf
 fi

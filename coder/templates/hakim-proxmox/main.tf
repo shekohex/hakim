@@ -772,7 +772,7 @@ locals {
   provided_bootstrap_ssh_private_key  = trimspace(data.coder_parameter.proxmox_ssh_private_key.value)
   generated_bootstrap_ssh_private_key = length(tls_private_key.bootstrap) > 0 ? trimspace(tls_private_key.bootstrap[0].private_key_pem) : ""
   bootstrap_ssh_private_key           = local.provided_bootstrap_ssh_private_key != "" ? local.provided_bootstrap_ssh_private_key : local.generated_bootstrap_ssh_private_key
-  bootstrap_root_password             = data.coder_parameter.template_release.value == "trixie" ? "root" : substr(replace(replace(base64sha256(local.bootstrap_ssh_private_key), "=", ""), "/", "_"), 0, 32)
+  bootstrap_root_password             = data.coder_parameter.template_release.value == "trixie" ? "password" : substr(replace(replace(base64sha256(local.bootstrap_ssh_private_key), "=", ""), "/", "_"), 0, 32)
 
   provided_bootstrap_ssh_public_key  = length(data.tls_public_key.proxmox_ssh_public_key) > 0 ? trimspace(data.tls_public_key.proxmox_ssh_public_key[0].public_key_openssh) : ""
   generated_bootstrap_ssh_public_key = length(tls_private_key.bootstrap) > 0 ? trimspace(tls_private_key.bootstrap[0].public_key_openssh) : ""
@@ -933,21 +933,9 @@ resource "proxmox_virtual_environment_container" "workspace" {
   initialization {
     hostname = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
 
-    dynamic "user_account" {
-      for_each = data.coder_parameter.template_release.value == "trixie" ? [1] : []
-
-      content {
-        keys = local.root_ssh_keys
-      }
-    }
-
-    dynamic "user_account" {
-      for_each = data.coder_parameter.template_release.value != "trixie" ? [1] : []
-
-      content {
-        keys     = local.root_ssh_keys
-        password = local.bootstrap_root_password
-      }
+    user_account {
+      keys     = local.root_ssh_keys
+      password = local.bootstrap_root_password
     }
 
     ip_config {
