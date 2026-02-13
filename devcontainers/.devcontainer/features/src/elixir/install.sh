@@ -26,7 +26,6 @@ if [ -f /etc/profile.d/mise.sh ]; then
     source /etc/profile.d/mise.sh
 fi
 
-# Install basic dependencies (needed for both methods)
 apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libncurses-dev \
@@ -34,54 +33,8 @@ apt-get update && apt-get install -y --no-install-recommends \
     openssl \
     && rm -rf /var/lib/apt/lists/*
 
-# Try precompiled Erlang first (faster, works on newer glibc)
-echo "Attempting to install Erlang/OTP ${ERLANG_VERSION} using precompiled binaries..."
-if mise use --global erlang@${ERLANG_VERSION} 2>/dev/null; then
-    echo "Successfully installed precompiled Erlang"
-else
-    echo "Precompiled Erlang failed (likely glibc version mismatch), compiling from source..."
-    
-    # Install build dependencies for compiling Erlang from source
-    apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        autoconf \
-        m4 \
-        libncurses5-dev \
-        libwxgtk3.2-dev \
-        libgl1-mesa-dev \
-        libglu1-mesa-dev \
-        libpng-dev \
-        libssh-dev \
-        unixodbc-dev \
-        xsltproc \
-        fop \
-        libxml2-utils \
-        && rm -rf /var/lib/apt/lists/*
-
-    # Install kerl
-    KERL_VERSION="4.2.0"
-    curl -fsSL "https://raw.githubusercontent.com/kerl/kerl/${KERL_VERSION}/kerl" -o /usr/local/bin/kerl
-    chmod +x /usr/local/bin/kerl
-
-    export KERL_CONFIGURE_OPTIONS="--disable-debug --without-javac --without-wx"
-    export KERL_BUILD_DOCS="no"
-
-    echo "Compiling Erlang/OTP ${ERLANG_VERSION} from source with kerl..."
-    kerl build "${ERLANG_VERSION}" "${ERLANG_VERSION}" || {
-        echo "ERROR: kerl build failed for Erlang ${ERLANG_VERSION}"
-        echo "Trying with latest stable version..."
-        kerl build "27.2" "27.2"
-        kerl install "27.2" /usr/local/share/mise/installs/erlang/${ERLANG_VERSION}
-    }
-    kerl install "${ERLANG_VERSION}" /usr/local/share/mise/installs/erlang/${ERLANG_VERSION}
-
-    # Link erlang binaries to /usr/local/bin
-    for bin in /usr/local/share/mise/installs/erlang/${ERLANG_VERSION}/bin/*; do
-        if [ -f "$bin" ] && [ -x "$bin" ]; then
-            ln -sf "$bin" "/usr/local/bin/$(basename "$bin")"
-        fi
-    done
-fi
+echo "Installing Erlang ${ERLANG_VERSION}..."
+mise use --global "erlang@${ERLANG_VERSION}"
 
 echo "Installing Elixir ${ELIXIR_OTP_VERSION}..."
 mise use --global "elixir@${ELIXIR_OTP_VERSION}"

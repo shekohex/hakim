@@ -251,35 +251,17 @@ install_elixir_stack() {
   otp_major=$(printf '%s' "${erlang_version}" | cut -d. -f1)
   local elixir_otp_version="${elixir_version}-otp-${otp_major}"
 
-  echo "Installing Erlang/OTP ${erlang_version} (compiling from source for glibc compatibility)..."
+  echo "Installing Erlang/OTP ${erlang_version}..."
 
-  # Install build dependencies
   apt-get update && apt-get install -y --no-install-recommends \
-    build-essential autoconf m4 libncurses5-dev libncurses-dev \
+    libncurses-dev \
     libssl-dev openssl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-  # Install kerl
-  curl -fsSL "https://raw.githubusercontent.com/kerl/kerl/4.2.0/kerl" -o /usr/local/bin/kerl
-  chmod +x /usr/local/bin/kerl
-
-  # Configure kerl for compilation
-  export KERL_CONFIGURE_OPTIONS="--disable-debug --without-javac --without-wx"
-  export KERL_BUILD_DOCS="no"
-
-  # Build and install Erlang
-  kerl build "${erlang_version}" "${erlang_version}"
-  kerl install "${erlang_version}" /usr/local/share/mise/installs/erlang/${erlang_version}
-
-  # Link binaries
-  for bin in /usr/local/share/mise/installs/erlang/${erlang_version}/bin/*; do
-    if [ -f "$bin" ] && [ -x "$bin" ]; then
-      ln -sf "$bin" "/usr/local/bin/$(basename "$bin")"
-    fi
-  done
+  source_mise
+  MISE_YES=1 mise use --global "erlang@${erlang_version}"
 
   echo "Installing Elixir ${elixir_otp_version}..."
-  source_mise
   MISE_YES=1 mise use --global "elixir@${elixir_otp_version}"
   link_mise_bins
 
