@@ -79,7 +79,7 @@ data "coder_parameter" "custom_template_file_id" {
   count        = data.coder_parameter.image_variant.value == "custom" ? 1 : 0
   name         = "custom_template_file_id"
   display_name = "Custom Template File ID"
-  description  = "Proxmox template volume id, e.g. local:vztmpl/hakim-base-bookworm-amd64.tar.xz"
+  description  = "Proxmox template volume id, e.g. local:vztmpl/hakim-base-trixie-amd64.tar.xz"
   default      = ""
   mutable      = true
   type         = "string"
@@ -602,7 +602,7 @@ data "coder_parameter" "template_release" {
   display_name = "Template Release"
   description  = "Release segment in artifact name."
   type         = "string"
-  default      = "bookworm"
+  default      = "trixie"
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/tag.svg"
   order        = 47

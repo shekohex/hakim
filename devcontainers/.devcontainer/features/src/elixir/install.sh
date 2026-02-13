@@ -2,7 +2,8 @@
 
 ERLANG_VERSION=${ERLANG_VERSION:-${ERLANGVERSION:-"28.3.1"}}
 ELIXIR_VERSION=${ELIXIR_VERSION:-${ELIXIRVERSION:-"1.19.5"}}
-ELIXIR_REF="v${ELIXIR_VERSION}"
+OTP_MAJOR=${ERLANG_VERSION%%.*}
+ELIXIR_OTP_VERSION="${ELIXIR_VERSION}-otp-${OTP_MAJOR}"
 SEED_USER_HOME=${SEEDUSERHOME:-"true"}
 
 _REMOTE_USER=${_REMOTE_USER:-"coder"}
@@ -82,9 +83,8 @@ else
     done
 fi
 
-echo "Installing Elixir ${ELIXIR_VERSION} from source (${ELIXIR_REF}) via asdf backend..."
-mise plugins install -f elixir https://github.com/asdf-vm/asdf-elixir.git
-MISE_BACKENDS_ELIXIR="asdf:elixir" mise use --global "elixir@ref:${ELIXIR_REF}"
+echo "Installing Elixir ${ELIXIR_OTP_VERSION}..."
+mise use --global "elixir@${ELIXIR_OTP_VERSION}"
 
 rm -rf /root/.cache/mise
 

@@ -170,7 +170,7 @@ Q: Does this replace Docker template?
 
 Q: How do I force a specific pre-uploaded template in Proxmox?
 
-- Set `image_variant = custom` and provide `custom_template_file_id` (for example `local:vztmpl/hakim-base-bookworm-amd64.tar.xz`).
+- Set `image_variant = custom` and provide `custom_template_file_id` (for example `local:vztmpl/hakim-base-trixie-amd64.tar.xz`).
 
 Q: Why do we still need SSH key input?
 

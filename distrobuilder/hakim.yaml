@@ -1,6 +1,6 @@
 image:
   distribution: debian
-  release: bookworm
+  release: trixie
   architecture: amd64
   variant: base
 

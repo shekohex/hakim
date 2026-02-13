@@ -216,7 +216,16 @@ install_php_stack() {
 }
 
 install_dotnet_stack() {
-  curl -fsSL https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -o /tmp/packages-microsoft-prod.deb
+  local debian_major
+  debian_major=$(awk -F= '$1=="VERSION_ID" {gsub(/"/,"",$2); split($2, v, "."); print v[1]}' /etc/os-release)
+  if [ -z "${debian_major}" ]; then
+    debian_major=12
+  fi
+
+  if ! curl -fsSL "https://packages.microsoft.com/config/debian/${debian_major}/packages-microsoft-prod.deb" -o /tmp/packages-microsoft-prod.deb; then
+    curl -fsSL https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -o /tmp/packages-microsoft-prod.deb
+  fi
+
   dpkg -i /tmp/packages-microsoft-prod.deb
   rm -f /tmp/packages-microsoft-prod.deb
   apt-get update
@@ -236,10 +245,11 @@ install_rust_stack() {
 }
 
 install_elixir_stack() {
-  # Compile Erlang from source for glibc compatibility (LXC uses older glibc than CI precompiled binaries)
   local erlang_version="28.3.1"
   local elixir_version="1.19.5"
-  local elixir_ref="v${elixir_version}"
+  local otp_major
+  otp_major=$(printf '%s' "${erlang_version}" | cut -d. -f1)
+  local elixir_otp_version="${elixir_version}-otp-${otp_major}"
 
   echo "Installing Erlang/OTP ${erlang_version} (compiling from source for glibc compatibility)..."
 
@@ -268,10 +278,9 @@ install_elixir_stack() {
     fi
   done
 
-  echo "Installing Elixir ${elixir_version} from source (${elixir_ref}) via asdf backend..."
+  echo "Installing Elixir ${elixir_otp_version}..."
   source_mise
-  mise plugins install -f elixir https://github.com/asdf-vm/asdf-elixir.git
-  MISE_BACKENDS_ELIXIR="asdf:elixir" MISE_YES=1 mise use --global "elixir@ref:${elixir_ref}"
+  MISE_YES=1 mise use --global "elixir@${elixir_otp_version}"
   link_mise_bins
 
   # Install Phoenix and PostgreSQL tools

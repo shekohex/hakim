@@ -47,7 +47,7 @@ jobs:
           cd "distrobuilder/out/${{ matrix.variant }}"
           ls -lah
           sha256sum -c sha256sums.txt
-          test -f "hakim-${{ matrix.variant }}-bookworm-amd64.tar.xz"
+          test -f "hakim-${{ matrix.variant }}-trixie-amd64.tar.xz"
 
       - name: Upload variant artifacts
         uses: actions/upload-artifact@v4
@@ -73,8 +73,8 @@ jobs:
 
           for variant in "${variants[@]}"; do
             artifact_dir="distrobuilder/out/hakim-lxc-${variant}"
-            artifact_file="${artifact_dir}/hakim-${variant}-bookworm-amd64.tar.xz"
-            meta_file="${artifact_dir}/hakim-${variant}-bookworm-amd64.meta.tar.xz"
+            artifact_file="${artifact_dir}/hakim-${variant}-trixie-amd64.tar.xz"
+            meta_file="${artifact_dir}/hakim-${variant}-trixie-amd64.meta.tar.xz"
             checksum_file="${artifact_dir}/sha256sums.txt"
 
             test -d "${artifact_dir}"

@@ -15,7 +15,7 @@
 #   -a, --all           Build all variants (default if no variant specified)
 #   -c, --cached        Enable source and mise caching for faster rebuilds
 #   -v, --variant NAME  Build specific variant (alternative to positional arg)
-#   -r, --release NAME  Debian release (default: bookworm)
+#   -r, --release NAME  Debian release (default: trixie)
 #   -A, --arch ARCH     Architecture (default: amd64)
 #   -p, --apt-proxy URL Use apt-cacher-ng proxy (e.g., http://localhost:3142)
 #   -h, --help          Show this help message
@@ -72,7 +72,7 @@ fi
 
 # Default values
 VARIANT=""
-RELEASE="bookworm"
+RELEASE="trixie"
 ARCH="amd64"
 CACHED=false
 BUILD_ALL=false
