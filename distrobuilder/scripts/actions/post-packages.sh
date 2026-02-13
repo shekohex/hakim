@@ -58,9 +58,22 @@ link_mise_bins() {
     if [ -d "${bin_path}" ]; then
       for bin_file in "${bin_path}"/*; do
         if [ -f "${bin_file}" ] && [ -x "${bin_file}" ]; then
-          ln -sf "${bin_file}" "/usr/local/bin/$(basename "${bin_file}")"
+          local bin_name
+          bin_name=$(basename "${bin_file}")
+          ln -sf "${bin_file}" "/usr/local/bin/${bin_name}"
+          if [ ! -e "/usr/bin/${bin_name}" ]; then
+            ln -sf "/usr/local/bin/${bin_name}" "/usr/bin/${bin_name}"
+          fi
         fi
       done
+    fi
+  done
+}
+
+link_usr_local_bin_tools() {
+  for tool in mise coder code-server docker docker-compose; do
+    if [ -x "/usr/local/bin/${tool}" ] && [ ! -e "/usr/bin/${tool}" ]; then
+      ln -sf "/usr/local/bin/${tool}" "/usr/bin/${tool}"
     fi
   done
 }
@@ -226,6 +239,7 @@ install_elixir_stack() {
   # Compile Erlang from source for glibc compatibility (LXC uses older glibc than CI precompiled binaries)
   local erlang_version="28.3.1"
   local elixir_version="1.19.5"
+  local elixir_ref="v${elixir_version}"
 
   echo "Installing Erlang/OTP ${erlang_version} (compiling from source for glibc compatibility)..."
 
@@ -254,9 +268,9 @@ install_elixir_stack() {
     fi
   done
 
-  echo "Installing Elixir ${elixir_version}..."
+  echo "Installing Elixir ${elixir_version} from source (${elixir_ref})..."
   source_mise
-  MISE_YES=1 mise use --global elixir@${elixir_version}
+  MISE_YES=1 mise use --global "elixir@ref:${elixir_ref}"
   link_mise_bins
 
   # Install Phoenix and PostgreSQL tools
@@ -285,6 +299,7 @@ install_git_credential_libsecret
 install_docker_cli
 install_docker_compose
 install_google_chrome
+link_usr_local_bin_tools
 
 case "${VARIANT}" in
 base)

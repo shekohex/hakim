@@ -2,6 +2,7 @@
 
 ERLANG_VERSION=${ERLANG_VERSION:-${ERLANGVERSION:-"28.3.1"}}
 ELIXIR_VERSION=${ELIXIR_VERSION:-${ELIXIRVERSION:-"1.19.5"}}
+ELIXIR_REF="v${ELIXIR_VERSION}"
 SEED_USER_HOME=${SEEDUSERHOME:-"true"}
 
 _REMOTE_USER=${_REMOTE_USER:-"coder"}
@@ -81,8 +82,8 @@ else
     done
 fi
 
-echo "Installing Elixir ${ELIXIR_VERSION}..."
-mise use --global elixir@${ELIXIR_VERSION}
+echo "Installing Elixir ${ELIXIR_VERSION} from source (${ELIXIR_REF})..."
+mise use --global "elixir@ref:${ELIXIR_REF}"
 
 rm -rf /root/.cache/mise
 

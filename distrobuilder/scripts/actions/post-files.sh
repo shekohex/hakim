@@ -22,12 +22,22 @@ if command -v mise >/dev/null 2>&1; then
     if [ -d "${bin_path}"; then
       for bin_file in "${bin_path}"/*; do
         if [ -f "${bin_file}" ] && [ -x "${bin_file}" ]; then
-          ln -sf "${bin_file}" "/usr/local/bin/$(basename "${bin_file}")"
+          bin_name=$(basename "${bin_file}")
+          ln -sf "${bin_file}" "/usr/local/bin/${bin_name}"
+          if [ ! -e "/usr/bin/${bin_name}" ]; then
+            ln -sf "/usr/local/bin/${bin_name}" "/usr/bin/${bin_name}"
+          fi
         fi
       done
     fi
   done
 fi
+
+for tool in mise coder code-server docker docker-compose; do
+  if [ -x "/usr/local/bin/${tool}" ] && [ ! -e "/usr/bin/${tool}" ]; then
+    ln -sf "/usr/local/bin/${tool}" "/usr/bin/${tool}"
+  fi
+done
 
 mkdir -p /etc/network/interfaces.d
 

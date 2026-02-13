@@ -43,6 +43,10 @@
 #
 # Environment Variables:
 #   GITHUB_TOKEN    GitHub API token (for mise tool downloads)
+#
+# Proxmox Integration:
+#   If /var/lib/vz/template/cache exists and is writable, built templates are
+#   automatically copied there for immediate use with pct create.
 
 set -euo pipefail
 
@@ -184,6 +188,7 @@ build_variant() {
   local out_dir="${DISTROBUILDER_DIR}/out/${variant}"
   local tmp_dir="${REPO_ROOT}/.tmp/distrobuilder/${variant}-${release}-${arch}"
   local artifact_name="hakim-${variant}-${release}-${arch}.tar.xz"
+  local proxmox_cache_dir="/var/lib/vz/template/cache"
   
   mkdir -p "${out_dir}" "${tmp_dir}"
   
@@ -228,6 +233,14 @@ build_variant() {
 
   cd "${out_dir}"
   sha256sum "${artifact_name}" > sha256sums.txt
+
+  if [ -d "${proxmox_cache_dir}" ] && [ -w "${proxmox_cache_dir}" ]; then
+    echo "Deploying ${variant} template to Proxmox cache..."
+    cp -f "${out_dir}/${artifact_name}" "${proxmox_cache_dir}/${artifact_name}"
+    if [ -f "${out_dir}/${artifact_name%.tar.xz}.meta.tar.xz" ]; then
+      cp -f "${out_dir}/${artifact_name%.tar.xz}.meta.tar.xz" "${proxmox_cache_dir}/${artifact_name%.tar.xz}.meta.tar.xz"
+    fi
+  fi
   
   # Extract mise downloads from built image to populate cache
   if [ "$CACHED" = true ]; then
@@ -249,6 +262,10 @@ build_variant() {
   
   echo "Built: ${out_dir}/${artifact_name}"
   ls -lh "${out_dir}/${artifact_name}"
+
+  if [ -d "${proxmox_cache_dir}" ] && [ -w "${proxmox_cache_dir}" ]; then
+    ls -lh "${proxmox_cache_dir}/${artifact_name}"
+  fi
 }
 
 # Main build process
