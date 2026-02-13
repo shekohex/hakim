@@ -10,6 +10,10 @@ terraform {
       source  = "bpg/proxmox"
       version = ">= 0.66"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = ">= 4.0"
+    }
   }
 }
 
@@ -587,7 +591,7 @@ data "coder_parameter" "egress_mode" {
 data "coder_parameter" "proxmox_ssh_private_key" {
   name         = "proxmox_ssh_private_key"
   display_name = "Root SSH Private Key"
-  description  = "PEM private key used by Terraform remote-exec for first bootstrap."
+  description  = "Optional PEM private key used by Terraform remote-exec for first bootstrap. If empty, an ephemeral keypair is generated automatically."
   form_type    = "textarea"
   type         = "string"
   default      = ""
@@ -595,6 +599,30 @@ data "coder_parameter" "proxmox_ssh_private_key" {
   styling      = jsonencode({ mask_input = true })
   icon         = "https://esm.sh/lucide-static@latest/icons/key.svg"
   order        = 46
+}
+
+data "coder_parameter" "proxmox_extra_ssh_public_keys" {
+  name         = "proxmox_extra_ssh_public_keys"
+  display_name = "Extra Root SSH Public Keys"
+  description  = "Optional newline-separated OpenSSH public keys to add for root access in the container."
+  form_type    = "textarea"
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "https://esm.sh/lucide-static@latest/icons/key-round.svg"
+  order        = 47
+}
+
+resource "tls_private_key" "bootstrap" {
+  count = trimspace(data.coder_parameter.proxmox_ssh_private_key.value) == "" ? 1 : 0
+
+  algorithm = "ED25519"
+}
+
+data "tls_public_key" "proxmox_ssh_public_key" {
+  count = trimspace(data.coder_parameter.proxmox_ssh_private_key.value) != "" ? 1 : 0
+
+  private_key_pem = data.coder_parameter.proxmox_ssh_private_key.value
 }
 
 data "coder_parameter" "template_release" {
@@ -605,7 +633,7 @@ data "coder_parameter" "template_release" {
   default      = "trixie"
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/tag.svg"
-  order        = 47
+  order        = 48
 }
 
 data "coder_parameter" "template_arch" {
@@ -616,7 +644,7 @@ data "coder_parameter" "template_arch" {
   default      = "amd64"
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/cpu.svg"
-  order        = 48
+  order        = 49
 }
 
 data "coder_parameter" "template_url_base" {
@@ -627,7 +655,7 @@ data "coder_parameter" "template_url_base" {
   default      = ""
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
-  order        = 49
+  order        = 50
 }
 
 data "coder_parameter" "template_url_php" {
@@ -638,7 +666,7 @@ data "coder_parameter" "template_url_php" {
   default      = ""
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
-  order        = 50
+  order        = 51
 }
 
 data "coder_parameter" "template_url_dotnet" {
@@ -649,7 +677,7 @@ data "coder_parameter" "template_url_dotnet" {
   default      = ""
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
-  order        = 51
+  order        = 52
 }
 
 data "coder_parameter" "template_url_js" {
@@ -660,7 +688,7 @@ data "coder_parameter" "template_url_js" {
   default      = ""
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
-  order        = 52
+  order        = 53
 }
 
 data "coder_parameter" "template_url_rust" {
@@ -671,7 +699,7 @@ data "coder_parameter" "template_url_rust" {
   default      = ""
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
-  order        = 53
+  order        = 54
 }
 
 data "coder_parameter" "template_url_elixir" {
@@ -682,7 +710,7 @@ data "coder_parameter" "template_url_elixir" {
   default      = ""
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
-  order        = 54
+  order        = 55
 }
 
 locals {
@@ -694,6 +722,17 @@ locals {
     MIX_ARCHIVES = "/home/coder/.mix/archives"
   }
   combined_env = merge(local.default_env, local.user_env, local.secret_env)
+
+  provided_bootstrap_ssh_private_key  = trimspace(data.coder_parameter.proxmox_ssh_private_key.value)
+  generated_bootstrap_ssh_private_key = length(tls_private_key.bootstrap) > 0 ? trimspace(tls_private_key.bootstrap[0].private_key_pem) : ""
+  bootstrap_ssh_private_key           = local.provided_bootstrap_ssh_private_key != "" ? local.provided_bootstrap_ssh_private_key : local.generated_bootstrap_ssh_private_key
+
+  provided_bootstrap_ssh_public_key  = length(data.tls_public_key.proxmox_ssh_public_key) > 0 ? trimspace(data.tls_public_key.proxmox_ssh_public_key[0].public_key_openssh) : ""
+  generated_bootstrap_ssh_public_key = length(tls_private_key.bootstrap) > 0 ? trimspace(tls_private_key.bootstrap[0].public_key_openssh) : ""
+  bootstrap_ssh_public_key           = local.provided_bootstrap_ssh_public_key != "" ? local.provided_bootstrap_ssh_public_key : local.generated_bootstrap_ssh_public_key
+
+  extra_root_ssh_keys = [for key in split("\n", data.coder_parameter.proxmox_extra_ssh_public_keys.value) : trimspace(key) if trimspace(key) != ""]
+  root_ssh_keys       = distinct(concat(local.bootstrap_ssh_public_key != "" ? [local.bootstrap_ssh_public_key] : [], local.extra_root_ssh_keys))
 
   template_url_map = {
     base   = data.coder_parameter.template_url_base.value
@@ -825,6 +864,11 @@ resource "proxmox_virtual_environment_container" "workspace" {
 
   initialization {
     hostname = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
+
+    user_account {
+      keys = local.root_ssh_keys
+    }
+
     ip_config {
       ipv4 {
         address = "dhcp"
@@ -857,7 +901,7 @@ resource "terraform_data" "ssh_bootstrap" {
     type        = "ssh"
     host        = self.input.host
     user        = "root"
-    private_key = data.coder_parameter.proxmox_ssh_private_key.value
+    private_key = local.bootstrap_ssh_private_key
     timeout     = "10m"
   }
 
