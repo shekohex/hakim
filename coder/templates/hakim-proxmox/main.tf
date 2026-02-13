@@ -800,6 +800,10 @@ locals {
   use_existing_home_volume = local.home_volume_id != ""
   home_disk_size           = local.home_disk_enabled ? "${data.coder_parameter.home_disk_gb[0].value}G" : null
 
+  workspace_ipv4_hosts = [for addr in values(proxmox_virtual_environment_container.workspace.ipv4) : trimspace(split("/", addr)[0]) if trimspace(addr) != ""]
+  workspace_ipv6_hosts = [for addr in values(proxmox_virtual_environment_container.workspace.ipv6) : trimspace(split("/", addr)[0]) if trimspace(addr) != ""]
+  workspace_ssh_host   = length(local.workspace_ipv4_hosts) > 0 ? local.workspace_ipv4_hosts[0] : (length(local.workspace_ipv6_hosts) > 0 ? local.workspace_ipv6_hosts[0] : "")
+
   project_dir      = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script = file("${path.module}/scripts/setup-git.sh")
 }
@@ -955,7 +959,14 @@ resource "terraform_data" "ssh_bootstrap" {
   count = data.coder_workspace.me.start_count
 
   input = {
-    host = try(split("/", proxmox_virtual_environment_container.workspace.ipv4["eth0"])[0], "")
+    host = local.workspace_ssh_host
+  }
+
+  lifecycle {
+    precondition {
+      condition     = local.workspace_ssh_host != ""
+      error_message = "Container IP not discovered. Check bridge/DHCP config or set static IP for the workspace network."
+    }
   }
 
   connection {
