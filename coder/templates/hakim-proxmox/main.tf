@@ -916,7 +916,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
 
   operating_system {
     template_file_id = local.selected_template_file_id
-    type             = "debian"
+    type             = "unmanaged"
   }
 
   features {
