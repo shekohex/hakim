@@ -933,9 +933,21 @@ resource "proxmox_virtual_environment_container" "workspace" {
   initialization {
     hostname = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
 
-    user_account {
-      keys     = local.root_ssh_keys
-      password = local.bootstrap_root_password
+    dynamic "user_account" {
+      for_each = data.coder_parameter.template_release.value == "trixie" ? [1] : []
+
+      content {
+        keys = local.root_ssh_keys
+      }
+    }
+
+    dynamic "user_account" {
+      for_each = data.coder_parameter.template_release.value != "trixie" ? [1] : []
+
+      content {
+        keys     = local.root_ssh_keys
+        password = local.bootstrap_root_password
+      }
     }
 
     ip_config {
