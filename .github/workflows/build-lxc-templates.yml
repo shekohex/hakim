@@ -53,7 +53,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hakim-lxc-${{ matrix.variant }}
-          path: distrobuilder/out/${{ matrix.variant }}
+          path: distrobuilder/out/${{ matrix.variant }}/*.tar.xz
 
   verify:
     name: Verify matrix outputs
@@ -74,10 +74,12 @@ jobs:
           for variant in "${variants[@]}"; do
             artifact_dir="distrobuilder/out/hakim-lxc-${variant}"
             artifact_file="${artifact_dir}/hakim-${variant}-bookworm-amd64.tar.xz"
+            meta_file="${artifact_dir}/hakim-${variant}-bookworm-amd64.meta.tar.xz"
             checksum_file="${artifact_dir}/sha256sums.txt"
 
             test -d "${artifact_dir}"
             test -f "${artifact_file}"
+            test -f "${meta_file}"
             test -f "${checksum_file}"
 
             (

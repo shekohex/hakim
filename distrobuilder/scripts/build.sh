@@ -221,9 +221,11 @@ build_variant() {
   fi
   
   echo "Packaging ${variant}..."
-  cd "${tmp_dir}"
-  tar -cJf "${out_dir}/${artifact_name}" rootfs.tar.xz meta.tar.xz
-  
+  # For Proxmox compatibility, use rootfs.tar.xz directly (not wrapped)
+  cp "${rootfs_tarball}" "${out_dir}/${artifact_name}"
+  # Also include metadata for other uses
+  cp "${meta_tarball}" "${out_dir}/${artifact_name%.tar.xz}.meta.tar.xz" 2>/dev/null || true
+
   cd "${out_dir}"
   sha256sum "${artifact_name}" > sha256sums.txt
   

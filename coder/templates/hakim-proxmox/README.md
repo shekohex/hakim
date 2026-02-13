@@ -72,7 +72,12 @@ Outputs are written under `distrobuilder/out/<variant>/`.
 
 ## Put Artifacts in Proxmox as CT Templates
 
-For LXC, the `.tar.xz` artifact is already the template format. No conversion step like VM templates is required.
+The `.tar.xz` artifact is a Proxmox-compatible LXC rootfs template. It contains the raw filesystem (not nested archives), ready for `pct create`.
+
+**Template Format:**
+- The artifact is the raw `rootfs.tar.xz` (extracted from distrobuilder output)
+- Proxmox can use it directly with `--ostype debian`
+- No conversion or extraction step required
 
 Typical flow:
 
