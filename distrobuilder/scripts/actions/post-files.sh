@@ -42,7 +42,11 @@ done
 mkdir -p /etc/network/interfaces.d
 
 if [ ! -f /etc/network/interfaces ]; then
-  printf '%s\n' "auto lo" "iface lo inet loopback" > /etc/network/interfaces
+  printf '%s\n' "auto lo" "iface lo inet loopback" "" "source /etc/network/interfaces.d/*" > /etc/network/interfaces
+fi
+
+if ! grep -RqsE '^iface[[:space:]]+eth0[[:space:]]+inet[[:space:]]+' /etc/network/interfaces /etc/network/interfaces.d; then
+  printf '%s\n' "auto eth0" "iface eth0 inet dhcp" > /etc/network/interfaces.d/eth0
 fi
 
 rm -rf /var/lib/apt/lists/*
