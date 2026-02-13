@@ -29,4 +29,10 @@ if command -v mise >/dev/null 2>&1; then
   done
 fi
 
+mkdir -p /etc/network/interfaces.d
+
+if [ ! -f /etc/network/interfaces ]; then
+  printf '%s\n' "auto lo" "iface lo inet loopback" > /etc/network/interfaces
+fi
+
 rm -rf /var/lib/apt/lists/*
