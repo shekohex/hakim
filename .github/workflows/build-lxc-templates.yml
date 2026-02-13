@@ -53,7 +53,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hakim-lxc-${{ matrix.variant }}
-          path: distrobuilder/out/${{ matrix.variant }}/*.tar.xz
+          path: |
+            distrobuilder/out/${{ matrix.variant }}/*.tar.xz
+            distrobuilder/out/${{ matrix.variant }}/sha256sums.txt
 
   verify:
     name: Verify matrix outputs
