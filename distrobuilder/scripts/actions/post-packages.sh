@@ -268,9 +268,10 @@ install_elixir_stack() {
     fi
   done
 
-  echo "Installing Elixir ${elixir_version} from source (${elixir_ref})..."
+  echo "Installing Elixir ${elixir_version} from source (${elixir_ref}) via asdf backend..."
   source_mise
-  MISE_YES=1 mise use --global "elixir@ref:${elixir_ref}"
+  mise plugins install -f elixir https://github.com/asdf-vm/asdf-elixir.git
+  MISE_BACKENDS_ELIXIR="asdf:elixir" MISE_YES=1 mise use --global "elixir@ref:${elixir_ref}"
   link_mise_bins
 
   # Install Phoenix and PostgreSQL tools

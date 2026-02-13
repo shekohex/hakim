@@ -82,8 +82,9 @@ else
     done
 fi
 
-echo "Installing Elixir ${ELIXIR_VERSION} from source (${ELIXIR_REF})..."
-mise use --global "elixir@ref:${ELIXIR_REF}"
+echo "Installing Elixir ${ELIXIR_VERSION} from source (${ELIXIR_REF}) via asdf backend..."
+mise plugins install -f elixir https://github.com/asdf-vm/asdf-elixir.git
+MISE_BACKENDS_ELIXIR="asdf:elixir" mise use --global "elixir@ref:${ELIXIR_REF}"
 
 rm -rf /root/.cache/mise
 
