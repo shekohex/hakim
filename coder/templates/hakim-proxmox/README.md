@@ -36,6 +36,8 @@ Provisions Hakim workspaces on Proxmox LXC using Distrobuilder-built golden temp
 
 - Proxmox API endpoint/token
 - Node name, container datastore, template datastore
+- Optional dedicated home volume (`enable_home_disk`, `home_disk_gb`, `proxmox_home_datastore_id`)
+- Optional existing home volume reattach (`proxmox_home_volume_id`)
 - Network bridge and optional VLAN
 - Variant template URLs (`template_url_*`) or custom `template_file_id`
 - Root SSH key used for initial agent bootstrap
@@ -175,3 +177,13 @@ Q: How do I force a specific pre-uploaded template in Proxmox?
 Q: Why do we still need SSH key input?
 
 - Initial Coder agent bootstrap is done through Terraform `remote-exec` over SSH before workspace apps/modules can start.
+
+Q: Does stopping a workspace delete the CT and disks?
+
+- No. The CT now stays managed permanently and only toggles running state with Coder start/stop (`started = transition == "start"`).
+- Root disk and optional `/home/coder` disk are kept across stop/start and host reboot.
+
+Q: How do I keep user data when rebuilding/replacing a workspace container?
+
+- Use `enable_home_disk = true` so `/home/coder` is a separate mount.
+- Before replacement, note the existing home volume id (for example `local-lvm:subvol-<vmid>-disk-1`) and set `proxmox_home_volume_id` to reattach it.

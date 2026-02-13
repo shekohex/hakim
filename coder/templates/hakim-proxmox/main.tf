@@ -556,6 +556,52 @@ data "coder_parameter" "container_disk_gb" {
   order        = 43
 }
 
+data "coder_parameter" "enable_home_disk" {
+  name         = "enable_home_disk"
+  display_name = "Enable Home Disk"
+  description  = "Attach a dedicated volume at /home/coder."
+  type         = "bool"
+  default      = false
+  icon         = "https://esm.sh/lucide-static@latest/icons/hard-drive.svg"
+  order        = 56
+}
+
+data "coder_parameter" "home_disk_gb" {
+  count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
+  name         = "home_disk_gb"
+  display_name = "Home Disk (GB)"
+  description  = "Size of /home/coder volume."
+  type         = "number"
+  default      = 30
+  mutable      = true
+  icon         = "https://esm.sh/lucide-static@latest/icons/hard-drive.svg"
+  order        = 57
+}
+
+data "coder_parameter" "proxmox_home_datastore_id" {
+  count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
+  name         = "proxmox_home_datastore_id"
+  display_name = "Home Datastore"
+  description  = "Optional datastore for /home/coder volume. Empty uses container datastore."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "https://esm.sh/lucide-static@latest/icons/database.svg"
+  order        = 58
+}
+
+data "coder_parameter" "proxmox_home_volume_id" {
+  count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
+  name         = "proxmox_home_volume_id"
+  display_name = "Existing Home Volume ID"
+  description  = "Optional existing volume id to mount at /home/coder (for rebuild/migration)."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
+  order        = 59
+}
+
 data "coder_parameter" "enable_nesting" {
   name         = "enable_nesting"
   display_name = "Enable Nesting"
@@ -748,6 +794,12 @@ locals {
     length(proxmox_virtual_environment_download_file.selected_template) > 0 ? proxmox_virtual_environment_download_file.selected_template[0].id : "${data.coder_parameter.proxmox_template_datastore_id.value}:vztmpl/hakim-${data.coder_parameter.image_variant.value}-${data.coder_parameter.template_release.value}-${data.coder_parameter.template_arch.value}.tar.xz"
   )
 
+  home_disk_enabled        = data.coder_parameter.enable_home_disk.value && length(data.coder_parameter.home_disk_gb) > 0 && data.coder_parameter.home_disk_gb[0].value > 0
+  home_volume_id           = length(data.coder_parameter.proxmox_home_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_home_volume_id[0].value) : ""
+  home_datastore_id        = length(data.coder_parameter.proxmox_home_datastore_id) > 0 && trimspace(data.coder_parameter.proxmox_home_datastore_id[0].value) != "" ? trimspace(data.coder_parameter.proxmox_home_datastore_id[0].value) : data.coder_parameter.proxmox_container_datastore_id.value
+  use_existing_home_volume = local.home_volume_id != ""
+  home_disk_size           = local.home_disk_enabled ? "${data.coder_parameter.home_disk_gb[0].value}G" : null
+
   project_dir      = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script = file("${path.module}/scripts/setup-git.sh")
 }
@@ -818,7 +870,7 @@ resource "coder_ai_task" "task" {
 data "coder_task" "me" {}
 
 resource "proxmox_virtual_environment_download_file" "selected_template" {
-  count = data.coder_workspace.me.start_count > 0 && data.coder_parameter.image_variant.value != "custom" && trimspace(local.selected_template_url) != "" ? 1 : 0
+  count = data.coder_parameter.image_variant.value != "custom" && trimspace(local.selected_template_url) != "" ? 1 : 0
 
   content_type = "vztmpl"
   datastore_id = data.coder_parameter.proxmox_template_datastore_id.value
@@ -829,14 +881,12 @@ resource "proxmox_virtual_environment_download_file" "selected_template" {
 }
 
 resource "proxmox_virtual_environment_container" "workspace" {
-  count = data.coder_workspace.me.start_count
-
   node_name     = data.coder_parameter.proxmox_node_name.value
   vm_id         = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
   pool_id       = trimspace(data.coder_parameter.proxmox_pool_id.value) != "" ? data.coder_parameter.proxmox_pool_id.value : null
   description   = "Coder workspace ${data.coder_workspace_owner.me.name}/${data.coder_workspace.me.name}"
   unprivileged  = true
-  started       = true
+  started       = data.coder_workspace.me.transition == "start"
   start_on_boot = false
   tags          = ["coder", "hakim", data.coder_parameter.image_variant.value, data.coder_parameter.egress_mode.value]
   cpu {
@@ -851,6 +901,17 @@ resource "proxmox_virtual_environment_container" "workspace" {
   disk {
     datastore_id = data.coder_parameter.proxmox_container_datastore_id.value
     size         = data.coder_parameter.container_disk_gb.value
+  }
+
+  dynamic "mount_point" {
+    for_each = local.home_disk_enabled ? [1] : []
+
+    content {
+      path   = "/home/coder"
+      volume = local.use_existing_home_volume ? local.home_volume_id : local.home_datastore_id
+      size   = local.use_existing_home_volume ? null : local.home_disk_size
+      backup = true
+    }
   }
 
   operating_system {
@@ -894,7 +955,7 @@ resource "terraform_data" "ssh_bootstrap" {
   count = data.coder_workspace.me.start_count
 
   input = {
-    host = try(split("/", proxmox_virtual_environment_container.workspace[count.index].ipv4["eth0"])[0], "")
+    host = try(split("/", proxmox_virtual_environment_container.workspace.ipv4["eth0"])[0], "")
   }
 
   connection {
