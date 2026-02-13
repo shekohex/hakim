@@ -800,6 +800,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
   started       = true
   start_on_boot = false
   tags          = ["coder", "hakim", data.coder_parameter.image_variant.value, data.coder_parameter.egress_mode.value]
+  ostype        = "debian"
 
   cpu {
     cores = data.coder_parameter.container_cores.value
