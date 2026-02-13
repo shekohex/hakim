@@ -135,4 +135,4 @@ actions:
     action: |-
       #!/bin/bash
       set -euo pipefail
-      /bin/bash /usr/local/share/hakim/actions/post-files.sh
+      /bin/bash /usr/local/share/hakim/actions/post-files.sh {{ image.release }}

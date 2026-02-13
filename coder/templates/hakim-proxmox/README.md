@@ -176,8 +176,8 @@ Q: How do I force a specific pre-uploaded template in Proxmox?
 
 Q: Can I use `template_release=trixie` right now?
 
-- Not for this Terraform flow yet. Proxmox rejects Debian 13.x with `ostype=debian`, and `ostype=unmanaged` does not apply SSH keys/password for bootstrap.
-- Use `template_release=bookworm` for now.
+- Yes. The template uses `ostype=unmanaged` for `trixie` and `ostype=debian` for older releases.
+- Rebuild and deploy latest `trixie` artifacts before creating workspaces.
 
 Q: Why do we still need SSH key input?
 
@@ -185,7 +185,9 @@ Q: Why do we still need SSH key input?
 
 Q: How does bootstrap authentication work now?
 
-- First bootstrap uses root SSH with key and password fallback (password derived from bootstrap key material and injected through Proxmox `user_account.password`).
+- First bootstrap uses root SSH with key and password fallback.
+- For `trixie`, initial password fallback is `root` (set in image build) because Proxmox unmanaged mode does not inject credentials.
+- For non-`trixie`, password fallback is derived from bootstrap key material and injected through Proxmox `user_account.password`.
 - Bootstrap then installs root SSH keys, disables SSH password login, and rotates root password to a strong random value.
 - Rotated root password is saved inside the container at `/root/.coder-root-password` (mode `0600`) for break-glass console access.
 

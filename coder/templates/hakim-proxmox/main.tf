@@ -676,7 +676,7 @@ data "coder_parameter" "template_release" {
   display_name = "Template Release"
   description  = "Release segment in artifact name."
   type         = "string"
-  default      = "bookworm"
+  default      = "trixie"
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/tag.svg"
   order        = 48
@@ -772,7 +772,7 @@ locals {
   provided_bootstrap_ssh_private_key  = trimspace(data.coder_parameter.proxmox_ssh_private_key.value)
   generated_bootstrap_ssh_private_key = length(tls_private_key.bootstrap) > 0 ? trimspace(tls_private_key.bootstrap[0].private_key_pem) : ""
   bootstrap_ssh_private_key           = local.provided_bootstrap_ssh_private_key != "" ? local.provided_bootstrap_ssh_private_key : local.generated_bootstrap_ssh_private_key
-  bootstrap_root_password             = substr(replace(replace(base64sha256(local.bootstrap_ssh_private_key), "=", ""), "/", "_"), 0, 32)
+  bootstrap_root_password             = data.coder_parameter.template_release.value == "trixie" ? "root" : substr(replace(replace(base64sha256(local.bootstrap_ssh_private_key), "=", ""), "/", "_"), 0, 32)
 
   provided_bootstrap_ssh_public_key  = length(data.tls_public_key.proxmox_ssh_public_key) > 0 ? trimspace(data.tls_public_key.proxmox_ssh_public_key[0].public_key_openssh) : ""
   generated_bootstrap_ssh_public_key = length(tls_private_key.bootstrap) > 0 ? trimspace(tls_private_key.bootstrap[0].public_key_openssh) : ""
@@ -910,13 +910,6 @@ resource "proxmox_virtual_environment_container" "workspace" {
     size         = data.coder_parameter.container_disk_gb.value
   }
 
-  lifecycle {
-    precondition {
-      condition     = data.coder_parameter.template_release.value != "trixie"
-      error_message = "template_release=trixie is not supported for SSH bootstrap on current Proxmox. Use bookworm."
-    }
-  }
-
   dynamic "mount_point" {
     for_each = local.home_disk_enabled ? [1] : []
 
@@ -930,7 +923,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
 
   operating_system {
     template_file_id = local.selected_template_file_id
-    type             = "debian"
+    type             = data.coder_parameter.template_release.value == "trixie" ? "unmanaged" : "debian"
   }
 
   features {
