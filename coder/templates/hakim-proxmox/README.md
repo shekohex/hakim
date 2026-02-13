@@ -174,6 +174,11 @@ Q: How do I force a specific pre-uploaded template in Proxmox?
 
 - Set `image_variant = custom` and provide `custom_template_file_id` (for example `local:vztmpl/hakim-base-trixie-amd64.tar.xz`).
 
+Q: Can I use `template_release=trixie` right now?
+
+- Not for this Terraform flow yet. Proxmox rejects Debian 13.x with `ostype=debian`, and `ostype=unmanaged` does not apply SSH keys/password for bootstrap.
+- Use `template_release=bookworm` for now.
+
 Q: Why do we still need SSH key input?
 
 - Initial Coder agent bootstrap is done through Terraform `remote-exec` over SSH before workspace apps/modules can start.

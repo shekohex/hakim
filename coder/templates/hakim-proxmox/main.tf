@@ -676,7 +676,7 @@ data "coder_parameter" "template_release" {
   display_name = "Template Release"
   description  = "Release segment in artifact name."
   type         = "string"
-  default      = "trixie"
+  default      = "bookworm"
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/tag.svg"
   order        = 48
@@ -907,6 +907,13 @@ resource "proxmox_virtual_environment_container" "workspace" {
     size         = data.coder_parameter.container_disk_gb.value
   }
 
+  lifecycle {
+    precondition {
+      condition     = data.coder_parameter.template_release.value != "trixie"
+      error_message = "template_release=trixie is not supported for SSH bootstrap on current Proxmox. Use bookworm."
+    }
+  }
+
   dynamic "mount_point" {
     for_each = local.home_disk_enabled ? [1] : []
 
@@ -920,7 +927,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
 
   operating_system {
     template_file_id = local.selected_template_file_id
-    type             = "unmanaged"
+    type             = "debian"
   }
 
   features {
