@@ -183,6 +183,12 @@ Q: Why do we still need SSH key input?
 
 - Initial Coder agent bootstrap is done through Terraform `remote-exec` over SSH before workspace apps/modules can start.
 
+Q: How does bootstrap authentication work now?
+
+- First bootstrap uses root SSH with key and password fallback (password derived from bootstrap key material and injected through Proxmox `user_account.password`).
+- Bootstrap then installs root SSH keys, disables SSH password login, and rotates root password to a strong random value.
+- Rotated root password is saved inside the container at `/root/.coder-root-password` (mode `0600`) for break-glass console access.
+
 Q: Does stopping a workspace delete the CT and disks?
 
 - No. The CT now stays managed permanently and only toggles running state with Coder start/stop (`started = transition == "start"`).

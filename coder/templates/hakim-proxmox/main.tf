@@ -772,13 +772,16 @@ locals {
   provided_bootstrap_ssh_private_key  = trimspace(data.coder_parameter.proxmox_ssh_private_key.value)
   generated_bootstrap_ssh_private_key = length(tls_private_key.bootstrap) > 0 ? trimspace(tls_private_key.bootstrap[0].private_key_pem) : ""
   bootstrap_ssh_private_key           = local.provided_bootstrap_ssh_private_key != "" ? local.provided_bootstrap_ssh_private_key : local.generated_bootstrap_ssh_private_key
+  bootstrap_root_password             = substr(replace(replace(base64sha256(local.bootstrap_ssh_private_key), "=", ""), "/", "_"), 0, 32)
 
   provided_bootstrap_ssh_public_key  = length(data.tls_public_key.proxmox_ssh_public_key) > 0 ? trimspace(data.tls_public_key.proxmox_ssh_public_key[0].public_key_openssh) : ""
   generated_bootstrap_ssh_public_key = length(tls_private_key.bootstrap) > 0 ? trimspace(tls_private_key.bootstrap[0].public_key_openssh) : ""
   bootstrap_ssh_public_key           = local.provided_bootstrap_ssh_public_key != "" ? local.provided_bootstrap_ssh_public_key : local.generated_bootstrap_ssh_public_key
 
-  extra_root_ssh_keys = [for key in split("\n", data.coder_parameter.proxmox_extra_ssh_public_keys.value) : trimspace(key) if trimspace(key) != ""]
-  root_ssh_keys       = distinct(concat(local.bootstrap_ssh_public_key != "" ? [local.bootstrap_ssh_public_key] : [], local.extra_root_ssh_keys))
+  extra_root_ssh_keys           = [for key in split("\n", data.coder_parameter.proxmox_extra_ssh_public_keys.value) : trimspace(key) if trimspace(key) != ""]
+  root_ssh_keys                 = distinct(concat(local.bootstrap_ssh_public_key != "" ? [local.bootstrap_ssh_public_key] : [], local.extra_root_ssh_keys))
+  root_ssh_keys_base64          = [for key in local.root_ssh_keys : base64encode(key)]
+  root_ssh_key_install_commands = [for key_b64 in local.root_ssh_keys_base64 : "key=$(printf '%s' '${key_b64}' | base64 -d); grep -qxF \"$key\" /root/.ssh/authorized_keys || printf '%s\\n' \"$key\" >> /root/.ssh/authorized_keys"]
 
   template_url_map = {
     base   = data.coder_parameter.template_url_base.value
@@ -938,7 +941,8 @@ resource "proxmox_virtual_environment_container" "workspace" {
     hostname = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
 
     user_account {
-      keys = local.root_ssh_keys
+      keys     = local.root_ssh_keys
+      password = local.bootstrap_root_password
     }
 
     ip_config {
@@ -981,15 +985,24 @@ resource "terraform_data" "ssh_bootstrap" {
     host        = self.input.host
     user        = "root"
     private_key = local.bootstrap_ssh_private_key
+    password    = local.bootstrap_root_password
     timeout     = "10m"
   }
 
   provisioner "remote-exec" {
-    inline = [
+    inline = concat([
       "set -euo pipefail",
       "export DEBIAN_FRONTEND=noninteractive",
       "apt-get update -y",
-      "apt-get install -y --no-install-recommends curl ca-certificates sudo",
+      "apt-get install -y --no-install-recommends curl ca-certificates sudo openssl",
+      "install -d -m 700 /root/.ssh",
+      "touch /root/.ssh/authorized_keys",
+      "chmod 600 /root/.ssh/authorized_keys"
+      ], local.root_ssh_key_install_commands, [
+      "chmod 700 /root/.ssh",
+      "printf '%s\\n' 'PermitRootLogin prohibit-password' 'PasswordAuthentication no' 'KbdInteractiveAuthentication no' 'ChallengeResponseAuthentication no' 'PubkeyAuthentication yes' > /etc/ssh/sshd_config.d/99-coder-hardening.conf",
+      "systemctl reload ssh || systemctl restart ssh",
+      "ROOT_PASS=\"$(openssl rand -base64 48 | tr -d '\\n' | cut -c1-32)\"; printf 'root:%s\\n' \"$ROOT_PASS\" | chpasswd; install -m 600 /dev/null /root/.coder-root-password; printf '%s\\n' \"$ROOT_PASS\" > /root/.coder-root-password",
       "id -u coder >/dev/null 2>&1 || useradd -m -s /bin/bash coder --uid 1000",
       "mkdir -p /home/coder/project",
       "chown -R coder:coder /home/coder",
@@ -997,7 +1010,7 @@ resource "terraform_data" "ssh_bootstrap" {
       "chmod +x /usr/local/bin/coder",
       "pkill -f 'coder agent' || true",
       "nohup sudo -u coder env CODER_AGENT_TOKEN='${coder_agent.main.token}' CODER_AGENT_URL='${data.coder_workspace.me.access_url}' /usr/local/bin/coder agent >/var/log/coder-agent.log 2>&1 &"
-    ]
+    ])
   }
 
   depends_on = [proxmox_virtual_environment_container.workspace]
