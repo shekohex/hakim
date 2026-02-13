@@ -46,6 +46,7 @@ packages:
         - tar
         - perl
         - xz-utils
+        - ifupdown
 
 files:
   - generator: copy
