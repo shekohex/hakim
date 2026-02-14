@@ -8,6 +8,9 @@ CODER_HOME="${CODER_HOME:-/home/${CODER_USER}}"
 PROJECT_DIR="${CODER_PROJECT_DIR:-${CODER_HOME}/project}"
 
 export PATH="/usr/local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+export LANG="${LANG:-C.UTF-8}"
+export LANGUAGE="${LANGUAGE:-C.UTF-8}"
+export LC_ALL="${LC_ALL:-C.UTF-8}"
 
 if ! getent group "${CODER_GID}" >/dev/null 2>&1; then
   groupadd --gid "${CODER_GID}" "${CODER_USER}"

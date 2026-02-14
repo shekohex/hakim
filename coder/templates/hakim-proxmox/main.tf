@@ -658,6 +658,9 @@ locals {
   secret_env = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
   default_env = {
     PATH         = "/usr/local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    LANG         = "C.UTF-8"
+    LANGUAGE     = "C.UTF-8"
+    LC_ALL       = "C.UTF-8"
     MIX_HOME     = "/home/coder/.mix"
     HEX_HOME     = "/home/coder/.hex"
     MIX_ARCHIVES = "/home/coder/.mix/archives"
