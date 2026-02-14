@@ -806,6 +806,7 @@ locals {
   workspace_ipv4_hosts = [for addr in values(proxmox_virtual_environment_container.workspace.ipv4) : trimspace(split("/", addr)[0]) if trimspace(addr) != ""]
   workspace_ipv6_hosts = [for addr in values(proxmox_virtual_environment_container.workspace.ipv6) : trimspace(split("/", addr)[0]) if trimspace(addr) != ""]
   workspace_ssh_host   = length(local.workspace_ipv4_hosts) > 0 ? local.workspace_ipv4_hosts[0] : (length(local.workspace_ipv6_hosts) > 0 ? local.workspace_ipv6_hosts[0] : "")
+  coder_access_url     = trimsuffix(data.coder_workspace.me.access_url, "/")
 
   project_dir      = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script = file("${path.module}/scripts/setup-git.sh")
@@ -999,7 +1000,7 @@ resource "terraform_data" "ssh_bootstrap" {
       "id -u coder >/dev/null 2>&1 || useradd -m -s /bin/bash coder --uid 1000",
       "mkdir -p /home/coder/project",
       "chown -R coder:coder /home/coder",
-      "curl -fsSL '${data.coder_workspace.me.access_url}bin/coder-linux-${data.coder_provisioner.me.arch}' -o /usr/local/bin/coder",
+      "curl -fsSL '${local.coder_access_url}/bin/coder-linux-${data.coder_provisioner.me.arch}' -o /usr/local/bin/coder",
       "chmod +x /usr/local/bin/coder",
       "pkill -f 'coder agent' || true",
       "nohup sudo -u coder env CODER_AGENT_TOKEN='${coder_agent.main.token}' CODER_AGENT_URL='${data.coder_workspace.me.access_url}' /usr/local/bin/coder agent >/var/log/coder-agent.log 2>&1 &"
