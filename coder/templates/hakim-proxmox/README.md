@@ -50,7 +50,43 @@ Run once on the Proxmox host:
 ./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh
 ```
 
-Optional environment overrides:
+Show flags:
+
+```bash
+./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh --help
+```
+
+Pull a specific variant:
+
+```bash
+./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh --variant js --tag latest
+```
+
+Pull multiple variants:
+
+```bash
+./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh --variants base,js,elixir --tag latest
+```
+
+Pull a single explicit image reference:
+
+```bash
+./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh --image ghcr.io/shekohex/hakim-elixir:latest
+```
+
+Replace existing templates:
+
+```bash
+./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh --variants base,js --tag latest --force-replace
+```
+
+Check remote GHCR digest and replace only when changed:
+
+```bash
+./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh --variants base,php,dotnet,js,rust,elixir --tag latest --check-remote-digest --use-gh-auth-token
+```
+
+Optional environment overrides still supported:
 
 ```bash
 NODE_NAME=bigboss DATASTORE_ID=local ./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh
@@ -60,18 +96,6 @@ Pull a specific tag:
 
 ```bash
 NODE_NAME=bigboss DATASTORE_ID=local TEMPLATE_TAG=v2026.02.14 ./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh
-```
-
-Replace existing templates with same tag:
-
-```bash
-NODE_NAME=bigboss DATASTORE_ID=local TEMPLATE_TAG=latest FORCE_REPLACE=1 ./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh
-```
-
-Pull selected variants only:
-
-```bash
-VARIANTS=base,js,elixir TEMPLATE_TAG=latest ./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh
 ```
 
 Verify templates:
@@ -152,7 +176,7 @@ Q: Is there digest/hash comparison with GHCR and Docker-like layer cache?
 
 - Proxmox stores pulled OCI as `vztmpl` tar files.
 - It does not transparently roll running CTs forward; updates are explicit pulls + CT recreation.
-- Re-pull behavior is controlled operationally (`FORCE_REPLACE=1` in pull script).
+- Re-pull behavior is controlled operationally (`--force-replace` or `--check-remote-digest` in pull script).
 
 Q: Does stopping a workspace delete the CT and disks?
 
