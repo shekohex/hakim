@@ -21,7 +21,7 @@ Hakim images are also OCI-ready for Proxmox LXC templates and can run `coder age
 
 The `coder-templates/hakim` template exposes several parameters to customize the workspace.
 
-For Proxmox, use `coder/templates/hakim-proxmox` with OCI templates pulled into Proxmox storage (`vztmpl`).
+For Proxmox, use `coder/templates/hakim-proxmox` with shared pre-pulled OCI templates in Proxmox storage (`vztmpl`).
 
 ### Core Parameters
 | Parameter | Description | Default | Options |

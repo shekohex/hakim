@@ -87,6 +87,18 @@ data "coder_parameter" "custom_template_file_id" {
   order        = 2
 }
 
+data "coder_parameter" "template_tag" {
+  count        = data.coder_parameter.image_variant.value == "custom" ? 0 : 1
+  name         = "template_tag"
+  display_name = "Template Tag"
+  description  = "Pre-pulled template tag suffix. Expects hakim-<variant>_<tag>.tar in template datastore."
+  default      = "latest"
+  mutable      = true
+  type         = "string"
+  icon         = "https://esm.sh/lucide-static@latest/icons/tag.svg"
+  order        = 2
+}
+
 data "coder_parameter" "git_url" {
   name         = "git_url"
   display_name = "Git Repository URL"
@@ -468,7 +480,7 @@ data "coder_parameter" "proxmox_container_datastore_id" {
 data "coder_parameter" "proxmox_template_datastore_id" {
   name         = "proxmox_template_datastore_id"
   display_name = "Template Datastore"
-  description  = "Datastore for OCI-derived vztmpl templates."
+  description  = "Datastore containing pre-pulled OCI-derived vztmpl templates."
   type         = "string"
   default      = "local"
   mutable      = true
@@ -598,6 +610,17 @@ data "coder_parameter" "proxmox_home_volume_id" {
   order        = 59
 }
 
+data "coder_parameter" "workspace_rebuild_generation" {
+  name         = "workspace_rebuild_generation"
+  display_name = "Workspace Rebuild Generation"
+  description  = "Increment to force container recreation and pick up a refreshed template."
+  type         = "number"
+  default      = 1
+  mutable      = true
+  icon         = "https://esm.sh/lucide-static@latest/icons/refresh-cw.svg"
+  order        = 60
+}
+
 data "coder_parameter" "enable_nesting" {
   name         = "enable_nesting"
   display_name = "Enable Nesting"
@@ -640,19 +663,9 @@ locals {
   }
   combined_env = merge(local.default_env, local.user_env, local.secret_env)
 
-  oci_reference_map = {
-    base   = "ghcr.io/shekohex/hakim-base:latest"
-    php    = "ghcr.io/shekohex/hakim-php:latest"
-    dotnet = "ghcr.io/shekohex/hakim-dotnet:latest"
-    js     = "ghcr.io/shekohex/hakim-js:latest"
-    rust   = "ghcr.io/shekohex/hakim-rust:latest"
-    elixir = "ghcr.io/shekohex/hakim-elixir:latest"
-  }
-
-  selected_oci_reference = lookup(local.oci_reference_map, data.coder_parameter.image_variant.value, "")
-  workspace_suffix       = substr(md5(data.coder_workspace.me.id), 0, 12)
+  selected_template_tag = length(data.coder_parameter.template_tag) > 0 && trimspace(data.coder_parameter.template_tag[0].value) != "" ? trimspace(data.coder_parameter.template_tag[0].value) : "latest"
   selected_template_file_id = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.custom_template_file_id[0].value : (
-    proxmox_virtual_environment_oci_image.selected_template[0].id
+    "${data.coder_parameter.proxmox_template_datastore_id.value}:vztmpl/hakim-${data.coder_parameter.image_variant.value}_${local.selected_template_tag}.tar"
   )
 
   container_environment_variables = merge(local.combined_env, {
@@ -735,15 +748,6 @@ resource "coder_ai_task" "task" {
 
 data "coder_task" "me" {}
 
-resource "proxmox_virtual_environment_oci_image" "selected_template" {
-  count = data.coder_parameter.image_variant.value == "custom" ? 0 : 1
-
-  datastore_id = data.coder_parameter.proxmox_template_datastore_id.value
-  node_name    = data.coder_parameter.proxmox_node_name.value
-  reference    = local.selected_oci_reference
-  file_name    = "hakim-${data.coder_parameter.image_variant.value}-${local.workspace_suffix}.tar"
-}
-
 resource "proxmox_virtual_environment_container" "workspace" {
   node_name             = data.coder_parameter.proxmox_node_name.value
   vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
@@ -752,8 +756,16 @@ resource "proxmox_virtual_environment_container" "workspace" {
   unprivileged          = true
   started               = data.coder_workspace.me.transition == "start"
   start_on_boot         = false
-  tags                  = ["coder", "hakim", data.coder_parameter.image_variant.value, data.coder_parameter.egress_mode.value]
+  tags                  = ["coder", "hakim", data.coder_parameter.image_variant.value, data.coder_parameter.egress_mode.value, "template-${local.selected_template_tag}"]
   environment_variables = local.container_environment_variables
+  lifecycle {
+    replace_triggered_by = [data.coder_parameter.workspace_rebuild_generation.value]
+
+    precondition {
+      condition     = data.coder_parameter.image_variant.value != "custom" || trimspace(data.coder_parameter.custom_template_file_id[0].value) != ""
+      error_message = "custom_template_file_id must be set when image_variant is custom."
+    }
+  }
   cpu {
     cores = data.coder_parameter.container_cores.value
   }
@@ -809,7 +821,6 @@ resource "proxmox_virtual_environment_container" "workspace" {
     ipv4 = true
   }
 
-  depends_on = [proxmox_virtual_environment_oci_image.selected_template]
 }
 
 module "opencode" {

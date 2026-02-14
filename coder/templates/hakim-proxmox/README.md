@@ -13,7 +13,7 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 ## How It Works
 
 1. Proxmox pulls OCI images from GHCR and stores them in template storage (`vztmpl`).
-2. `coder/templates/hakim-proxmox/main.tf` selects a variant and creates LXC from that template.
+2. `coder/templates/hakim-proxmox/main.tf` selects a variant + template tag and references a shared pre-pulled template id.
 3. Hakim image entrypoint starts `coder agent` automatically when `CODER_AGENT_URL` and `CODER_AGENT_TOKEN` are present.
 4. Template runs the same module stack used by Docker template (`opencode`, `openchamber`, `openclaw-node`, `code-server`, etc).
 
@@ -39,7 +39,8 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 - Optional dedicated home volume (`enable_home_disk`, `home_disk_gb`, `proxmox_home_datastore_id`)
 - Optional existing home volume reattach (`proxmox_home_volume_id`)
 - Network bridge and optional VLAN
-- Variant selector (`image_variant`) or custom `custom_template_file_id`
+- Variant selector (`image_variant`) + shared `template_tag` or custom `custom_template_file_id`
+- Optional forced rebuild counter (`workspace_rebuild_generation`)
 
 ## Pull OCI Templates into Proxmox
 
@@ -53,6 +54,24 @@ Optional environment overrides:
 
 ```bash
 NODE_NAME=bigboss DATASTORE_ID=local ./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh
+```
+
+Pull a specific tag:
+
+```bash
+NODE_NAME=bigboss DATASTORE_ID=local TEMPLATE_TAG=v2026.02.14 ./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh
+```
+
+Replace existing templates with same tag:
+
+```bash
+NODE_NAME=bigboss DATASTORE_ID=local TEMPLATE_TAG=latest FORCE_REPLACE=1 ./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh
+```
+
+Pull selected variants only:
+
+```bash
+VARIANTS=base,js,elixir TEMPLATE_TAG=latest ./coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh
 ```
 
 Verify templates:
@@ -71,6 +90,14 @@ Build script:
 
 This builds and publishes `hakim-base`, `hakim-tooling`, and all variants.
 
+## Update Existing Workspaces
+
+1. Build and publish new image tag.
+2. Pull that tag into Proxmox templates (`TEMPLATE_TAG=<new-tag>`).
+3. Update workspace `template_tag` to the new tag and apply.
+4. If keeping same tag name (for example `latest`), increment `workspace_rebuild_generation` to force CT recreation.
+5. To preserve user data, keep `/home/coder` on a dedicated volume and set `proxmox_home_volume_id` before rebuild.
+
 ## Create a New Variant
 
 To add variant `go`, update all of these:
@@ -79,7 +106,7 @@ To add variant `go`, update all of these:
    - Add `devcontainers/.devcontainer/images/go/.devcontainer/devcontainer.json`.
 2. Coder Proxmox template:
    - Add option in `coder/templates/hakim-proxmox/main.tf` `image_variant` parameter.
-   - Add `go` in `oci_reference_map` local.
+   - Ensure `template_tag` naming stays `hakim-<variant>_<tag>.tar`.
    - Add module gates/presets if needed.
 3. Pull script:
    - Add variant in `coder/templates/hakim-proxmox/scripts/pull-oci-templates.sh`.
@@ -110,6 +137,22 @@ Q: Does this replace Docker template?
 Q: How do I force a specific pre-uploaded template in Proxmox?
 
 - Set `image_variant = custom` and provide `custom_template_file_id` (for example `local:vztmpl/hakim-elixir_latest.tar`).
+
+Q: Does workspace creation pull from GHCR directly?
+
+- No. Workspace creation reads an already-present Proxmox template file id.
+- Pulling from GHCR is an explicit host operation via `pull-oci-templates.sh`.
+
+Q: If I pull a refreshed image, do existing workspaces update automatically?
+
+- No. Existing CT rootfs is immutable.
+- Recreate the container (change `template_tag` or increment `workspace_rebuild_generation`).
+
+Q: Is there digest/hash comparison with GHCR and Docker-like layer cache?
+
+- Proxmox stores pulled OCI as `vztmpl` tar files.
+- It does not transparently roll running CTs forward; updates are explicit pulls + CT recreation.
+- Re-pull behavior is controlled operationally (`FORCE_REPLACE=1` in pull script).
 
 Q: Does stopping a workspace delete the CT and disks?
 
