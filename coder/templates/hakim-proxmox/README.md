@@ -15,7 +15,8 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 1. Proxmox pulls OCI images from GHCR and stores them in template storage (`vztmpl`).
 2. `coder/templates/hakim-proxmox/main.tf` selects a variant + template tag and references a shared pre-pulled template id.
 3. Hakim image entrypoint starts `coder agent` automatically when `CODER_AGENT_URL` and `CODER_AGENT_TOKEN` are present.
-4. Template runs the same module stack used by Docker template (`opencode`, `openchamber`, `openclaw-node`, `code-server`, etc).
+4. Provisioner-side post-create agent bootstrap is applied through `scripts/bootstrap-agent-env.sh` using bash+curl (no python dependency).
+5. Template runs the same module stack used by Docker template (`opencode`, `openchamber`, `openclaw-node`, `code-server`, etc).
 
 ## Design Goals
 

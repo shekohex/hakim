@@ -843,73 +843,7 @@ resource "terraform_data" "workspace_agent_env" {
   }
 
   provisioner "local-exec" {
-    command = <<-EOT
-      python3 - <<'PY'
-import json
-import os
-import ssl
-import urllib.parse
-import urllib.request
-import time
-from urllib.error import HTTPError
-
-endpoint = os.environ["PVE_ENDPOINT"].rstrip("/")
-node_name = os.environ["PVE_NODE_NAME"]
-vm_id = os.environ["PVE_VM_ID"]
-api_token = os.environ["PVE_API_TOKEN"]
-insecure = os.environ.get("PVE_INSECURE", "true").lower() == "true"
-agent_bootstrap = os.environ["CT_AGENT_BOOTSTRAP"]
-auth_header = f"PVEAPIToken={api_token}"
-
-ctx = ssl._create_unverified_context() if insecure else None
-
-def api_request(method: str, path: str, payload: dict | None = None):
-    body = urllib.parse.urlencode(payload).encode() if payload else b""
-    req = urllib.request.Request(f"{endpoint}{path}", data=body, method=method)
-    req.add_header("Authorization", auth_header)
-    req.add_header("Content-Type", "application/x-www-form-urlencoded")
-    with urllib.request.urlopen(req, context=ctx) as response:
-        raw = response.read()
-    if not raw:
-        return {}
-    return json.loads(raw.decode())
-
-def wait_for_task(upid: str):
-    status_path = f"/api2/json/nodes/{node_name}/tasks/{urllib.parse.quote(upid, safe='')}/status"
-    deadline = time.time() + 300
-    while time.time() < deadline:
-        payload = api_request("GET", status_path)
-        data = payload.get("data", {})
-        if data.get("status") == "stopped":
-            exit_status = (data.get("exitstatus") or "").upper()
-            if exit_status in ("OK", ""):
-                return
-            raise RuntimeError(f"task {upid} failed: {exit_status}")
-        time.sleep(1)
-    raise TimeoutError(f"task {upid} did not finish in time")
-
-config_url = f"{endpoint}/api2/json/nodes/{node_name}/lxc/{vm_id}/config"
-config_body = urllib.parse.urlencode({"env": f"CODER_AGENT_BOOTSTRAP={agent_bootstrap}"}).encode()
-config_req = urllib.request.Request(config_url, data=config_body, method="PUT")
-config_req.add_header("Authorization", auth_header)
-config_req.add_header("Content-Type", "application/x-www-form-urlencoded")
-with urllib.request.urlopen(config_req, context=ctx) as response:
-    response.read()
-
-for action in ("stop", "start"):
-    try:
-        payload = api_request("POST", f"/api2/json/nodes/{node_name}/lxc/{vm_id}/status/{action}")
-    except HTTPError as err:
-        body = err.read().decode(errors="replace")
-        if action == "stop" and "CT is not running" in body:
-            continue
-        raise
-
-    upid = payload.get("data")
-    if upid:
-        wait_for_task(upid)
-PY
-    EOT
+    command = "bash ${path.module}/scripts/bootstrap-agent-env.sh"
 
     environment = {
       PVE_ENDPOINT       = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
