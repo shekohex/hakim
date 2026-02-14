@@ -18,6 +18,18 @@ fi
 mkdir -p "${CODER_HOME}" "${PROJECT_DIR}"
 chown "${CODER_UID}:${CODER_GID}" "${CODER_HOME}" "${PROJECT_DIR}" || true
 
+if [[ -n "${CODER_AGENT_BOOTSTRAP:-}" && ( -z "${CODER_AGENT_URL:-}" || -z "${CODER_AGENT_TOKEN:-}" ) ]]; then
+  bootstrap_data="$(printf '%s' "${CODER_AGENT_BOOTSTRAP}" | base64 -d 2>/dev/null || true)"
+  if [[ "${bootstrap_data}" == *"|"* ]]; then
+    if [[ -z "${CODER_AGENT_URL:-}" ]]; then
+      export CODER_AGENT_URL="${bootstrap_data%%|*}"
+    fi
+    if [[ -z "${CODER_AGENT_TOKEN:-}" ]]; then
+      export CODER_AGENT_TOKEN="${bootstrap_data#*|}"
+    fi
+  fi
+fi
+
 if [[ -n "${CODER_AGENT_URL:-}" && -n "${CODER_AGENT_TOKEN:-}" ]]; then
   export HOME="${CODER_HOME}"
   export USER="${CODER_USER}"

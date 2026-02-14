@@ -668,10 +668,8 @@ locals {
     "${data.coder_parameter.proxmox_template_datastore_id.value}:vztmpl/hakim-${data.coder_parameter.image_variant.value}_${local.selected_template_tag}.tar"
   )
 
-  container_environment_variables = merge(local.combined_env, {
-    CODER_AGENT_URL   = data.coder_workspace.me.access_url
-    CODER_AGENT_TOKEN = coder_agent.main.token
-  })
+  container_environment_variables = local.combined_env
+  container_agent_bootstrap       = base64encode("${data.coder_workspace.me.access_url}|${coder_agent.main.token}")
 
   home_disk_enabled        = data.coder_parameter.enable_home_disk.value && length(data.coder_parameter.home_disk_gb) > 0 && data.coder_parameter.home_disk_gb[0].value > 0
   home_volume_id           = length(data.coder_parameter.proxmox_home_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_home_volume_id[0].value) : ""
@@ -831,6 +829,101 @@ resource "proxmox_virtual_environment_container" "workspace" {
 
 }
 
+resource "terraform_data" "workspace_agent_env" {
+  count = data.coder_workspace.me.start_count
+
+  triggers_replace = {
+    node_name       = data.coder_parameter.proxmox_node_name.value
+    vm_id           = tostring(proxmox_virtual_environment_container.workspace.vm_id)
+    endpoint        = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
+    insecure        = tostring(data.coder_parameter.proxmox_insecure.value)
+    agent_url       = data.coder_workspace.me.access_url
+    agent_token_sha = sha256(coder_agent.main.token)
+    env_sha         = sha256(jsonencode(local.combined_env))
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      python3 - <<'PY'
+import json
+import os
+import ssl
+import urllib.parse
+import urllib.request
+import time
+from urllib.error import HTTPError
+
+endpoint = os.environ["PVE_ENDPOINT"].rstrip("/")
+node_name = os.environ["PVE_NODE_NAME"]
+vm_id = os.environ["PVE_VM_ID"]
+api_token = os.environ["PVE_API_TOKEN"]
+insecure = os.environ.get("PVE_INSECURE", "true").lower() == "true"
+agent_bootstrap = os.environ["CT_AGENT_BOOTSTRAP"]
+auth_header = f"PVEAPIToken={api_token}"
+
+ctx = ssl._create_unverified_context() if insecure else None
+
+def api_request(method: str, path: str, payload: dict | None = None):
+    body = urllib.parse.urlencode(payload).encode() if payload else b""
+    req = urllib.request.Request(f"{endpoint}{path}", data=body, method=method)
+    req.add_header("Authorization", auth_header)
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    with urllib.request.urlopen(req, context=ctx) as response:
+        raw = response.read()
+    if not raw:
+        return {}
+    return json.loads(raw.decode())
+
+def wait_for_task(upid: str):
+    status_path = f"/api2/json/nodes/{node_name}/tasks/{urllib.parse.quote(upid, safe='')}/status"
+    deadline = time.time() + 300
+    while time.time() < deadline:
+        payload = api_request("GET", status_path)
+        data = payload.get("data", {})
+        if data.get("status") == "stopped":
+            exit_status = (data.get("exitstatus") or "").upper()
+            if exit_status in ("OK", ""):
+                return
+            raise RuntimeError(f"task {upid} failed: {exit_status}")
+        time.sleep(1)
+    raise TimeoutError(f"task {upid} did not finish in time")
+
+config_url = f"{endpoint}/api2/json/nodes/{node_name}/lxc/{vm_id}/config"
+config_body = urllib.parse.urlencode({"env": f"CODER_AGENT_BOOTSTRAP={agent_bootstrap}"}).encode()
+config_req = urllib.request.Request(config_url, data=config_body, method="PUT")
+config_req.add_header("Authorization", auth_header)
+config_req.add_header("Content-Type", "application/x-www-form-urlencoded")
+with urllib.request.urlopen(config_req, context=ctx) as response:
+    response.read()
+
+for action in ("stop", "start"):
+    try:
+        payload = api_request("POST", f"/api2/json/nodes/{node_name}/lxc/{vm_id}/status/{action}")
+    except HTTPError as err:
+        body = err.read().decode(errors="replace")
+        if action == "stop" and "CT is not running" in body:
+            continue
+        raise
+
+    upid = payload.get("data")
+    if upid:
+        wait_for_task(upid)
+PY
+    EOT
+
+    environment = {
+      PVE_ENDPOINT       = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
+      PVE_NODE_NAME      = data.coder_parameter.proxmox_node_name.value
+      PVE_VM_ID          = tostring(proxmox_virtual_environment_container.workspace.vm_id)
+      PVE_API_TOKEN      = data.coder_parameter.proxmox_api_token.value
+      PVE_INSECURE       = tostring(data.coder_parameter.proxmox_insecure.value)
+      CT_AGENT_BOOTSTRAP = local.container_agent_bootstrap
+    }
+  }
+
+  depends_on = [proxmox_virtual_environment_container.workspace]
+}
+
 module "opencode" {
   count               = data.coder_workspace.me.start_count
   source              = "github.com/shekohex/hakim//coder/modules/opencode?ref=main"
@@ -845,7 +938,7 @@ module "opencode" {
   subdomain           = true
   ai_prompt           = trimspace(data.coder_task.me.prompt) != "" ? trimspace("${data.coder_parameter.system_prompt.value}\n${data.coder_task.me.prompt}") : ""
   post_install_script = data.coder_parameter.setup_script.value
-  depends_on          = [proxmox_virtual_environment_container.workspace]
+  depends_on          = [terraform_data.workspace_agent_env]
 }
 
 module "openchamber" {
