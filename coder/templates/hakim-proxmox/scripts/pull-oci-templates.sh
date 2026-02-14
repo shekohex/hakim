@@ -132,6 +132,11 @@ build_variant_filename() {
   printf 'hakim-%s_%s.tar' "${variant}" "${TEMPLATE_TAG}"
 }
 
+build_pull_filename() {
+  local file_name="$1"
+  printf '%s' "${file_name%.tar}"
+}
+
 build_image_filename() {
   local reference="$1"
   local image_tag="${reference##*/}"
@@ -151,6 +156,29 @@ build_image_filename() {
 volume_exists() {
   local volume_id="$1"
   pvesm list "${DATASTORE_ID}" --content vztmpl | awk '{print $1}' | grep -Fxq "${volume_id}"
+}
+
+legacy_double_tar_volume_id() {
+  local volume_id="$1"
+  printf '%s.tar' "${volume_id}"
+}
+
+resolve_existing_volume_id() {
+  local volume_id="$1"
+  local legacy_id
+
+  if volume_exists "${volume_id}"; then
+    printf '%s' "${volume_id}"
+    return 0
+  fi
+
+  legacy_id="$(legacy_double_tar_volume_id "${volume_id}")"
+  if volume_exists "${legacy_id}"; then
+    printf '%s' "${legacy_id}"
+    return 0
+  fi
+
+  return 1
 }
 
 ensure_state_file() {
@@ -366,7 +394,9 @@ skipped_count=0
 for idx in "${!TARGET_REFERENCES[@]}"; do
   reference="${TARGET_REFERENCES[$idx]}"
   file_name="${TARGET_FILENAMES[$idx]}"
+  pull_file_name="$(build_pull_filename "${file_name}")"
   volume_id="${DATASTORE_ID}:vztmpl/${file_name}"
+  existing_volume_id=""
 
   remote_digest=""
   if [[ "${CHECK_REMOTE_DIGEST}" == "true" ]]; then
@@ -379,27 +409,27 @@ for idx in "${!TARGET_REFERENCES[@]}"; do
   fi
 
   replace_existing="${FORCE_REPLACE}"
-  if volume_exists "${volume_id}"; then
+  if existing_volume_id="$(resolve_existing_volume_id "${volume_id}")"; then
     if [[ "${replace_existing}" != "true" && "${CHECK_REMOTE_DIGEST}" == "true" && -n "${remote_digest}" ]]; then
-      stored_digest="$(read_stored_digest "${volume_id}")"
+      stored_digest="$(read_stored_digest "${existing_volume_id}")"
       if [[ -n "${stored_digest}" && "${stored_digest}" == "${remote_digest}" ]]; then
-        log "skip ${volume_id} (digest unchanged)"
+        log "skip ${existing_volume_id} (digest unchanged)"
         skipped_count=$((skipped_count + 1))
         continue
       fi
       replace_existing=true
       if [[ -n "${stored_digest}" ]]; then
-        log "digest changed for ${volume_id}: ${stored_digest} -> ${remote_digest}"
+        log "digest changed for ${existing_volume_id}: ${stored_digest} -> ${remote_digest}"
       else
-        log "no stored digest for ${volume_id}; replacing to sync state"
+        log "no stored digest for ${existing_volume_id}; replacing to sync state"
       fi
     fi
 
     if [[ "${replace_existing}" == "true" ]]; then
-      log "removing existing template ${volume_id}"
-      run_cmd pvesm free "${volume_id}"
+      log "removing existing template ${existing_volume_id}"
+      run_cmd pvesm free "${existing_volume_id}"
     else
-      log "skip ${volume_id} (already exists)"
+      log "skip ${existing_volume_id} (already exists)"
       skipped_count=$((skipped_count + 1))
       continue
     fi
@@ -408,7 +438,7 @@ for idx in "${!TARGET_REFERENCES[@]}"; do
   log "pull ${reference} -> ${file_name}"
   run_cmd pvesh create "/nodes/${NODE_NAME}/storage/${DATASTORE_ID}/oci-registry-pull" \
     --reference "${reference}" \
-    --filename "${file_name}"
+    --filename "${pull_file_name}"
 
   if [[ "${CHECK_REMOTE_DIGEST}" == "true" && -n "${remote_digest}" ]]; then
     write_stored_digest "${volume_id}" "${remote_digest}"
