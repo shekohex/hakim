@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-RELEASE="${1:-}"
-
 groupadd -f docker
 
 if ! id coder >/dev/null 2>&1; then
@@ -51,10 +49,8 @@ if ! grep -RqsE '^iface[[:space:]]+eth0[[:space:]]+inet[[:space:]]+' /etc/networ
   printf '%s\n' "auto eth0" "iface eth0 inet dhcp" > /etc/network/interfaces.d/eth0
 fi
 
-if [ "${RELEASE}" = "trixie" ]; then
-  printf '%s\n' 'root:password' | chpasswd
-  mkdir -p /etc/ssh/sshd_config.d
-  printf '%s\n' 'PermitRootLogin yes' 'PasswordAuthentication yes' > /etc/ssh/sshd_config.d/00-hakim-bootstrap.conf
-fi
+printf '%s\n' 'root:password' | chpasswd
+mkdir -p /etc/ssh/sshd_config.d
+printf '%s\n' 'PermitRootLogin yes' 'PasswordAuthentication yes' > /etc/ssh/sshd_config.d/00-hakim-bootstrap.conf
 
 rm -rf /var/lib/apt/lists/*
