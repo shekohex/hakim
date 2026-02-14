@@ -748,6 +748,14 @@ resource "coder_ai_task" "task" {
 
 data "coder_task" "me" {}
 
+resource "terraform_data" "workspace_rebuild_generation" {
+  input = data.coder_parameter.workspace_rebuild_generation.value
+
+  triggers_replace = [
+    data.coder_parameter.workspace_rebuild_generation.value
+  ]
+}
+
 resource "proxmox_virtual_environment_container" "workspace" {
   node_name             = data.coder_parameter.proxmox_node_name.value
   vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
@@ -759,7 +767,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
   tags                  = ["coder", "hakim", data.coder_parameter.image_variant.value, data.coder_parameter.egress_mode.value, "template-${local.selected_template_tag}"]
   environment_variables = local.container_environment_variables
   lifecycle {
-    replace_triggered_by = [data.coder_parameter.workspace_rebuild_generation.value]
+    replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
     precondition {
       condition     = data.coder_parameter.image_variant.value != "custom" || trimspace(data.coder_parameter.custom_template_file_id[0].value) != ""
