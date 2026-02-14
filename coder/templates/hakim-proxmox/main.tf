@@ -10,10 +10,6 @@ terraform {
       source  = "bpg/proxmox"
       version = ">= 0.66"
     }
-    tls = {
-      source  = "hashicorp/tls"
-      version = ">= 4.0"
-    }
   }
 }
 
@@ -83,7 +79,7 @@ data "coder_parameter" "custom_template_file_id" {
   count        = data.coder_parameter.image_variant.value == "custom" ? 1 : 0
   name         = "custom_template_file_id"
   display_name = "Custom Template File ID"
-  description  = "Proxmox template volume id, e.g. local:vztmpl/hakim-base-trixie-amd64.tar.xz"
+  description  = "Proxmox template volume id, e.g. local:vztmpl/hakim-base_latest.tar"
   default      = ""
   mutable      = true
   type         = "string"
@@ -472,7 +468,7 @@ data "coder_parameter" "proxmox_container_datastore_id" {
 data "coder_parameter" "proxmox_template_datastore_id" {
   name         = "proxmox_template_datastore_id"
   display_name = "Template Datastore"
-  description  = "Datastore for vztmpl template artifacts."
+  description  = "Datastore for OCI-derived vztmpl templates."
   type         = "string"
   default      = "local"
   mutable      = true
@@ -634,131 +630,6 @@ data "coder_parameter" "egress_mode" {
   order = 45
 }
 
-data "coder_parameter" "proxmox_ssh_private_key" {
-  name         = "proxmox_ssh_private_key"
-  display_name = "Root SSH Private Key"
-  description  = "Optional PEM private key used by Terraform remote-exec for first bootstrap. If empty, an ephemeral keypair is generated automatically."
-  form_type    = "textarea"
-  type         = "string"
-  default      = ""
-  mutable      = true
-  styling      = jsonencode({ mask_input = true })
-  icon         = "https://esm.sh/lucide-static@latest/icons/key.svg"
-  order        = 46
-}
-
-data "coder_parameter" "proxmox_extra_ssh_public_keys" {
-  name         = "proxmox_extra_ssh_public_keys"
-  display_name = "Extra Root SSH Public Keys"
-  description  = "Optional newline-separated OpenSSH public keys to add for root access in the container."
-  form_type    = "textarea"
-  type         = "string"
-  default      = ""
-  mutable      = true
-  icon         = "https://esm.sh/lucide-static@latest/icons/key-round.svg"
-  order        = 47
-}
-
-resource "tls_private_key" "bootstrap" {
-  count = trimspace(data.coder_parameter.proxmox_ssh_private_key.value) == "" ? 1 : 0
-
-  algorithm = "ED25519"
-}
-
-data "tls_public_key" "proxmox_ssh_public_key" {
-  count = trimspace(data.coder_parameter.proxmox_ssh_private_key.value) != "" ? 1 : 0
-
-  private_key_pem = data.coder_parameter.proxmox_ssh_private_key.value
-}
-
-data "coder_parameter" "template_release" {
-  name         = "template_release"
-  display_name = "Template Release"
-  description  = "Release segment in artifact name."
-  type         = "string"
-  default      = "trixie"
-  mutable      = true
-  icon         = "https://esm.sh/lucide-static@latest/icons/tag.svg"
-  order        = 48
-}
-
-data "coder_parameter" "template_arch" {
-  name         = "template_arch"
-  display_name = "Template Architecture"
-  description  = "Architecture segment in artifact name."
-  type         = "string"
-  default      = "amd64"
-  mutable      = true
-  icon         = "https://esm.sh/lucide-static@latest/icons/cpu.svg"
-  order        = 49
-}
-
-data "coder_parameter" "template_url_base" {
-  name         = "template_url_base"
-  display_name = "Template URL: base"
-  description  = "Artifact URL for base variant."
-  type         = "string"
-  default      = ""
-  mutable      = true
-  icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
-  order        = 50
-}
-
-data "coder_parameter" "template_url_php" {
-  name         = "template_url_php"
-  display_name = "Template URL: php"
-  description  = "Artifact URL for php variant."
-  type         = "string"
-  default      = ""
-  mutable      = true
-  icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
-  order        = 51
-}
-
-data "coder_parameter" "template_url_dotnet" {
-  name         = "template_url_dotnet"
-  display_name = "Template URL: dotnet"
-  description  = "Artifact URL for dotnet variant."
-  type         = "string"
-  default      = ""
-  mutable      = true
-  icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
-  order        = 52
-}
-
-data "coder_parameter" "template_url_js" {
-  name         = "template_url_js"
-  display_name = "Template URL: js"
-  description  = "Artifact URL for js variant."
-  type         = "string"
-  default      = ""
-  mutable      = true
-  icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
-  order        = 53
-}
-
-data "coder_parameter" "template_url_rust" {
-  name         = "template_url_rust"
-  display_name = "Template URL: rust"
-  description  = "Artifact URL for rust variant."
-  type         = "string"
-  default      = ""
-  mutable      = true
-  icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
-  order        = 54
-}
-
-data "coder_parameter" "template_url_elixir" {
-  name         = "template_url_elixir"
-  display_name = "Template URL: elixir"
-  description  = "Artifact URL for elixir variant."
-  type         = "string"
-  default      = ""
-  mutable      = true
-  icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
-  order        = 55
-}
-
 locals {
   user_env   = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
   secret_env = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
@@ -769,44 +640,31 @@ locals {
   }
   combined_env = merge(local.default_env, local.user_env, local.secret_env)
 
-  provided_bootstrap_ssh_private_key  = trimspace(data.coder_parameter.proxmox_ssh_private_key.value)
-  generated_bootstrap_ssh_private_key = length(tls_private_key.bootstrap) > 0 ? trimspace(tls_private_key.bootstrap[0].private_key_pem) : ""
-  bootstrap_ssh_private_key           = local.provided_bootstrap_ssh_private_key != "" ? local.provided_bootstrap_ssh_private_key : local.generated_bootstrap_ssh_private_key
-  bootstrap_root_password             = data.coder_parameter.template_release.value == "trixie" ? "password" : substr(replace(replace(base64sha256(local.bootstrap_ssh_private_key), "=", ""), "/", "_"), 0, 32)
-
-  provided_bootstrap_ssh_public_key  = length(data.tls_public_key.proxmox_ssh_public_key) > 0 ? trimspace(data.tls_public_key.proxmox_ssh_public_key[0].public_key_openssh) : ""
-  generated_bootstrap_ssh_public_key = length(tls_private_key.bootstrap) > 0 ? trimspace(tls_private_key.bootstrap[0].public_key_openssh) : ""
-  bootstrap_ssh_public_key           = local.provided_bootstrap_ssh_public_key != "" ? local.provided_bootstrap_ssh_public_key : local.generated_bootstrap_ssh_public_key
-
-  extra_root_ssh_keys           = [for key in split("\n", data.coder_parameter.proxmox_extra_ssh_public_keys.value) : trimspace(key) if trimspace(key) != ""]
-  root_ssh_keys                 = distinct(concat(local.bootstrap_ssh_public_key != "" ? [local.bootstrap_ssh_public_key] : [], local.extra_root_ssh_keys))
-  root_ssh_keys_base64          = [for key in local.root_ssh_keys : base64encode(key)]
-  root_ssh_key_install_commands = [for key_b64 in local.root_ssh_keys_base64 : "key=$(printf '%s' '${key_b64}' | base64 -d); grep -qxF \"$key\" /root/.ssh/authorized_keys || printf '%s\\n' \"$key\" >> /root/.ssh/authorized_keys"]
-
-  template_url_map = {
-    base   = data.coder_parameter.template_url_base.value
-    php    = data.coder_parameter.template_url_php.value
-    dotnet = data.coder_parameter.template_url_dotnet.value
-    js     = data.coder_parameter.template_url_js.value
-    rust   = data.coder_parameter.template_url_rust.value
-    elixir = data.coder_parameter.template_url_elixir.value
+  oci_reference_map = {
+    base   = "ghcr.io/shekohex/hakim-base:latest"
+    php    = "ghcr.io/shekohex/hakim-php:latest"
+    dotnet = "ghcr.io/shekohex/hakim-dotnet:latest"
+    js     = "ghcr.io/shekohex/hakim-js:latest"
+    rust   = "ghcr.io/shekohex/hakim-rust:latest"
+    elixir = "ghcr.io/shekohex/hakim-elixir:latest"
   }
 
-  selected_template_url = lookup(local.template_url_map, data.coder_parameter.image_variant.value, "")
+  selected_oci_reference = lookup(local.oci_reference_map, data.coder_parameter.image_variant.value, "")
+  workspace_suffix       = substr(md5(data.coder_workspace.me.id), 0, 12)
   selected_template_file_id = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.custom_template_file_id[0].value : (
-    length(proxmox_virtual_environment_download_file.selected_template) > 0 ? proxmox_virtual_environment_download_file.selected_template[0].id : "${data.coder_parameter.proxmox_template_datastore_id.value}:vztmpl/hakim-${data.coder_parameter.image_variant.value}-${data.coder_parameter.template_release.value}-${data.coder_parameter.template_arch.value}.tar.xz"
+    proxmox_virtual_environment_oci_image.selected_template[0].id
   )
+
+  container_environment_variables = merge(local.combined_env, {
+    CODER_AGENT_URL   = data.coder_workspace.me.access_url
+    CODER_AGENT_TOKEN = coder_agent.main.token
+  })
 
   home_disk_enabled        = data.coder_parameter.enable_home_disk.value && length(data.coder_parameter.home_disk_gb) > 0 && data.coder_parameter.home_disk_gb[0].value > 0
   home_volume_id           = length(data.coder_parameter.proxmox_home_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_home_volume_id[0].value) : ""
   home_datastore_id        = length(data.coder_parameter.proxmox_home_datastore_id) > 0 && trimspace(data.coder_parameter.proxmox_home_datastore_id[0].value) != "" ? trimspace(data.coder_parameter.proxmox_home_datastore_id[0].value) : data.coder_parameter.proxmox_container_datastore_id.value
   use_existing_home_volume = local.home_volume_id != ""
   home_disk_size           = local.home_disk_enabled ? "${data.coder_parameter.home_disk_gb[0].value}G" : null
-
-  workspace_ipv4_hosts = [for addr in values(proxmox_virtual_environment_container.workspace.ipv4) : trimspace(split("/", addr)[0]) if trimspace(addr) != ""]
-  workspace_ipv6_hosts = [for addr in values(proxmox_virtual_environment_container.workspace.ipv6) : trimspace(split("/", addr)[0]) if trimspace(addr) != ""]
-  workspace_ssh_host   = length(local.workspace_ipv4_hosts) > 0 ? local.workspace_ipv4_hosts[0] : (length(local.workspace_ipv6_hosts) > 0 ? local.workspace_ipv6_hosts[0] : "")
-  coder_access_url     = trimsuffix(data.coder_workspace.me.access_url, "/")
 
   project_dir      = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script = file("${path.module}/scripts/setup-git.sh")
@@ -877,26 +735,25 @@ resource "coder_ai_task" "task" {
 
 data "coder_task" "me" {}
 
-resource "proxmox_virtual_environment_download_file" "selected_template" {
-  count = data.coder_parameter.image_variant.value != "custom" && trimspace(local.selected_template_url) != "" ? 1 : 0
+resource "proxmox_virtual_environment_oci_image" "selected_template" {
+  count = data.coder_parameter.image_variant.value == "custom" ? 0 : 1
 
-  content_type = "vztmpl"
   datastore_id = data.coder_parameter.proxmox_template_datastore_id.value
   node_name    = data.coder_parameter.proxmox_node_name.value
-  file_name    = "hakim-${data.coder_parameter.image_variant.value}-${data.coder_parameter.template_release.value}-${data.coder_parameter.template_arch.value}.tar.xz"
-  url          = local.selected_template_url
-  overwrite    = false
+  reference    = local.selected_oci_reference
+  file_name    = "hakim-${data.coder_parameter.image_variant.value}-${local.workspace_suffix}.tar"
 }
 
 resource "proxmox_virtual_environment_container" "workspace" {
-  node_name     = data.coder_parameter.proxmox_node_name.value
-  vm_id         = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
-  pool_id       = trimspace(data.coder_parameter.proxmox_pool_id.value) != "" ? data.coder_parameter.proxmox_pool_id.value : null
-  description   = "Coder workspace ${data.coder_workspace_owner.me.name}/${data.coder_workspace.me.name}"
-  unprivileged  = true
-  started       = data.coder_workspace.me.transition == "start"
-  start_on_boot = false
-  tags          = ["coder", "hakim", data.coder_parameter.image_variant.value, data.coder_parameter.egress_mode.value]
+  node_name             = data.coder_parameter.proxmox_node_name.value
+  vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
+  pool_id               = trimspace(data.coder_parameter.proxmox_pool_id.value) != "" ? data.coder_parameter.proxmox_pool_id.value : null
+  description           = "Coder workspace ${data.coder_workspace_owner.me.name}/${data.coder_workspace.me.name}"
+  unprivileged          = true
+  started               = data.coder_workspace.me.transition == "start"
+  start_on_boot         = false
+  tags                  = ["coder", "hakim", data.coder_parameter.image_variant.value, data.coder_parameter.egress_mode.value]
+  environment_variables = local.container_environment_variables
   cpu {
     cores = data.coder_parameter.container_cores.value
   }
@@ -924,7 +781,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
 
   operating_system {
     template_file_id = local.selected_template_file_id
-    type             = data.coder_parameter.template_release.value == "trixie" ? "unmanaged" : "debian"
+    type             = data.coder_parameter.image_variant.value == "custom" ? "unmanaged" : "debian"
   }
 
   features {
@@ -933,11 +790,6 @@ resource "proxmox_virtual_environment_container" "workspace" {
 
   initialization {
     hostname = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
-
-    user_account {
-      keys     = local.root_ssh_keys
-      password = local.bootstrap_root_password
-    }
 
     ip_config {
       ipv4 {
@@ -957,58 +809,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
     ipv4 = true
   }
 
-  depends_on = [proxmox_virtual_environment_download_file.selected_template]
-}
-
-resource "terraform_data" "ssh_bootstrap" {
-  count = data.coder_workspace.me.start_count
-
-  input = {
-    host = local.workspace_ssh_host
-  }
-
-  lifecycle {
-    precondition {
-      condition     = local.workspace_ssh_host != ""
-      error_message = "Container IP not discovered. Check bridge/DHCP config or set static IP for the workspace network."
-    }
-  }
-
-  connection {
-    type        = "ssh"
-    host        = self.input.host
-    user        = "root"
-    private_key = local.bootstrap_ssh_private_key
-    password    = local.bootstrap_root_password
-    timeout     = "10m"
-  }
-
-  provisioner "remote-exec" {
-    inline = concat([
-      "set -euo pipefail",
-      "export DEBIAN_FRONTEND=noninteractive",
-      "apt-get update -y",
-      "apt-get install -y --no-install-recommends curl ca-certificates sudo openssl",
-      "install -d -m 700 /root/.ssh",
-      "touch /root/.ssh/authorized_keys",
-      "chmod 600 /root/.ssh/authorized_keys"
-      ], local.root_ssh_key_install_commands, [
-      "chmod 700 /root/.ssh",
-      "printf '%s\\n' 'PermitRootLogin prohibit-password' 'PasswordAuthentication no' 'KbdInteractiveAuthentication no' 'ChallengeResponseAuthentication no' 'PubkeyAuthentication yes' > /etc/ssh/sshd_config.d/99-coder-hardening.conf",
-      "systemctl reload ssh || systemctl restart ssh",
-      "ROOT_PASS=\"$(openssl rand -base64 48 | tr -d '\\n' | cut -c1-32)\"; printf 'root:%s\\n' \"$ROOT_PASS\" | chpasswd; install -m 600 /dev/null /root/.coder-root-password; printf '%s\\n' \"$ROOT_PASS\" > /root/.coder-root-password",
-      "id -u coder >/dev/null 2>&1 || useradd -m -s /bin/bash coder --uid 1000",
-      "mkdir -p /home/coder/project",
-      "chown coder:coder /home/coder",
-      "chown -R coder:coder /home/coder/project",
-      "curl -fsSL '${local.coder_access_url}/bin/coder-linux-${data.coder_provisioner.me.arch}' -o /usr/local/bin/coder",
-      "chmod +x /usr/local/bin/coder",
-      "pkill -f 'coder agent' || true",
-      "nohup sudo -u coder env CODER_AGENT_TOKEN='${coder_agent.main.token}' CODER_AGENT_URL='${data.coder_workspace.me.access_url}' /usr/local/bin/coder agent >/var/log/coder-agent.log 2>&1 &"
-    ])
-  }
-
-  depends_on = [proxmox_virtual_environment_container.workspace]
+  depends_on = [proxmox_virtual_environment_oci_image.selected_template]
 }
 
 module "opencode" {
@@ -1025,7 +826,7 @@ module "opencode" {
   subdomain           = true
   ai_prompt           = trimspace(data.coder_task.me.prompt) != "" ? trimspace("${data.coder_parameter.system_prompt.value}\n${data.coder_task.me.prompt}") : ""
   post_install_script = data.coder_parameter.setup_script.value
-  depends_on          = [terraform_data.ssh_bootstrap]
+  depends_on          = [proxmox_virtual_environment_container.workspace]
 }
 
 module "openchamber" {

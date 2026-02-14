@@ -183,4 +183,8 @@ RUN groupadd -f docker && \
   echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/coder && \
   echo 'alias google-chrome=/usr/bin/google-chrome-stable' > /etc/profile.d/google-chrome.sh
 
-USER coder
+COPY entrypoint.sh /usr/local/bin/hakim-entrypoint
+RUN chmod +x /usr/local/bin/hakim-entrypoint
+
+ENTRYPOINT ["/usr/local/bin/hakim-entrypoint"]
+CMD ["bash"]

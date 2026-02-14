@@ -6,6 +6,8 @@ Universal Coder templates with prebuilt DevContainer images and OpenCode AI inte
 
 The images are built using the [DevContainer Features](https://containers.dev/features) specification.
 
+Hakim images are also OCI-ready for Proxmox LXC templates and can run `coder agent` directly via environment variables (`CODER_AGENT_URL`, `CODER_AGENT_TOKEN`) without SSH bootstrap.
+
 | Image Name | Variant | Key Features | Description |
 | :--- | :--- | :--- | :--- |
 | `hakim-base` | Base | `mise`, `common-utils` | Minimal Debian Trixie image with Docker client and Mise. |
@@ -18,6 +20,8 @@ The images are built using the [DevContainer Features](https://containers.dev/fe
 ## 🛠️ Coder Template Options
 
 The `coder-templates/hakim` template exposes several parameters to customize the workspace.
+
+For Proxmox, use `coder/templates/hakim-proxmox` with OCI templates pulled into Proxmox storage (`vztmpl`).
 
 ### Core Parameters
 | Parameter | Description | Default | Options |

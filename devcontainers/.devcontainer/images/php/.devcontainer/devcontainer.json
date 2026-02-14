@@ -25,5 +25,6 @@
                 "shufo.vscode-blade-formatter"
             ]
         }
-    }
+    },
+    "remoteUser": "coder"
 }

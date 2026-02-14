@@ -45,5 +45,3 @@ RUN source /etc/profile.d/mise.sh && \
       fi; \
     done; \
   done
-
-USER coder
