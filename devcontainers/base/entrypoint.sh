@@ -7,10 +7,16 @@ CODER_GID="${CODER_GID:-1001}"
 CODER_HOME="${CODER_HOME:-/home/${CODER_USER}}"
 PROJECT_DIR="${CODER_PROJECT_DIR:-${CODER_HOME}/project}"
 
-export PATH="/usr/local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+export PATH="${CODER_HOME}/.local/share/mise/shims:/usr/local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export LANG="${LANG:-C.UTF-8}"
 export LANGUAGE="${LANGUAGE:-C.UTF-8}"
 export LC_ALL="${LC_ALL:-C.UTF-8}"
+if [[ "${MISE_DATA_DIR:-}" == "/usr/local/share/mise" ]]; then
+  export MISE_DATA_DIR="${CODER_HOME}/.local/share/mise"
+fi
+if [[ "${MISE_CONFIG_DIR:-}" == "/etc/mise" ]]; then
+  export MISE_CONFIG_DIR="${CODER_HOME}/.config/mise"
+fi
 
 if ! getent group "${CODER_GID}" >/dev/null 2>&1; then
   groupadd --gid "${CODER_GID}" "${CODER_USER}"
@@ -20,8 +26,34 @@ if ! id -u "${CODER_USER}" >/dev/null 2>&1; then
   useradd --uid "${CODER_UID}" --gid "${CODER_GID}" --home-dir "${CODER_HOME}" --create-home --shell /bin/bash "${CODER_USER}"
 fi
 
-mkdir -p "${CODER_HOME}" "${PROJECT_DIR}"
-chown "${CODER_UID}:${CODER_GID}" "${CODER_HOME}" "${PROJECT_DIR}" || true
+mkdir -p "${CODER_HOME}" "${PROJECT_DIR}" "${CODER_HOME}/.config/mise" "${CODER_HOME}/.local/share/mise"
+chown "${CODER_UID}:${CODER_GID}" "${CODER_HOME}" "${PROJECT_DIR}" "${CODER_HOME}/.config" "${CODER_HOME}/.local" || true
+chown -R "${CODER_UID}:${CODER_GID}" "${CODER_HOME}/.config/mise" "${CODER_HOME}/.local/share/mise" || true
+
+if [[ "${START_DOCKER_DAEMON:-1}" == "1" || "${START_DOCKER_DAEMON:-}" == "true" ]]; then
+  if command -v dockerd >/dev/null 2>&1 && ! docker info >/dev/null 2>&1; then
+    mkdir -p /var/run/docker /var/lib/docker /var/log
+    if [[ -f /var/run/docker.pid ]]; then
+      docker_pid="$(cat /var/run/docker.pid 2>/dev/null || true)"
+      if [[ -z "${docker_pid}" || ! "${docker_pid}" =~ ^[0-9]+$ ]] || ! kill -0 "${docker_pid}" >/dev/null 2>&1; then
+        rm -f /var/run/docker.pid
+      fi
+    fi
+    nohup dockerd \
+      --host=unix:///var/run/docker.sock \
+      --data-root="${DOCKER_DATA_ROOT:-/var/lib/docker}" \
+      --exec-root="${DOCKER_EXEC_ROOT:-/var/run/docker}" \
+      --storage-driver="${DOCKER_STORAGE_DRIVER:-vfs}" \
+      >"${DOCKER_LOG_FILE:-/var/log/dockerd.log}" 2>&1 &
+
+    for _ in $(seq 1 30); do
+      if docker info >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+  fi
+fi
 
 if [[ -n "${CODER_AGENT_BOOTSTRAP:-}" && ( -z "${CODER_AGENT_URL:-}" || -z "${CODER_AGENT_TOKEN:-}" ) ]]; then
   bootstrap_data="$(printf '%s' "${CODER_AGENT_BOOTSTRAP}" | base64 -d 2>/dev/null || true)"

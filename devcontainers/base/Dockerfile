@@ -137,9 +137,7 @@ RUN --mount=type=secret,id=github_token \
 # =============================================================================
 FROM base-system AS final
 
-ENV MISE_DATA_DIR=/usr/local/share/mise \
-  MISE_CONFIG_DIR=/etc/mise \
-  PATH="/usr/local/share/mise/shims:$PATH" \
+ENV PATH="/usr/local/share/mise/shims:$PATH" \
   STARSHIP_CONFIG=/etc/starship.toml
 
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/
@@ -153,7 +151,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
   apt-get update && apt-get install -y --no-install-recommends \
-  libsecret-1-0 && \
+  libsecret-1-0 docker.io && \
   rm -rf /var/lib/apt/lists/*
 
 COPY --from=coder-downloader /downloads/coder /usr/local/bin/coder
@@ -168,15 +166,15 @@ COPY --from=mise-installer /usr/local/bin/mise /usr/local/bin/mise
 COPY --from=mise-installer /usr/local/share/mise /usr/local/share/mise
 COPY --from=mise-installer /etc/profile.d/mise.sh /etc/profile.d/mise.sh
 
-RUN mkdir -p /etc/mise
-COPY mise.toml /etc/mise/config.toml
+RUN mkdir -p /etc/mise && printf "[settings]\nexperimental = true\n" > /etc/mise/config.toml
+COPY mise.toml /etc/mise/tools.toml
 COPY starship.toml /etc/starship.toml
 COPY tasks /etc/mise/tasks
 
 RUN --mount=type=secret,id=github_token \
   if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi && \
-  /usr/local/bin/mise run -C /etc/mise postinstall --yes && \
-  rm -rf /etc/mise/tasks
+  MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml /usr/local/bin/mise run -C /etc/mise postinstall --yes && \
+  rm -rf /etc/mise/tasks /etc/mise/tools.toml
 
 RUN groupadd -f docker && \
   useradd -m -s /bin/bash coder --groups=docker --user-group --uid=1000 && \

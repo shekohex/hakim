@@ -657,13 +657,15 @@ locals {
   user_env   = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
   secret_env = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
   default_env = {
-    PATH         = "/usr/local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-    LANG         = "C.UTF-8"
-    LANGUAGE     = "C.UTF-8"
-    LC_ALL       = "C.UTF-8"
-    MIX_HOME     = "/home/coder/.mix"
-    HEX_HOME     = "/home/coder/.hex"
-    MIX_ARCHIVES = "/home/coder/.mix/archives"
+    PATH                  = "/home/coder/.local/share/mise/shims:/usr/local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    LANG                  = "C.UTF-8"
+    LANGUAGE              = "C.UTF-8"
+    LC_ALL                = "C.UTF-8"
+    MIX_HOME              = "/home/coder/.mix"
+    HEX_HOME              = "/home/coder/.hex"
+    MIX_ARCHIVES          = "/home/coder/.mix/archives"
+    START_DOCKER_DAEMON   = "1"
+    DOCKER_STORAGE_DRIVER = "vfs"
   }
   combined_env = merge(local.default_env, local.user_env, local.secret_env)
 

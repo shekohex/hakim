@@ -9,7 +9,7 @@ RUN chmod -R 777 /usr/local/share/mise
 
 ARG NODE_VERSION=24.12.0
 ARG NODE_GYP_VERSION=12.2.0
-RUN source /etc/profile.d/mise.sh && \
+RUN export MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && source /etc/profile.d/mise.sh && \
   mise use --global node@${NODE_VERSION} && \
   export NPM_CONFIG_CACHE=/tmp/.npm && \
   npm install -g "node-gyp@${NODE_GYP_VERSION}" && \
@@ -23,7 +23,7 @@ RUN source /etc/profile.d/mise.sh && \
   done
 
 ARG BUN_VERSION=1.3.5
-RUN source /etc/profile.d/mise.sh && \
+RUN export MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && source /etc/profile.d/mise.sh && \
   mise use --global bun@${BUN_VERSION} && \
   for bin_path in $(mise bin-paths); do \
     for bin_file in "$bin_path"/*; do \
@@ -35,7 +35,7 @@ RUN source /etc/profile.d/mise.sh && \
 
 ARG UV_VERSION=0.9.24
 ARG UV_PYTHON_VERSION=3.12.12
-RUN source /etc/profile.d/mise.sh && \
+RUN export MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && source /etc/profile.d/mise.sh && \
   mise use --global uv@${UV_VERSION} && \
   uv python install "${UV_PYTHON_VERSION}" && \
   for bin_path in $(mise bin-paths); do \
@@ -45,3 +45,5 @@ RUN source /etc/profile.d/mise.sh && \
       fi; \
     done; \
   done
+
+RUN rm -f /etc/mise/tools.toml && printf "[settings]\nexperimental = true\n" > /etc/mise/config.toml
