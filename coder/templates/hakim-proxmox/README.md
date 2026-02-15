@@ -187,4 +187,50 @@ Q: Does stopping a workspace delete the CT and disks?
 Q: How do I keep user data when rebuilding/replacing a workspace container?
 
 - Use `enable_home_disk = true` so `/home/coder` is a separate mount.
-- Before replacement, note the existing home volume id (for example `local-lvm:subvol-<vmid>-disk-1`) and set `proxmox_home_volume_id` to reattach it.
+- Set `proxmox_home_volume_id` to a persistent source (existing volume id or a host bind path).
+- Auto-created Proxmox home volumes are destructive on container replacement; template now blocks that mode.
+
+Q: What does `proxmox_home_volume_id` look like?
+
+- It must be the mount source value Proxmox uses for `/home/coder`.
+- Volume example: `local-lvm:subvol-300-disk-1`.
+- Bind path example: `/mnt/pve/data/coder-homes/ws-raptors`.
+
+Q: How do I get `proxmox_home_volume_id` from CLI (`pct config <ctid>`) ?
+
+- Use a real CT id (do not type angle brackets literally).
+- Example: `pct config 300 | rg '^mp[0-9]+:'`.
+- Find the line with `mp=/home/coder`.
+- Copy only the source before the first comma.
+- Example: `mp0: local-lvm:subvol-300-disk-1,mp=/home/coder,backup=1,size=30G` -> use `local-lvm:subvol-300-disk-1`.
+- Exact filter example: `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder'`.
+- If `rg` is unavailable: `pct config 300 | grep -E '^mp[0-9]+:.*mp=/home/coder'`.
+
+Q: Can you show full CLI examples for both volume and bind mounts?
+
+- Volume-backed home disk:
+  - `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder'`
+  - Output: `mp0: local-lvm:subvol-300-disk-1,mp=/home/coder,backup=1,size=30G`
+  - Set `proxmox_home_volume_id = local-lvm:subvol-300-disk-1`
+- Bind-mounted home directory:
+  - `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder'`
+  - Output: `mp0: /mnt/pve/data/coder-homes/ws-raptors,mp=/home/coder,backup=1`
+  - Set `proxmox_home_volume_id = /mnt/pve/data/coder-homes/ws-raptors`
+
+Q: Can I extract only the source field automatically?
+
+- Yes:
+  - `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder' | cut -d' ' -f2 | cut -d',' -f1`
+- Example output: `local-lvm:subvol-300-disk-1`
+
+Q: How do I get `proxmox_home_volume_id` from Proxmox UI?
+
+- Open `Node -> CT -> Resources`.
+- Find the mount point whose mount path is `/home/coder`.
+- Open/edit it and copy the Volume/source value exactly.
+- Do not include mount options like `,mp=/home/coder,...`; only the source itself.
+
+Q: How do I clean up home data after deleting a workspace?
+
+- If you used a bind path, remove it explicitly on the Proxmox host (for example `rm -rf /path/to/home-bind`).
+- If you used a pre-provisioned volume id, remove that volume explicitly from Proxmox storage when you are sure the workspace is gone.

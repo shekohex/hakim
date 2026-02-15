@@ -602,7 +602,7 @@ data "coder_parameter" "proxmox_home_volume_id" {
   count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
   name         = "proxmox_home_volume_id"
   display_name = "Existing Home Volume ID"
-  description  = "Optional existing volume id to mount at /home/coder (for rebuild/migration)."
+  description  = "Required persistent mount source for /home/coder (existing volume id or host bind path)."
   type         = "string"
   default      = ""
   mutable      = true
@@ -679,11 +679,8 @@ locals {
   container_environment_variables = local.combined_env
   container_agent_bootstrap       = base64encode("${data.coder_workspace.me.access_url}|${coder_agent.main.token}")
 
-  home_disk_enabled        = data.coder_parameter.enable_home_disk.value && length(data.coder_parameter.home_disk_gb) > 0 && data.coder_parameter.home_disk_gb[0].value > 0
-  home_volume_id           = length(data.coder_parameter.proxmox_home_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_home_volume_id[0].value) : ""
-  home_datastore_id        = length(data.coder_parameter.proxmox_home_datastore_id) > 0 && trimspace(data.coder_parameter.proxmox_home_datastore_id[0].value) != "" ? trimspace(data.coder_parameter.proxmox_home_datastore_id[0].value) : data.coder_parameter.proxmox_container_datastore_id.value
-  use_existing_home_volume = local.home_volume_id != ""
-  home_disk_size           = local.home_disk_enabled ? "${data.coder_parameter.home_disk_gb[0].value}G" : null
+  home_disk_enabled = data.coder_parameter.enable_home_disk.value && length(data.coder_parameter.home_disk_gb) > 0 && data.coder_parameter.home_disk_gb[0].value > 0
+  home_volume_id    = length(data.coder_parameter.proxmox_home_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_home_volume_id[0].value) : ""
 
   project_dir      = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script = file("${path.module}/scripts/setup-git.sh")
@@ -778,6 +775,11 @@ resource "proxmox_virtual_environment_container" "workspace" {
       condition     = data.coder_parameter.image_variant.value != "custom" || trimspace(data.coder_parameter.custom_template_file_id[0].value) != ""
       error_message = "custom_template_file_id must be set when image_variant is custom."
     }
+
+    precondition {
+      condition     = !local.home_disk_enabled || local.home_volume_id != ""
+      error_message = "enable_home_disk requires proxmox_home_volume_id. Managed auto-created home volumes are destructive on container replacement in Proxmox."
+    }
   }
   cpu {
     cores = data.coder_parameter.container_cores.value
@@ -798,8 +800,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
 
     content {
       path   = "/home/coder"
-      volume = local.use_existing_home_volume ? local.home_volume_id : local.home_datastore_id
-      size   = local.use_existing_home_volume ? null : local.home_disk_size
+      volume = local.home_volume_id
       backup = true
     }
   }
