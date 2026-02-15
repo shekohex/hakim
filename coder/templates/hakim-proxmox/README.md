@@ -187,14 +187,21 @@ Q: Does stopping a workspace delete the CT and disks?
 Q: How do I keep user data when rebuilding/replacing a workspace container?
 
 - Use `enable_home_disk = true` so `/home/coder` is a separate mount.
-- Set `proxmox_home_volume_id` to a persistent source (existing volume id or a host bind path).
-- Auto-created Proxmox home volumes are destructive on container replacement; template now blocks that mode.
+- Leave `proxmox_home_volume_id` empty to use auto-managed bind path mode (recommended).
+- Auto mode creates and mounts `${proxmox_home_bind_base_path}/<workspace_id>` on the Proxmox host.
+- You can still set `proxmox_home_volume_id` explicitly to mount an existing volume id or bind path.
 
 Q: What does `proxmox_home_volume_id` look like?
 
 - It must be the mount source value Proxmox uses for `/home/coder`.
 - Volume example: `local-lvm:subvol-300-disk-1`.
 - Bind path example: `/mnt/pve/data/coder-homes/ws-raptors`.
+
+Q: What auto path does the template use when `proxmox_home_volume_id` is empty?
+
+- Default base path is `proxmox_home_bind_base_path = /var/lib/hakim/workspace-homes`.
+- Effective path is `/var/lib/hakim/workspace-homes/<workspace_id>`.
+- Example: `/var/lib/hakim/workspace-homes/71ce98a8-ede5-7c62-58e2-d8f60640e698`.
 
 Q: How do I get `proxmox_home_volume_id` from CLI (`pct config <ctid>`) ?
 
@@ -234,3 +241,19 @@ Q: How do I clean up home data after deleting a workspace?
 
 - If you used a bind path, remove it explicitly on the Proxmox host (for example `rm -rf /path/to/home-bind`).
 - If you used a pre-provisioned volume id, remove that volume explicitly from Proxmox storage when you are sure the workspace is gone.
+
+Q: Is there a helper script for bind path create/delete?
+
+- Yes: `scripts/manage-home-bind-path.sh`.
+- Ensure path exists via Proxmox API:
+  - `PVE_ENDPOINT=https://bigboss:8006 PVE_NODE_NAME=bigboss PVE_API_TOKEN='root@pam!coder=...' HOME_BIND_PATH='/var/lib/hakim/workspace-homes/<workspace_id>' bash scripts/manage-home-bind-path.sh ensure`
+- Delete path via Proxmox API:
+  - `PVE_ENDPOINT=https://bigboss:8006 PVE_NODE_NAME=bigboss PVE_API_TOKEN='root@pam!coder=...' HOME_BIND_PATH='/var/lib/hakim/workspace-homes/<workspace_id>' bash scripts/manage-home-bind-path.sh delete`
+
+Q: Can I clean stale auto home paths in bulk?
+
+- Yes, on Proxmox host: `scripts/prune-home-bind-paths.sh`.
+- Dry run (list stale paths):
+  - `bash scripts/prune-home-bind-paths.sh /var/lib/hakim/workspace-homes --dry-run`
+- Apply (delete stale paths not referenced by any CT `/home/coder` mount):
+  - `bash scripts/prune-home-bind-paths.sh /var/lib/hakim/workspace-homes --apply`

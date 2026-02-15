@@ -578,7 +578,7 @@ data "coder_parameter" "home_disk_gb" {
   count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
   name         = "home_disk_gb"
   display_name = "Home Disk (GB)"
-  description  = "Size of /home/coder volume."
+  description  = "Legacy size for managed volume mode. Ignored for bind-path mounts."
   type         = "number"
   default      = 30
   mutable      = true
@@ -590,7 +590,7 @@ data "coder_parameter" "proxmox_home_datastore_id" {
   count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
   name         = "proxmox_home_datastore_id"
   display_name = "Home Datastore"
-  description  = "Optional datastore for /home/coder volume. Empty uses container datastore."
+  description  = "Legacy setting for managed home volumes. Prefer proxmox_home_volume_id or auto bind path."
   type         = "string"
   default      = ""
   mutable      = true
@@ -602,12 +602,24 @@ data "coder_parameter" "proxmox_home_volume_id" {
   count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
   name         = "proxmox_home_volume_id"
   display_name = "Existing Home Volume ID"
-  description  = "Required persistent mount source for /home/coder (existing volume id or host bind path)."
+  description  = "Optional persistent mount source for /home/coder (existing volume id or host bind path). Empty uses auto bind path."
   type         = "string"
   default      = ""
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
   order        = 59
+}
+
+data "coder_parameter" "proxmox_home_bind_base_path" {
+  count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
+  name         = "proxmox_home_bind_base_path"
+  display_name = "Home Bind Base Path"
+  description  = "Host base path for auto-created persistent /home/coder bind mounts."
+  type         = "string"
+  default      = "/var/lib/hakim/workspace-homes"
+  mutable      = true
+  icon         = "https://esm.sh/lucide-static@latest/icons/folder.svg"
+  order        = 60
 }
 
 data "coder_parameter" "workspace_rebuild_generation" {
@@ -618,7 +630,7 @@ data "coder_parameter" "workspace_rebuild_generation" {
   default      = 1
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/refresh-cw.svg"
-  order        = 60
+  order        = 61
 }
 
 data "coder_parameter" "enable_nesting" {
@@ -679,8 +691,13 @@ locals {
   container_environment_variables = local.combined_env
   container_agent_bootstrap       = base64encode("${data.coder_workspace.me.access_url}|${coder_agent.main.token}")
 
-  home_disk_enabled = data.coder_parameter.enable_home_disk.value && length(data.coder_parameter.home_disk_gb) > 0 && data.coder_parameter.home_disk_gb[0].value > 0
-  home_volume_id    = length(data.coder_parameter.proxmox_home_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_home_volume_id[0].value) : ""
+  home_disk_enabled        = data.coder_parameter.enable_home_disk.value
+  home_volume_id           = length(data.coder_parameter.proxmox_home_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_home_volume_id[0].value) : ""
+  home_bind_base_path      = length(data.coder_parameter.proxmox_home_bind_base_path) > 0 ? trimspace(data.coder_parameter.proxmox_home_bind_base_path[0].value) : ""
+  home_bind_base_path_trim = trimsuffix(local.home_bind_base_path, "/")
+  home_auto_bind_path      = "${local.home_bind_base_path_trim}/${data.coder_workspace.me.id}"
+  home_use_auto_bind       = local.home_disk_enabled && local.home_volume_id == ""
+  home_mount_source        = local.home_use_auto_bind ? local.home_auto_bind_path : local.home_volume_id
 
   project_dir      = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script = file("${path.module}/scripts/setup-git.sh")
@@ -758,6 +775,39 @@ resource "terraform_data" "workspace_rebuild_generation" {
   ]
 }
 
+resource "terraform_data" "home_bind_path" {
+  count = local.home_use_auto_bind ? 1 : 0
+
+  triggers_replace = {
+    node_name = data.coder_parameter.proxmox_node_name.value
+    endpoint  = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
+    insecure  = tostring(data.coder_parameter.proxmox_insecure.value)
+    path      = local.home_mount_source
+  }
+
+  lifecycle {
+    precondition {
+      condition     = can(regex("^/[a-zA-Z0-9._/-]+$", local.home_mount_source))
+      error_message = "Auto home bind path must be an absolute path containing only [a-zA-Z0-9._/-]."
+    }
+  }
+
+  provisioner "local-exec" {
+    command = "bash ${path.module}/scripts/manage-home-bind-path.sh ensure"
+
+    environment = {
+      PVE_ENDPOINT        = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
+      PVE_NODE_NAME       = data.coder_parameter.proxmox_node_name.value
+      PVE_API_TOKEN       = data.coder_parameter.proxmox_api_token.value
+      PVE_INSECURE        = tostring(data.coder_parameter.proxmox_insecure.value)
+      HOME_BIND_PATH      = local.home_mount_source
+      HOME_BIND_OWNER_UID = "101000"
+      HOME_BIND_OWNER_GID = "101000"
+      HOME_BIND_MODE      = "0750"
+    }
+  }
+}
+
 resource "proxmox_virtual_environment_container" "workspace" {
   node_name             = data.coder_parameter.proxmox_node_name.value
   vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
@@ -777,8 +827,8 @@ resource "proxmox_virtual_environment_container" "workspace" {
     }
 
     precondition {
-      condition     = !local.home_disk_enabled || local.home_volume_id != ""
-      error_message = "enable_home_disk requires proxmox_home_volume_id. Managed auto-created home volumes are destructive on container replacement in Proxmox."
+      condition     = !local.home_disk_enabled || local.home_mount_source != ""
+      error_message = "enable_home_disk requires proxmox_home_volume_id or proxmox_home_bind_base_path."
     }
   }
   cpu {
@@ -800,7 +850,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
 
     content {
       path   = "/home/coder"
-      volume = local.home_volume_id
+      volume = local.home_mount_source
       backup = true
     }
   }
@@ -834,6 +884,8 @@ resource "proxmox_virtual_environment_container" "workspace" {
   wait_for_ip {
     ipv4 = true
   }
+
+  depends_on = [terraform_data.home_bind_path]
 
 }
 
