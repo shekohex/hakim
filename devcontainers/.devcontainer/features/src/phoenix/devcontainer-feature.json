@@ -22,7 +22,9 @@
         }
     },
     "dependsOn": {
-        "../../../features/src/elixir": {}
+        "../../../features/src/elixir": {
+            "seedUserHome": false
+        }
     },
     "installsAfter": [
         "ghcr.io/devcontainers/features/common-utils",

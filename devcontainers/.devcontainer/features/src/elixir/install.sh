@@ -95,6 +95,13 @@ if [ "$SEED_USER_HOME" = "true" ]; then
 
     USER_HOME=$(getent passwd "${_REMOTE_USER}" | cut -d: -f6)
     if [ -n "$USER_HOME" ]; then
+        SEED_MARKER="/usr/local/share/mise/.seeded-elixir-${_REMOTE_USER}"
+        if [ -f "$SEED_MARKER" ]; then
+            echo "Elixir user-home seed already completed for ${_REMOTE_USER}, skipping"
+            echo "Elixir feature installation complete!"
+            exit 0
+        fi
+
         mkdir -p "$USER_HOME/.mix" "$USER_HOME/.hex" "$USER_HOME/.cache"
         chown -R "${_REMOTE_USER}":"${_REMOTE_USER}" "$USER_HOME/.mix" "$USER_HOME/.hex" "$USER_HOME/.cache"
 
@@ -104,7 +111,7 @@ if [ "$SEED_USER_HOME" = "true" ]; then
             echo "Installing Hex package manager for ${_REMOTE_USER}..."
             hex_ok=false
             for attempt in 1 2; do
-                if su - "${_REMOTE_USER}" -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix local.hex --force"; then
+                if su -s /bin/bash "${_REMOTE_USER}" -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix local.hex --force"; then
                     hex_ok=true
                     break
                 fi
@@ -123,7 +130,7 @@ if [ "$SEED_USER_HOME" = "true" ]; then
             echo "Installing Rebar build tool for ${_REMOTE_USER}..."
             rebar_ok=false
             for attempt in 1 2; do
-                if su - "${_REMOTE_USER}" -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix local.rebar --force"; then
+                if su -s /bin/bash "${_REMOTE_USER}" -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix local.rebar --force"; then
                     rebar_ok=true
                     break
                 fi
@@ -135,6 +142,8 @@ if [ "$SEED_USER_HOME" = "true" ]; then
                 exit 1
             fi
         fi
+
+        touch "$SEED_MARKER"
     fi
 fi
 
