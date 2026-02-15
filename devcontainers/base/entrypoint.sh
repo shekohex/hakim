@@ -39,7 +39,14 @@ else
 fi
 
 mkdir -p "${CODER_HOME}" "${PROJECT_DIR}" "${CODER_HOME}/.config/mise" "${CODER_HOME}/.local/share/mise"
-chown "${CODER_UID}:${CODER_GID}" "${CODER_HOME}" "${PROJECT_DIR}" "${CODER_HOME}/.config" "${CODER_HOME}/.local" || true
+chown "${CODER_UID}:${CODER_GID}" \
+  "${CODER_HOME}" \
+  "${PROJECT_DIR}" \
+  "${CODER_HOME}/.config" \
+  "${CODER_HOME}/.config/mise" \
+  "${CODER_HOME}/.local" \
+  "${CODER_HOME}/.local/share" \
+  "${CODER_HOME}/.local/share/mise" || true
 chown -R "${CODER_UID}:${CODER_GID}" "${CODER_HOME}/.config/mise" "${CODER_HOME}/.local/share/mise" || true
 
 if [[ "${START_DOCKER_DAEMON:-1}" == "1" || "${START_DOCKER_DAEMON:-}" == "true" ]]; then
