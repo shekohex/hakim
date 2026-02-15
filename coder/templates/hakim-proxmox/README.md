@@ -187,9 +187,9 @@ Q: Does stopping a workspace delete the CT and disks?
 Q: How do I keep user data when rebuilding/replacing a workspace container?
 
 - Use `enable_home_disk = true` so `/home/coder` is a separate mount.
-- If `proxmox_home_volume_id` is empty, Proxmox creates a managed volume from `proxmox_home_datastore_id` + `home_disk_gb`.
-- The template now detaches `/home/coder` mount before CT destroy during replacement/deletion so the home volume is preserved.
-- You can still set `proxmox_home_volume_id` explicitly to mount an existing volume id or bind path.
+- If `proxmox_home_volume_id` is empty, Proxmox creates a managed home volume from `proxmox_home_datastore_id` + `home_disk_gb`.
+- Managed home mode requires fixed `proxmox_vm_id` (>0), because template detaches `/home/coder` mount before rebuild destroy.
+- You can set `proxmox_home_volume_id` explicitly to mount an existing volume id or bind path.
 
 Q: What does `proxmox_home_volume_id` look like?
 
@@ -212,7 +212,7 @@ Q: Can you show full CLI examples for both managed volume and bind mount?
 - Managed volume-backed home disk:
   - `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder'`
   - Output: `mp0: local-lvm:subvol-300-disk-1,mp=/home/coder,backup=1,size=30G`
-  - Set `proxmox_home_volume_id = local-lvm:subvol-300-disk-1` to reattach later
+  - Leave `proxmox_home_volume_id` empty and keep `proxmox_vm_id` fixed (for detach-before-destroy flow)
 - Bind-mounted home directory:
   - `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder'`
   - Output: `mp0: /mnt/pve/data/coder-homes/ws-raptors,mp=/home/coder,backup=1`
@@ -234,7 +234,8 @@ Q: How do I get `proxmox_home_volume_id` from Proxmox UI?
 Q: How do I clean up home data after deleting a workspace?
 
 - If you used a bind path, remove it explicitly on the Proxmox host (for example `rm -rf /path/to/home-bind`).
-- For managed volumes, use `scripts/prune-home-volumes.sh` on the Proxmox host.
+- If you used managed home volume mode, use `scripts/prune-home-volumes.sh` on the Proxmox host.
+- If you used an external volume id, remove it explicitly from Proxmox storage when you are sure the workspace is gone.
 
 Q: Is there a helper script for managed-volume cleanup?
 
