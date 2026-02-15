@@ -2,7 +2,7 @@
 "aqua:starship/starship" = "1.24.2"
 "aqua:ajeetdsouza/zoxide" = "0.9.8"
 "aqua:sharkdp/fd" = "10.3.0"
-"aqua:cli/cli" = "2.83.2"
+"aqua:cli/cli" = "2.86.0"
 "aqua:BurntSushi/ripgrep" = "15.1.0"
 "aqua:ast-grep/ast-grep" = "0.40.5"
 "aqua:sxyazi/yazi" = "26.1.4"
