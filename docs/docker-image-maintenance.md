@@ -9,10 +9,11 @@
 ## Image Flow (What Updates Propagate Where)
 
 - `hakim-base` is the foundation image built from `devcontainers/base/Dockerfile`.
+- `hakim-tooling` is built on top of base from `devcontainers/tooling/Dockerfile` and carries Bun/OpenCode/tooling extras.
 - Variant images (`hakim-js`, `hakim-php`, `hakim-elixir`, etc.) are built from the base image.
-- Updating a tool in the base image (like OpenCode) only updates the base image.
-- Variants will NOT automatically receive base changes until they are rebuilt and pushed.
-- Users pulling `hakim-base:latest` get the new OpenCode version after base rebuild.
+- Updating a tool in base updates only `hakim-base`; updating OpenCode updates `hakim-tooling`.
+- Variants will NOT automatically receive base/tooling changes until they are rebuilt and pushed.
+- Users pulling `hakim-tooling:latest` get the new OpenCode version after tooling rebuild.
 - Users pulling `hakim-<variant>:latest` get the new OpenCode version only after variant rebuild.
 
 ## Update Cadence (Recommended)
@@ -93,8 +94,11 @@ File: `devcontainers/base/Dockerfile`
 - Update the version args in the downloader stages:
   - `CODER_VERSION`
   - `CODE_SERVER_VERSION`
-  - `OPENCODE_VERSION`
   - `GOOGLE_CHROME_VERSION`
+
+File: `devcontainers/tooling/Dockerfile`
+
+- Update `OPENCODE_VERSION` (installed via Bun global for `coder` and exposed at `/usr/local/bin/opencode`).
 
 Only the specific tool layer should change when these are bumped.
 
@@ -125,11 +129,11 @@ Then update any variant configs that pin versions:
 
 ## How to Roll an OpenCode Update
 
-1) Update `OPENCODE_VERSION` in `devcontainers/base/Dockerfile`.
-2) Rebuild and push the base image.
-3) Rebuild and push all variants to propagate the new base.
+1) Update `OPENCODE_VERSION` in `devcontainers/tooling/Dockerfile`.
+2) Rebuild and push the tooling image.
+3) Rebuild and push all variants to propagate the new tooling layer.
 
-If you only rebuild base, the variants will still point to the old base layers.
+If you only rebuild tooling, the variants will still point to the old tooling layers.
 
 ## Build and Publish
 

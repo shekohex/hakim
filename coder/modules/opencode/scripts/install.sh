@@ -3,7 +3,7 @@ set -euo pipefail
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 export PATH="$HOME/.bun/bin:$PATH"
-export PATH="$HOME/.opencode/bin:$PATH"
+export PATH="$PATH:$HOME/.opencode/bin"
 
 command_exists() {
   command -v "$1" > /dev/null 2>&1
@@ -78,39 +78,48 @@ run_pre_install_script() {
 
 install_opencode() {
   if [ "$ARG_INSTALL_OPENCODE" = "true" ]; then
-    if ! command_exists opencode; then
-      echo "Installing OpenCode (version: ${ARG_OPENCODE_VERSION})..."
-      if command_exists bun; then
+    if command_exists bun; then
+      if [ ! -x "$HOME/.bun/bin/opencode" ]; then
+        echo "Installing OpenCode (version: ${ARG_OPENCODE_VERSION})..."
         if [ "$ARG_OPENCODE_VERSION" = "latest" ]; then
           run_with_bun_lock bun add -g opencode-ai
         else
           run_with_bun_lock bun add -g "opencode-ai@${ARG_OPENCODE_VERSION}"
         fi
-
-        OPENCODE_BIN=$(command -v opencode 2> /dev/null || true)
-        if [ -n "$OPENCODE_BIN" ] && [ -f "$OPENCODE_BIN" ]; then
-          if command_exists sudo; then
-            echo "Symlinking opencode to /usr/local/bin"
-            sudo ln -sf "$OPENCODE_BIN" /usr/local/bin/opencode
-          fi
-        fi
       else
+        echo "OpenCode already installed in bun global bin"
+      fi
+    else
+      if ! command_exists opencode; then
+        echo "Installing OpenCode (version: ${ARG_OPENCODE_VERSION})..."
         if [ "$ARG_OPENCODE_VERSION" = "latest" ]; then
           curl -fsSL https://opencode.ai/install | bash
         else
           VERSION=$ARG_OPENCODE_VERSION curl -fsSL https://opencode.ai/install | bash
         fi
         export PATH=/home/coder/.opencode/bin:$PATH
-      fi
-
-      if command_exists opencode; then
-        echo "OpenCode installed successfully"
       else
-        echo "ERROR: Failed to install OpenCode"
-        exit 1
+        echo "OpenCode already installed"
       fi
+    fi
+
+    OPENCODE_BIN=""
+    if command_exists bun && [ -x "$HOME/.bun/bin/opencode" ]; then
+      OPENCODE_BIN="$HOME/.bun/bin/opencode"
+    elif command_exists opencode; then
+      OPENCODE_BIN=$(command -v opencode 2> /dev/null || true)
+    fi
+
+    if [ -n "$OPENCODE_BIN" ] && [ -f "$OPENCODE_BIN" ] && command_exists sudo; then
+      echo "Symlinking opencode to /usr/local/bin"
+      sudo ln -sf "$OPENCODE_BIN" /usr/local/bin/opencode
+    fi
+
+    if command_exists opencode; then
+      echo "OpenCode installed successfully"
     else
-      echo "OpenCode already installed"
+      echo "ERROR: Failed to install OpenCode"
+      exit 1
     fi
   else
     echo "OpenCode installation skipped (ARG_INSTALL_OPENCODE=false)"

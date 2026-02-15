@@ -33,6 +33,12 @@ RUN export MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GL
     done; \
   done
 
+# VERSION_UPDATE_BEGIN: opencode
+ARG OPENCODE_VERSION=1.2.4
+# VERSION_UPDATE_END: opencode
+RUN su - coder -c "bun add -g opencode-ai@${OPENCODE_VERSION}" && \
+  ln -sf /home/coder/.bun/bin/opencode /usr/local/bin/opencode
+
 ARG UV_VERSION=0.9.24
 ARG UV_PYTHON_VERSION=3.12.12
 RUN export MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && source /etc/profile.d/mise.sh && \
