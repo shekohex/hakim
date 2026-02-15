@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-for required in curl jq; do
+for required in curl sed; do
   command -v "$required" >/dev/null 2>&1 || {
     printf 'missing required command: %s\n' "$required" >&2
     exit 1
@@ -71,8 +71,8 @@ wait_task() {
       return 1
     fi
 
-    task_status="$(printf '%s' "${status_body}" | jq -r '.data.status // empty')"
-    exit_status="$(printf '%s' "${status_body}" | jq -r '.data.exitstatus // empty')"
+    task_status="$(printf '%s' "${status_body}" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')"
+    exit_status="$(printf '%s' "${status_body}" | sed -n 's/.*"exitstatus":"\([^"]*\)".*/\1/p')"
 
     if [[ "${task_status}" == "stopped" ]]; then
       if [[ "${exit_status}" == "OK" ]]; then
@@ -102,7 +102,8 @@ if [[ "${config_status}" -ge 400 ]]; then
   exit 1
 fi
 
-home_mp_key="$(printf '%s' "${config_body}" | jq -r --arg mp "mp=${HOME_MOUNT_PATH}" '.data | to_entries[] | select(.key | test("^mp[0-9]+$")) | select((.value | tostring) | contains($mp)) | .key' | sed -n '1p')"
+home_mount_path_escaped="$(printf '%s' "${HOME_MOUNT_PATH}" | sed 's/[.[\*^$()+?{}|]/\\&/g; s/\//\\\//g')"
+home_mp_key="$(printf '%s' "${config_body}" | sed -n "s/.*\"\(mp[0-9]\\+\)\":\"[^\"]*mp=${home_mount_path_escaped}[^\"]*\".*/\1/p" | sed -n '1p')"
 
 if [[ -z "${home_mp_key}" ]]; then
   exit 0
@@ -120,7 +121,7 @@ if [[ "${update_status}" -ge 400 ]]; then
   exit 1
 fi
 
-upid="$(printf '%s' "${update_body}" | jq -r '.data // empty')"
+upid="$(printf '%s' "${update_body}" | sed -n 's/.*"data":"\([^"]*\)".*/\1/p')"
 if [[ -n "${upid}" ]]; then
   wait_task "${upid}"
 fi
