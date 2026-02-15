@@ -5,13 +5,8 @@ export MIX_HOME=/home/coder/.mix
 export HEX_HOME=/home/coder/.hex
 export MIX_ARCHIVES=/home/coder/.mix/archives
 
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 export PATH="$HOME/.bun/bin:$PATH"
-if command -v bun > /dev/null 2>&1; then
-  GLOBAL_BIN_DIR=$(bun pm bin -g 2> /dev/null || true)
-  if [ -n "$GLOBAL_BIN_DIR" ]; then
-    export PATH="$GLOBAL_BIN_DIR:$PATH"
-  fi
-fi
 
 command_exists() {
   command -v "$1" > /dev/null 2>&1

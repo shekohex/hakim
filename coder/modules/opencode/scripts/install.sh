@@ -1,17 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+export PATH="$HOME/.bun/bin:$PATH"
+export PATH="$HOME/.opencode/bin:$PATH"
+
 command_exists() {
   command -v "$1" > /dev/null 2>&1
 }
-
-if command_exists bun; then
-  export PATH="$HOME/.bun/bin:$PATH"
-  GLOBAL_BIN_DIR=$(bun pm bin -g 2> /dev/null || true)
-  if [ -n "$GLOBAL_BIN_DIR" ]; then
-    export PATH="$GLOBAL_BIN_DIR:$PATH"
-  fi
-fi
 
 ARG_WORKDIR=${ARG_WORKDIR:-"$HOME"}
 ARG_REPORT_TASKS=${ARG_REPORT_TASKS:-true}
@@ -61,12 +57,11 @@ install_opencode() {
           bun install -g "opencode-ai@${ARG_OPENCODE_VERSION}"
         fi
 
-        GLOBAL_BIN_DIR=$(bun pm bin -g)
-        if [ -n "$GLOBAL_BIN_DIR" ] && [ -f "$GLOBAL_BIN_DIR/opencode" ]; then
-          export PATH="$GLOBAL_BIN_DIR:$PATH"
+        OPENCODE_BIN=$(command -v opencode 2> /dev/null || true)
+        if [ -n "$OPENCODE_BIN" ] && [ -f "$OPENCODE_BIN" ]; then
           if command_exists sudo; then
             echo "Symlinking opencode to /usr/local/bin"
-            sudo ln -sf "$GLOBAL_BIN_DIR/opencode" /usr/local/bin/opencode
+            sudo ln -sf "$OPENCODE_BIN" /usr/local/bin/opencode
           fi
         fi
       else

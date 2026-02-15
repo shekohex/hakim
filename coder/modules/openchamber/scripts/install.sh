@@ -1,17 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+export PATH="$HOME/.bun/bin:$PATH"
+
 command_exists() {
   command -v "$1" > /dev/null 2>&1
 }
-
-if command_exists bun; then
-  export PATH="$HOME/.bun/bin:$PATH"
-  GLOBAL_BIN_DIR=$(bun pm bin -g 2> /dev/null || true)
-  if [ -n "$GLOBAL_BIN_DIR" ]; then
-    export PATH="$GLOBAL_BIN_DIR:$PATH"
-  fi
-fi
 
 ARG_OPENCHAMBER_VERSION=${ARG_OPENCHAMBER_VERSION:-latest}
 ARG_INSTALL_OPENCHAMBER=${ARG_INSTALL_OPENCHAMBER:-true}
@@ -49,11 +44,9 @@ install_openchamber() {
       fi
     fi
 
-    GLOBAL_BIN_DIR=$(bun pm bin -g)
-    if [ -n "$GLOBAL_BIN_DIR" ] && [ -f "$GLOBAL_BIN_DIR/openchamber" ]; then
-      if command_exists sudo; then
-        sudo ln -sf "$GLOBAL_BIN_DIR/openchamber" /usr/local/bin/openchamber
-      fi
+    OPENCHAMBER_BIN=$(command -v openchamber 2> /dev/null || true)
+    if [ -n "$OPENCHAMBER_BIN" ] && [ -f "$OPENCHAMBER_BIN" ] && command_exists sudo; then
+      sudo ln -sf "$OPENCHAMBER_BIN" /usr/local/bin/openchamber
     fi
   fi
 }
