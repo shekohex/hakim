@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 VERSION=${VERSION:-"1.8.3"}
 SEED_USER_HOME=${SEEDUSERHOME:-"true"}
@@ -35,18 +35,59 @@ if [ "$SEED_USER_HOME" = "true" ]; then
 
     USER_HOME=$(getent passwd "${_REMOTE_USER}" | cut -d: -f6)
     if [ -n "$USER_HOME" ]; then
+        MIX_TIMEOUT_CMD=""
+        if command -v timeout >/dev/null 2>&1; then
+            MIX_TIMEOUT_CMD="timeout 120"
+        fi
+
+        PHX_SEED_MARKER="/usr/local/share/mise/.seeded-phoenix-${_REMOTE_USER}-${VERSION}"
+        if [ -f "$PHX_SEED_MARKER" ]; then
+            echo "Phoenix seed already completed for ${_REMOTE_USER} (${VERSION}), skipping"
+            echo "Phoenix feature installation complete!"
+            exit 0
+        fi
+
         mkdir -p "$USER_HOME/.mix" "$USER_HOME/.hex" "$USER_HOME/.cache"
         chown -R "${_REMOTE_USER}":"${_REMOTE_USER}" "$USER_HOME/.mix" "$USER_HOME/.hex" "$USER_HOME/.cache"
 
+        if ls "${USER_HOME}/.mix/archives"/phx_new-*.ez >/dev/null 2>&1; then
+            echo "phx_new archive already present for ${_REMOTE_USER}, skipping install"
+            touch "$PHX_SEED_MARKER"
+            echo "Phoenix feature installation complete!"
+            exit 0
+        fi
+
         if [ "$VERSION" = "latest" ]; then
             echo "Installing latest phx_new for ${_REMOTE_USER}..."
-            su - "${_REMOTE_USER}" -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" mix archive.install hex phx_new --force"
+            phx_ok=false
+            for attempt in 1 2; do
+                if su -s /bin/bash "${_REMOTE_USER}" -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix archive.install hex phx_new --force"; then
+                    phx_ok=true
+                    break
+                fi
+                echo "phx_new install attempt ${attempt} failed"
+                sleep 3
+            done
         else
             echo "Installing phx_new ${VERSION} for ${_REMOTE_USER}..."
-            su - "${_REMOTE_USER}" -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" mix archive.install hex phx_new ${VERSION} --force"
+            phx_ok=false
+            for attempt in 1 2; do
+                if su -s /bin/bash "${_REMOTE_USER}" -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix archive.install hex phx_new ${VERSION} --force"; then
+                    phx_ok=true
+                    break
+                fi
+                echo "phx_new install attempt ${attempt} failed"
+                sleep 3
+            done
+        fi
+
+        if [ "$phx_ok" != "true" ]; then
+            echo "Failed to seed phx_new for ${_REMOTE_USER}" >&2
+            exit 1
         fi
 
         echo "phx_new installed successfully"
+        touch "$PHX_SEED_MARKER"
     fi
 fi
 
