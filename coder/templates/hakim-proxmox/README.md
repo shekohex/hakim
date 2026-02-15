@@ -187,8 +187,8 @@ Q: Does stopping a workspace delete the CT and disks?
 Q: How do I keep user data when rebuilding/replacing a workspace container?
 
 - Use `enable_home_disk = true` so `/home/coder` is a separate mount.
-- Leave `proxmox_home_volume_id` empty to use auto-managed bind path mode (recommended).
-- Auto mode creates and mounts `${proxmox_home_bind_base_path}/<workspace_id>` on the Proxmox host.
+- If `proxmox_home_volume_id` is empty, Proxmox creates a managed volume from `proxmox_home_datastore_id` + `home_disk_gb`.
+- The template now detaches `/home/coder` mount before CT destroy during replacement/deletion so the home volume is preserved.
 - You can still set `proxmox_home_volume_id` explicitly to mount an existing volume id or bind path.
 
 Q: What does `proxmox_home_volume_id` look like?
@@ -196,12 +196,6 @@ Q: What does `proxmox_home_volume_id` look like?
 - It must be the mount source value Proxmox uses for `/home/coder`.
 - Volume example: `local-lvm:subvol-300-disk-1`.
 - Bind path example: `/mnt/pve/data/coder-homes/ws-raptors`.
-
-Q: What auto path does the template use when `proxmox_home_volume_id` is empty?
-
-- Default base path is `proxmox_home_bind_base_path = /var/lib/hakim/workspace-homes`.
-- Effective path is `/var/lib/hakim/workspace-homes/<workspace_id>`.
-- Example: `/var/lib/hakim/workspace-homes/71ce98a8-ede5-7c62-58e2-d8f60640e698`.
 
 Q: How do I get `proxmox_home_volume_id` from CLI (`pct config <ctid>`) ?
 
@@ -213,12 +207,12 @@ Q: How do I get `proxmox_home_volume_id` from CLI (`pct config <ctid>`) ?
 - Exact filter example: `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder'`.
 - If `rg` is unavailable: `pct config 300 | grep -E '^mp[0-9]+:.*mp=/home/coder'`.
 
-Q: Can you show full CLI examples for both volume and bind mounts?
+Q: Can you show full CLI examples for both managed volume and bind mount?
 
-- Volume-backed home disk:
+- Managed volume-backed home disk:
   - `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder'`
   - Output: `mp0: local-lvm:subvol-300-disk-1,mp=/home/coder,backup=1,size=30G`
-  - Set `proxmox_home_volume_id = local-lvm:subvol-300-disk-1`
+  - Set `proxmox_home_volume_id = local-lvm:subvol-300-disk-1` to reattach later
 - Bind-mounted home directory:
   - `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder'`
   - Output: `mp0: /mnt/pve/data/coder-homes/ws-raptors,mp=/home/coder,backup=1`
@@ -240,20 +234,12 @@ Q: How do I get `proxmox_home_volume_id` from Proxmox UI?
 Q: How do I clean up home data after deleting a workspace?
 
 - If you used a bind path, remove it explicitly on the Proxmox host (for example `rm -rf /path/to/home-bind`).
-- If you used a pre-provisioned volume id, remove that volume explicitly from Proxmox storage when you are sure the workspace is gone.
+- For managed volumes, use `scripts/prune-home-volumes.sh` on the Proxmox host.
 
-Q: Is there a helper script for bind path create/delete?
+Q: Is there a helper script for managed-volume cleanup?
 
-- Yes: `scripts/manage-home-bind-path.sh`.
-- Ensure path exists via Proxmox API:
-  - `PVE_ENDPOINT=https://bigboss:8006 PVE_NODE_NAME=bigboss PVE_API_TOKEN='root@pam!coder=...' HOME_BIND_PATH='/var/lib/hakim/workspace-homes/<workspace_id>' bash scripts/manage-home-bind-path.sh ensure`
-- Delete path via Proxmox API:
-  - `PVE_ENDPOINT=https://bigboss:8006 PVE_NODE_NAME=bigboss PVE_API_TOKEN='root@pam!coder=...' HOME_BIND_PATH='/var/lib/hakim/workspace-homes/<workspace_id>' bash scripts/manage-home-bind-path.sh delete`
-
-Q: Can I clean stale auto home paths in bulk?
-
-- Yes, on Proxmox host: `scripts/prune-home-bind-paths.sh`.
-- Dry run (list stale paths):
-  - `bash scripts/prune-home-bind-paths.sh /var/lib/hakim/workspace-homes --dry-run`
-- Apply (delete stale paths not referenced by any CT `/home/coder` mount):
-  - `bash scripts/prune-home-bind-paths.sh /var/lib/hakim/workspace-homes --apply`
+- Yes: `scripts/prune-home-volumes.sh`.
+- Dry run for CT 300 on `local-lvm`:
+  - `bash scripts/prune-home-volumes.sh local-lvm 300 --dry-run`
+- Apply deletion for stale detached home volumes of CT 300:
+  - `bash scripts/prune-home-volumes.sh local-lvm 300 --apply`
