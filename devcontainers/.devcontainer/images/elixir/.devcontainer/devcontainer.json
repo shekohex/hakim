@@ -8,8 +8,8 @@
   },
   "features": {
     "../../../features/src/elixir": {
-      "erlangVersion": "27",
-      "elixirVersion": "1.17",
+      "erlangVersion": "28.3.1",
+      "elixirVersion": "1.19.5",
       "seedUserHome": true
     },
     "../../../features/src/phoenix": {
