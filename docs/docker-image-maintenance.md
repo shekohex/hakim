@@ -30,13 +30,13 @@ File: `devcontainers/base/Dockerfile`
 - Update `DEBIAN_IMAGE` with the latest digest:
 
 ```bash
-docker buildx imagetools inspect debian:bookworm-slim
+docker buildx imagetools inspect debian:trixie-slim
 ```
 
 Pick the `linux/amd64` manifest digest and set:
 
 ```
-ARG DEBIAN_IMAGE=debian:bookworm-slim@sha256:<digest>
+ARG DEBIAN_IMAGE=debian:trixie-slim@sha256:<digest>
 ```
 
 ### 2) Update Debian apt snapshot (reproducible apt)

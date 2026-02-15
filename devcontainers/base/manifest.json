@@ -2,7 +2,7 @@
 	"name": "Hakim Base",
 	"version": "1.0.0",
 	"description": "Base image for Hakim Coder Templates with Docker and Mise",
-	"variants": ["bookworm"],
+	"variants": ["trixie"],
 	"build": {
 		"dockerfile": "./Dockerfile",
 		"context": "."

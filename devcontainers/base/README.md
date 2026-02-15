@@ -2,7 +2,7 @@
 
 ## Summary
 
-This is the foundational image for the Hakim Coder Template system. It is based on `debian:bookworm-slim` and includes:
+This is the foundational image for the Hakim Coder Template system. It is based on `debian:trixie-slim` and includes:
 
 - **Docker-in-Docker**: Pre-configured for running containers inside the workspace.
 - **Mise**: A polyglot tool version manager, installed globally at `/usr/local/bin/mise`.

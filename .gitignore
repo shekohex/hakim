@@ -38,8 +38,3 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 **/.terraform/
 *.tfstate
 *.tfstate.backup
-
-distrobuilder/out/*
-!distrobuilder/out/
-!distrobuilder/out/.gitkeep
-.tmp/distrobuilder/

@@ -8,7 +8,7 @@
 # - Prefer adding new stages over modifying shared ones.
 # =============================================================================
 
-ARG DEBIAN_IMAGE=debian:bookworm-slim@sha256:56ff6d36d4eb3db13a741b342ec466f121480b5edded42e4b7ee850ce7a418ee
+ARG DEBIAN_IMAGE=debian:trixie-slim@sha256:f6e2cfac5cf956ea044b4bd75e6397b4372ad88fe00908045e9a0d21712ae3ba
 ARG DEBIAN_SNAPSHOT=20260201T000000Z
 ARG DOCKER_CLI_IMAGE=docker:28.3.3-cli@sha256:0135662b510037ea581d99c2e5929c5e01185139c0b86986a418bd4da0b98a44
 
@@ -25,10 +25,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
   rm -f /etc/apt/apt.conf.d/docker-clean && \
+  rm -f /etc/apt/sources.list.d/*.sources && \
   echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99snapshot && \
-  printf "deb http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}/ bookworm main\n" > /etc/apt/sources.list && \
-  printf "deb http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}/ bookworm-updates main\n" >> /etc/apt/sources.list && \
-  printf "deb http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}/ bookworm-security main\n" >> /etc/apt/sources.list && \
+  printf "deb http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}/ trixie main\n" > /etc/apt/sources.list && \
+  printf "deb http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}/ trixie-updates main\n" >> /etc/apt/sources.list && \
+  printf "deb http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}/ trixie-security main\n" >> /etc/apt/sources.list && \
   apt-get update && apt-get install -y --no-install-recommends \
   curl wget jq unzip sudo bash htop locales \
   ca-certificates gnupg lsb-release git lsof \
