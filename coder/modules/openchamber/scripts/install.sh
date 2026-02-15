@@ -8,6 +8,36 @@ command_exists() {
   command -v "$1" > /dev/null 2>&1
 }
 
+run_with_bun_lock() {
+  if command_exists flock; then
+    (
+      exec 9>"/tmp/hakim-bun-global.lock"
+      flock -w 600 9 || {
+        echo "ERROR: timed out waiting for bun global lock"
+        exit 1
+      }
+      "$@"
+    )
+    return
+  fi
+
+  local lock_dir="/tmp/hakim-bun-global.lock.d"
+  local elapsed=0
+  local timeout=600
+
+  while ! mkdir "$lock_dir" 2> /dev/null; do
+    sleep 1
+    elapsed=$((elapsed + 1))
+    if [ "$elapsed" -ge "$timeout" ]; then
+      echo "ERROR: timed out waiting for bun global lock"
+      return 1
+    fi
+  done
+
+  trap 'rmdir "$lock_dir" 2>/dev/null || true' RETURN
+  "$@"
+}
+
 ARG_OPENCHAMBER_VERSION=${ARG_OPENCHAMBER_VERSION:-latest}
 ARG_INSTALL_OPENCHAMBER=${ARG_INSTALL_OPENCHAMBER:-true}
 ARG_PRE_INSTALL_SCRIPT=$(echo -n "${ARG_PRE_INSTALL_SCRIPT:-}" | base64 -d 2> /dev/null || echo "")
@@ -32,12 +62,12 @@ install_openchamber() {
     if ! command_exists openchamber; then
       LOG_FILE="/tmp/openchamber-install.log"
       if [ "$ARG_OPENCHAMBER_VERSION" = "latest" ]; then
-        if ! bun add -g @openchamber/web 2>&1 | tee "$LOG_FILE"; then
+        if ! run_with_bun_lock bun add -g @openchamber/web 2>&1 | tee "$LOG_FILE"; then
           echo "ERROR: OpenChamber install failed. See $LOG_FILE"
           exit 1
         fi
       else
-        if ! bun add -g "@openchamber/web@${ARG_OPENCHAMBER_VERSION}" 2>&1 | tee "$LOG_FILE"; then
+        if ! run_with_bun_lock bun add -g "@openchamber/web@${ARG_OPENCHAMBER_VERSION}" 2>&1 | tee "$LOG_FILE"; then
           echo "ERROR: OpenChamber install failed. See $LOG_FILE"
           exit 1
         fi

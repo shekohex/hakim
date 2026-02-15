@@ -9,6 +9,36 @@ command_exists() {
   command -v "$1" > /dev/null 2>&1
 }
 
+run_with_bun_lock() {
+  if command_exists flock; then
+    (
+      exec 9>"/tmp/hakim-bun-global.lock"
+      flock -w 600 9 || {
+        echo "ERROR: timed out waiting for bun global lock"
+        exit 1
+      }
+      "$@"
+    )
+    return
+  fi
+
+  local lock_dir="/tmp/hakim-bun-global.lock.d"
+  local elapsed=0
+  local timeout=600
+
+  while ! mkdir "$lock_dir" 2> /dev/null; do
+    sleep 1
+    elapsed=$((elapsed + 1))
+    if [ "$elapsed" -ge "$timeout" ]; then
+      echo "ERROR: timed out waiting for bun global lock"
+      return 1
+    fi
+  done
+
+  trap 'rmdir "$lock_dir" 2>/dev/null || true' RETURN
+  "$@"
+}
+
 ARG_WORKDIR=${ARG_WORKDIR:-"$HOME"}
 ARG_REPORT_TASKS=${ARG_REPORT_TASKS:-true}
 ARG_MCP_APP_STATUS_SLUG=${ARG_MCP_APP_STATUS_SLUG:-}
@@ -52,9 +82,9 @@ install_opencode() {
       echo "Installing OpenCode (version: ${ARG_OPENCODE_VERSION})..."
       if command_exists bun; then
         if [ "$ARG_OPENCODE_VERSION" = "latest" ]; then
-          bun install -g opencode-ai
+          run_with_bun_lock bun add -g opencode-ai
         else
-          bun install -g "opencode-ai@${ARG_OPENCODE_VERSION}"
+          run_with_bun_lock bun add -g "opencode-ai@${ARG_OPENCODE_VERSION}"
         fi
 
         OPENCODE_BIN=$(command -v opencode 2> /dev/null || true)
