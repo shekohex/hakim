@@ -7,21 +7,23 @@
         "erlangVersion": {
             "type": "string",
             "proposals": [
+                "28.3.1",
                 "27",
                 "26",
                 "latest"
             ],
-            "default": "latest",
+            "default": "28.3.1",
             "description": "Select the version of Erlang/OTP to install."
         },
         "elixirVersion": {
             "type": "string",
             "proposals": [
+                "1.19.5",
                 "1.17",
                 "1.16",
                 "latest"
             ],
-            "default": "latest",
+            "default": "1.19.5",
             "description": "Select the version of Elixir to install."
         },
         "seedUserHome": {

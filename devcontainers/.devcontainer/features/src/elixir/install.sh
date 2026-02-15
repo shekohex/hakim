@@ -1,10 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-ERLANG_VERSION=${ERLANG_VERSION:-${ERLANGVERSION:-"28.3.1"}}
-ELIXIR_VERSION=${ELIXIR_VERSION:-${ELIXIRVERSION:-"1.19.5"}}
-OTP_MAJOR=${ERLANG_VERSION%%.*}
-ELIXIR_OTP_VERSION="${ELIXIR_VERSION}-otp-${OTP_MAJOR}"
+DEFAULT_ERLANG_VERSION="28.3.1"
+DEFAULT_ELIXIR_VERSION="1.19.5"
+
+ERLANG_VERSION=${ERLANG_VERSION:-${ERLANGVERSION:-"${DEFAULT_ERLANG_VERSION}"}}
+ELIXIR_VERSION=${ELIXIR_VERSION:-${ELIXIRVERSION:-"${DEFAULT_ELIXIR_VERSION}"}}
 SEED_USER_HOME=${SEEDUSERHOME:-"true"}
 
 _REMOTE_USER=${_REMOTE_USER:-"coder"}
@@ -44,14 +45,34 @@ if command -v elixir >/dev/null 2>&1; then
     CURRENT_ELIXIR=$(elixir --version 2>/dev/null | awk '/Elixir / {print $2; exit}')
 fi
 
-if [ "$CURRENT_OTP" = "$OTP_MAJOR" ] && [ "$CURRENT_ELIXIR" = "$ELIXIR_VERSION" ]; then
+REQUESTED_OTP_MAJOR=""
+if [ "$ERLANG_VERSION" != "latest" ]; then
+    REQUESTED_OTP_MAJOR=${ERLANG_VERSION%%.*}
+fi
+
+if [ -n "$REQUESTED_OTP_MAJOR" ] && [ "$CURRENT_OTP" = "$REQUESTED_OTP_MAJOR" ] && [ "$CURRENT_ELIXIR" = "$ELIXIR_VERSION" ]; then
     echo "Requested Erlang/Elixir already active, skipping Mise install"
 else
     echo "Installing Erlang ${ERLANG_VERSION}..."
     mise use --global "erlang@${ERLANG_VERSION}"
 
-    echo "Installing Elixir ${ELIXIR_OTP_VERSION}..."
-    mise use --global "elixir@${ELIXIR_OTP_VERSION}"
+    INSTALLED_OTP_MAJOR=$(erl -noshell -eval 'io:format("~s", [erlang:system_info(otp_release)]), halt().' 2>/dev/null || true)
+    if [ -z "$INSTALLED_OTP_MAJOR" ]; then
+        echo "Could not determine installed Erlang OTP major version" >&2
+        exit 1
+    fi
+
+    ELIXIR_SPEC=""
+    if [ "$ELIXIR_VERSION" = "latest" ]; then
+        ELIXIR_SPEC="latest-otp-${INSTALLED_OTP_MAJOR}"
+    elif [[ "$ELIXIR_VERSION" == *"-otp-"* ]]; then
+        ELIXIR_SPEC="$ELIXIR_VERSION"
+    else
+        ELIXIR_SPEC="${ELIXIR_VERSION}-otp-${INSTALLED_OTP_MAJOR}"
+    fi
+
+    echo "Installing Elixir ${ELIXIR_SPEC}..."
+    mise use --global "elixir@${ELIXIR_SPEC}"
 fi
 
 rm -rf /root/.cache/mise
