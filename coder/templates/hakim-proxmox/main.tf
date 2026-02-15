@@ -774,6 +774,8 @@ resource "terraform_data" "home_mount_detach" {
   }
 
   lifecycle {
+    create_before_destroy = true
+
     precondition {
       condition     = data.coder_parameter.proxmox_vm_id.value > 0
       error_message = "Managed /home/coder volume persistence requires fixed proxmox_vm_id (>0) so mount can be detached before rebuild destroy."
