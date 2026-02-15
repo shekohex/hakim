@@ -764,7 +764,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
   node_name             = data.coder_parameter.proxmox_node_name.value
   vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
   pool_id               = trimspace(data.coder_parameter.proxmox_pool_id.value) != "" ? data.coder_parameter.proxmox_pool_id.value : null
-  description           = "Coder workspace ${data.coder_workspace_owner.me.name}/${data.coder_workspace.me.name}"
+  description           = "Coder workspace ${data.coder_workspace_owner.me.name}/${data.coder_workspace.me.name} [${data.coder_workspace.me.transition}]"
   unprivileged          = true
   started               = data.coder_workspace.me.transition == "start"
   start_on_boot         = false
