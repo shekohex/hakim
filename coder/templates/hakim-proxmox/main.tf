@@ -657,7 +657,7 @@ locals {
   user_env   = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
   secret_env = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
   default_env = {
-    PATH                  = "/home/coder/.local/share/mise/shims:/usr/local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    PATH                  = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/coder/.local/share/mise/shims:/usr/local/share/mise/shims"
     LANG                  = "C.UTF-8"
     LANGUAGE              = "C.UTF-8"
     LC_ALL                = "C.UTF-8"
@@ -698,7 +698,6 @@ resource "coder_agent" "main" {
     #!/bin/bash
     set -e
     mkdir -p ~/.config/mise
-    touch ~/.config/mise/config.toml
     mkdir -p ~/project
     if [ ! -f ~/.init_done ]; then
       cp -rT /etc/skel ~ || true

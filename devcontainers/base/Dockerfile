@@ -138,7 +138,7 @@ RUN --mount=type=secret,id=github_token \
 # =============================================================================
 FROM base-system AS final
 
-ENV PATH="/usr/local/share/mise/shims:$PATH" \
+ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims" \
   STARSHIP_CONFIG=/etc/starship.toml
 
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/
