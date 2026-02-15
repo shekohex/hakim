@@ -2,8 +2,8 @@
 set -euo pipefail
 
 CODER_USER="${CODER_USER:-coder}"
-CODER_UID="${CODER_UID:-1000}"
-CODER_GID="${CODER_GID:-1001}"
+CODER_UID="${CODER_UID:-}"
+CODER_GID="${CODER_GID:-}"
 CODER_HOME="${CODER_HOME:-/home/${CODER_USER}}"
 PROJECT_DIR="${CODER_PROJECT_DIR:-${CODER_HOME}/project}"
 
@@ -18,12 +18,24 @@ if [[ "${MISE_CONFIG_DIR:-}" == "/etc/mise" ]]; then
   export MISE_CONFIG_DIR="${CODER_HOME}/.config/mise"
 fi
 
-if ! getent group "${CODER_GID}" >/dev/null 2>&1; then
-  groupadd --gid "${CODER_GID}" "${CODER_USER}"
-fi
+if id -u "${CODER_USER}" >/dev/null 2>&1; then
+  CODER_UID="$(id -u "${CODER_USER}")"
+  CODER_GID="$(id -g "${CODER_USER}")"
+else
+  CODER_UID="${CODER_UID:-1000}"
+  CODER_GID="${CODER_GID:-1000}"
 
-if ! id -u "${CODER_USER}" >/dev/null 2>&1; then
-  useradd --uid "${CODER_UID}" --gid "${CODER_GID}" --home-dir "${CODER_HOME}" --create-home --shell /bin/bash "${CODER_USER}"
+  if getent group "${CODER_GID}" >/dev/null 2>&1; then
+    CODER_GROUP_NAME="$(getent group "${CODER_GID}" | cut -d: -f1)"
+  elif getent group "${CODER_USER}" >/dev/null 2>&1; then
+    CODER_GROUP_NAME="${CODER_USER}"
+  else
+    groupadd --gid "${CODER_GID}" "${CODER_USER}"
+    CODER_GROUP_NAME="${CODER_USER}"
+  fi
+
+  useradd --uid "${CODER_UID}" --gid "${CODER_GROUP_NAME}" --home-dir "${CODER_HOME}" --create-home --shell /bin/bash "${CODER_USER}"
+  CODER_GID="$(id -g "${CODER_USER}")"
 fi
 
 mkdir -p "${CODER_HOME}" "${PROJECT_DIR}" "${CODER_HOME}/.config/mise" "${CODER_HOME}/.local/share/mise"

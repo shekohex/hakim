@@ -664,6 +664,8 @@ locals {
     MIX_HOME              = "/home/coder/.mix"
     HEX_HOME              = "/home/coder/.hex"
     MIX_ARCHIVES          = "/home/coder/.mix/archives"
+    CODER_UID             = "1000"
+    CODER_GID             = "1000"
     START_DOCKER_DAEMON   = "1"
     DOCKER_STORAGE_DRIVER = "vfs"
   }
