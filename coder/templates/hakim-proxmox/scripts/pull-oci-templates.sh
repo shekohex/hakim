@@ -4,10 +4,12 @@ set -euo pipefail
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly DEFAULT_STATE_FILE="/var/lib/vz/template/cache/.hakim-oci-digests.tsv"
 readonly DEFAULT_VARIANTS=(base php dotnet js rust elixir)
+readonly DEFAULT_REGISTRY_NAMESPACE="ghcr.io/shekohex"
 
 NODE_NAME="${NODE_NAME:-$(hostname -s)}"
 DATASTORE_ID="${DATASTORE_ID:-local}"
 TEMPLATE_TAG="${TEMPLATE_TAG:-latest}"
+REGISTRY_NAMESPACE="${OCI_REGISTRY_NAMESPACE:-${DEFAULT_REGISTRY_NAMESPACE}}"
 STATE_FILE="${DIGEST_STATE_FILE:-${DEFAULT_STATE_FILE}}"
 FORCE_REPLACE=false
 CHECK_REMOTE_DIGEST=false
@@ -51,12 +53,14 @@ usage() {
   cat <<'EOF'
 Usage: pull-oci-templates.sh [options]
 
-Pull Hakim OCI images from GHCR into Proxmox CT template storage.
+Pull Hakim OCI images into Proxmox CT template storage.
 
 Options:
   -n, --node <name>              Proxmox node name (default: hostname -s)
   -s, --datastore <id>           Proxmox template datastore (default: local)
   -t, --tag <tag>                Image tag for variants (default: latest)
+  -r, --registry <namespace>     Registry namespace (default: ghcr.io/shekohex)
+      --local-registry <ns>      Alias for --registry (example: 192.168.1.105:5000/hakim)
   -v, --variant <name>           Pull one variant (repeatable)
       --variants <csv>           Pull comma-separated variants
   -i, --image <reference>        Pull explicit OCI image reference (repeatable)
@@ -75,6 +79,7 @@ Examples:
   pull-oci-templates.sh --variants base,elixir --tag v2026.02.14
   pull-oci-templates.sh --image ghcr.io/shekohex/hakim-js:latest
   pull-oci-templates.sh --check-remote-digest --use-gh-auth-token
+  pull-oci-templates.sh --registry 192.168.1.105:5000/hakim --variants base,js
 EOF
 }
 
@@ -116,10 +121,10 @@ build_variant_reference() {
   local variant="$1"
   case "${variant}" in
   base)
-    printf 'ghcr.io/shekohex/hakim-base:%s' "${TEMPLATE_TAG}"
+    printf '%s/hakim-base:%s' "${REGISTRY_NAMESPACE}" "${TEMPLATE_TAG}"
     ;;
   php | dotnet | js | rust | elixir)
-    printf 'ghcr.io/shekohex/hakim-%s:%s' "${variant}" "${TEMPLATE_TAG}"
+    printf '%s/hakim-%s:%s' "${REGISTRY_NAMESPACE}" "${variant}" "${TEMPLATE_TAG}"
     ;;
   *)
     die "unsupported variant: ${variant}"
@@ -281,6 +286,16 @@ while [[ $# -gt 0 ]]; do
     TEMPLATE_TAG="$2"
     shift 2
     ;;
+  -r | --registry)
+    [[ $# -gt 1 ]] || die "missing value for $1"
+    REGISTRY_NAMESPACE="${2%/}"
+    shift 2
+    ;;
+  --local-registry)
+    [[ $# -gt 1 ]] || die "missing value for $1"
+    REGISTRY_NAMESPACE="${2%/}"
+    shift 2
+    ;;
   -v | --variant)
     [[ $# -gt 1 ]] || die "missing value for $1"
     REQUESTED_VARIANTS+=("$2")
@@ -338,6 +353,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+REGISTRY_NAMESPACE="${REGISTRY_NAMESPACE%/}"
+[[ -n "${REGISTRY_NAMESPACE}" ]] || die "registry namespace cannot be empty"
+
 require_cmd pvesh
 require_cmd pvesm
 
@@ -385,6 +403,10 @@ done
 [[ ${#TARGET_REFERENCES[@]} -gt 0 ]] || die "no targets to pull"
 
 if [[ "${CHECK_REMOTE_DIGEST}" == "true" ]]; then
+  if [[ "${REGISTRY_NAMESPACE}" != ghcr.io/* ]]; then
+    log "remote digest checks currently support ghcr.io only; skipping digest comparison for registry ${REGISTRY_NAMESPACE}"
+    CHECK_REMOTE_DIGEST=false
+  fi
   ensure_state_file
 fi
 

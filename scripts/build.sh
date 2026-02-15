@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-REGISTRY="ghcr.io/shekohex"
+REGISTRY="${REGISTRY:-ghcr.io/shekohex}"
 TIMESTAMP=$(date +%Y%m%d)
 
 function devcontainer() {
@@ -43,6 +43,9 @@ CODER_VERSION_ARG=""
 CODE_VERSION_ARG=""
 CHROME_VERSION_ARG=""
 FETCH_LATEST=false
+PUSH_IMAGES=false
+
+declare -a BUILT_IMAGE_TAGS=()
 
 function fetch_latest_version() {
   local repo="$1"
@@ -62,10 +65,12 @@ function usage() {
 Usage: $(basename "$0") [OPTIONS]
 
 Options:
+  --registry <registry>          Target image registry/namespace (default: ghcr.io/shekohex)
   --coder-version <version>     Specify the version of coder CLI to install
   --code-version <version>      Specify the version of code-server to install
   --chrome-version <version>    Specify the version of Google Chrome to install
   --fetch-latest                Fetch and use latest versions for all tools (requires gh CLI)
+  --push                         Push built images after local build
   --help, -h                    Show this help message
 
 If no version is specified, defaults from Dockerfile are used.
@@ -76,6 +81,10 @@ EOF
 
 while [[ "$#" -gt 0 ]]; do
   case $1 in
+  --registry)
+    REGISTRY="$2"
+    shift
+    ;;
   --coder-version)
     CODER_VERSION_ARG="--build-arg CODER_VERSION=$2"
     shift
@@ -89,6 +98,7 @@ while [[ "$#" -gt 0 ]]; do
     shift
     ;;
   --fetch-latest) FETCH_LATEST=true ;;
+  --push) PUSH_IMAGES=true ;;
   --help | -h) usage ;;
   *)
     echo "Unknown parameter passed: $1"
@@ -136,13 +146,35 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
   BASE_BUILD_CMD="$BASE_BUILD_CMD --secret id=github_token,env=GITHUB_TOKEN"
 fi
 
+if [ "${GITHUB_ACTIONS:-false}" = "true" ] && [ "$PUSH_IMAGES" = true ]; then
+  warn "Ignoring --push because GitHub Actions already pushes via buildx --push"
+  PUSH_IMAGES=false
+fi
+
+function add_image_tags() {
+  local image_name="$1"
+  BUILT_IMAGE_TAGS+=("$REGISTRY/$image_name:latest")
+  BUILT_IMAGE_TAGS+=("$REGISTRY/$image_name:$TIMESTAMP")
+}
+
+function push_built_images() {
+  local image
+  info "Pushing built images to $REGISTRY..."
+  for image in "${BUILT_IMAGE_TAGS[@]}"; do
+    info "Pushing $image"
+    docker push "$image"
+  done
+}
+
 info "Building Base Image..."
 # shellcheck disable=SC2086
 $BASE_BUILD_CMD $CODER_VERSION_ARG $CODE_VERSION_ARG $CHROME_VERSION_ARG -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
+add_image_tags "hakim-base"
 
 info "Building Tooling Image..."
 # shellcheck disable=SC2086
 $BASE_BUILD_CMD --build-arg BASE_IMAGE="$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-tooling:latest" -t "$REGISTRY/hakim-tooling:$TIMESTAMP" devcontainers/tooling
+add_image_tags "hakim-tooling"
 
 for variant in devcontainers/.devcontainer/images/*; do
   variant_name=$(basename "$variant")
@@ -153,6 +185,12 @@ for variant in devcontainers/.devcontainer/images/*; do
     --config "$variant/.devcontainer/devcontainer.json" \
     --image-name "$REGISTRY/hakim-$variant_name:latest" \
     --image-name "$REGISTRY/hakim-$variant_name:$TIMESTAMP" .
+
+  add_image_tags "hakim-$variant_name"
 done
+
+if [ "$PUSH_IMAGES" = true ]; then
+  push_built_images
+fi
 
 info "Build Complete!"

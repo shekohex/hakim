@@ -33,12 +33,35 @@ chown -R "${CODER_UID}:${CODER_GID}" "${CODER_HOME}/.config/mise" "${CODER_HOME}
 if [[ "${START_DOCKER_DAEMON:-1}" == "1" || "${START_DOCKER_DAEMON:-}" == "true" ]]; then
   if command -v dockerd >/dev/null 2>&1 && ! docker info >/dev/null 2>&1; then
     mkdir -p /var/run/docker /var/lib/docker /var/log
+
+    if [[ -S /var/run/docker.sock ]] && ! pgrep -x dockerd >/dev/null 2>&1; then
+      rm -f /var/run/docker.sock
+    fi
+
     if [[ -f /var/run/docker.pid ]]; then
       docker_pid="$(cat /var/run/docker.pid 2>/dev/null || true)"
       if [[ -z "${docker_pid}" || ! "${docker_pid}" =~ ^[0-9]+$ ]] || ! kill -0 "${docker_pid}" >/dev/null 2>&1; then
         rm -f /var/run/docker.pid
       fi
     fi
+
+    if [[ -f /var/run/docker/containerd/containerd.pid ]]; then
+      containerd_pid="$(cat /var/run/docker/containerd/containerd.pid 2>/dev/null || true)"
+      containerd_alive=false
+      if [[ -n "${containerd_pid}" && "${containerd_pid}" =~ ^[0-9]+$ ]] && kill -0 "${containerd_pid}" >/dev/null 2>&1; then
+        if ps -p "${containerd_pid}" -o comm= 2>/dev/null | grep -qx "containerd"; then
+          containerd_alive=true
+        fi
+      fi
+
+      if [[ "${containerd_alive}" != "true" ]]; then
+        rm -f /var/run/docker/containerd/containerd.pid \
+          /var/run/docker/containerd/containerd.sock \
+          /var/run/docker/containerd/containerd.sock.ttrpc \
+          /var/run/docker/containerd/containerd-debug.sock
+      fi
+    fi
+
     nohup dockerd \
       --host=unix:///var/run/docker.sock \
       --data-root="${DOCKER_DATA_ROOT:-/var/lib/docker}" \

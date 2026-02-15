@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-REGISTRY="ghcr.io/shekohex"
+REGISTRY="${REGISTRY:-ghcr.io/shekohex}"
 PULLED=0
 FAILED=0
 
@@ -15,6 +15,19 @@ function info() { log "INFO" "$@"; }
 function warn() { log "WARN" "$@"; }
 function error() { log "ERROR" "$@"; }
 function success() { log "OK" "$*"; }
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Options:
+  --registry <registry>        Source image registry/namespace (default: ghcr.io/shekohex)
+  --local-registry <host:port/namespace>
+                               Shortcut for --registry (example: 192.168.1.105:5000/hakim)
+  -h, --help                   Show this help
+EOF
+  exit 0
+}
 
 function on_exit() {
   echo
@@ -42,6 +55,28 @@ function login_ghcr() {
   warn "Not logged in to GHCR. Pulling public images only..."
 }
 
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+  --registry)
+    [[ "$#" -gt 1 ]] || { error "missing value for $1"; exit 1; }
+    REGISTRY="$2"
+    shift 2
+    ;;
+  --local-registry)
+    [[ "$#" -gt 1 ]] || { error "missing value for $1"; exit 1; }
+    REGISTRY="$2"
+    shift 2
+    ;;
+  -h | --help)
+    usage
+    ;;
+  *)
+    error "Unknown parameter passed: $1"
+    usage
+    ;;
+  esac
+done
+
 function pull_image() {
   local image="$1"
   local display_name="${2:-$image}"
@@ -60,7 +95,11 @@ function dangling_images() {
   docker images -f dangling=true -q 2>/dev/null || true
 }
 
-login_ghcr
+if [[ "${REGISTRY}" == ghcr.io/* ]]; then
+  login_ghcr
+else
+  info "Using registry $REGISTRY (skipping GHCR auth)"
+fi
 
 info "Pulling base images..."
 pull_image "$REGISTRY/hakim-base:latest" "base:latest"
