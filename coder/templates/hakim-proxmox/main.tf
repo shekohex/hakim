@@ -764,6 +764,17 @@ resource "terraform_data" "workspace_rebuild_generation" {
 resource "terraform_data" "home_mount_detach" {
   count = local.home_disk_enabled && !local.use_existing_home_volume ? 1 : 0
 
+  input = {
+    pve_endpoint    = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
+    pve_node_name   = data.coder_parameter.proxmox_node_name.value
+    pve_vm_id       = tostring(data.coder_parameter.proxmox_vm_id.value)
+    pve_api_token   = data.coder_parameter.proxmox_api_token.value
+    pve_insecure    = tostring(data.coder_parameter.proxmox_insecure.value)
+    home_mount_path = "/home/coder"
+    task_wait_sec   = "60"
+    task_poll_sec   = "1"
+  }
+
   triggers_replace = {
     workspace_rebuild_generation = tostring(data.coder_parameter.workspace_rebuild_generation.value)
     vm_id                        = tostring(data.coder_parameter.proxmox_vm_id.value)
@@ -774,8 +785,6 @@ resource "terraform_data" "home_mount_detach" {
   }
 
   lifecycle {
-    create_before_destroy = true
-
     precondition {
       condition     = data.coder_parameter.proxmox_vm_id.value > 0
       error_message = "Managed /home/coder volume persistence requires fixed proxmox_vm_id (>0) so mount can be detached before rebuild destroy."
@@ -783,19 +792,22 @@ resource "terraform_data" "home_mount_detach" {
   }
 
   provisioner "local-exec" {
+    when    = destroy
     command = "bash ${path.module}/scripts/detach-home-mount.sh"
 
     environment = {
-      PVE_ENDPOINT    = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
-      PVE_NODE_NAME   = data.coder_parameter.proxmox_node_name.value
-      PVE_VM_ID       = tostring(data.coder_parameter.proxmox_vm_id.value)
-      PVE_API_TOKEN   = data.coder_parameter.proxmox_api_token.value
-      PVE_INSECURE    = tostring(data.coder_parameter.proxmox_insecure.value)
-      HOME_MOUNT_PATH = "/home/coder"
-      TASK_WAIT_SEC   = "60"
-      TASK_POLL_SEC   = "1"
+      PVE_ENDPOINT    = self.input["pve_endpoint"]
+      PVE_NODE_NAME   = self.input["pve_node_name"]
+      PVE_VM_ID       = self.input["pve_vm_id"]
+      PVE_API_TOKEN   = self.input["pve_api_token"]
+      PVE_INSECURE    = self.input["pve_insecure"]
+      HOME_MOUNT_PATH = self.input["home_mount_path"]
+      TASK_WAIT_SEC   = self.input["task_wait_sec"]
+      TASK_POLL_SEC   = self.input["task_poll_sec"]
     }
   }
+
+  depends_on = [proxmox_virtual_environment_container.workspace]
 }
 
 resource "proxmox_virtual_environment_container" "workspace" {
@@ -871,8 +883,6 @@ resource "proxmox_virtual_environment_container" "workspace" {
   wait_for_ip {
     ipv4 = true
   }
-
-  depends_on = [terraform_data.home_mount_detach]
 
 }
 
