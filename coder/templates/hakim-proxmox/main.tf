@@ -791,6 +791,26 @@ resource "terraform_data" "workspace_rebuild_generation" {
   ]
 }
 
+resource "terraform_data" "home_bind_path" {
+  count = local.home_bind_mount_enabled ? 1 : 0
+
+  triggers_replace = {
+    node_name     = data.coder_parameter.proxmox_node_name.value
+    bind_path     = local.home_bind_path
+    password_hash = sha256(data.coder_parameter.proxmox_password.value)
+  }
+
+  provisioner "local-exec" {
+    command = "bash ${path.module}/scripts/ensure-home-bind-path.sh"
+
+    environment = {
+      PVE_NODE_NAME     = data.coder_parameter.proxmox_node_name.value
+      PVE_BIND_PATH     = local.home_bind_path
+      PVE_ROOT_PASSWORD = data.coder_parameter.proxmox_password.value
+    }
+  }
+}
+
 resource "proxmox_virtual_environment_container" "workspace" {
   node_name             = data.coder_parameter.proxmox_node_name.value
   vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
@@ -869,6 +889,8 @@ resource "proxmox_virtual_environment_container" "workspace" {
   wait_for_ip {
     ipv4 = true
   }
+
+  depends_on = [terraform_data.home_bind_path]
 
 }
 
