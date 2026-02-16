@@ -8,7 +8,12 @@ if [[ -z "${VMID}" || "${PHASE}" != "pre-start" ]]; then
   exit 0
 fi
 
-line="$(pct config "${VMID}" | sed -n '/^mp[0-9]\+: .*mp=\/home\/coder\(,\|$\)/{p;q;}')"
+config_file="/etc/pve/lxc/${VMID}.conf"
+if [[ ! -f "${config_file}" ]]; then
+  exit 0
+fi
+
+line="$(sed -n '/^mp[0-9]\+: .*mp=\/home\/coder\(,\|$\)/{p;q;}' "${config_file}")"
 if [[ -z "${line}" ]]; then
   exit 0
 fi
