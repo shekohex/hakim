@@ -22,7 +22,7 @@ RUN export MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GL
 # VERSION_UPDATE_BEGIN: opencode
 ARG OPENCODE_VERSION=1.2.5
 # VERSION_UPDATE_END: opencode
-RUN su - coder -c "bun add -g opencode-ai@${OPENCODE_VERSION}" && \
+RUN su - coder -c "/usr/local/share/mise/installs/bun/${BUN_VERSION}/bin/bun add -g opencode-ai@${OPENCODE_VERSION}" && \
   ln -sf /home/coder/.bun/bin/opencode /usr/local/bin/opencode
 
 ARG UV_VERSION=0.9.24

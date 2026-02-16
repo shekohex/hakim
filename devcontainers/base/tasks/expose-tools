@@ -5,12 +5,33 @@ set -euo pipefail
 export MISE_DATA_DIR=${MISE_DATA_DIR:-/usr/local/share/mise}
 MISE_BIN=${MISE_INSTALL_PATH:-/usr/local/bin/mise}
 
+should_skip() {
+    case "$1" in
+        node|npm|npx|corepack|pnpm|yarn|bun|uv|uvx)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 while IFS= read -r bin_path; do
     [ -d "$bin_path" ] || continue
     echo "Linking binaries from $bin_path..."
     for bin_file in "$bin_path"/*; do
         if [ -f "$bin_file" ] && [ -x "$bin_file" ]; then
             name=$(basename "$bin_file")
+            if should_skip "$name"; then
+                path="/usr/local/bin/$name"
+                if [ -L "$path" ]; then
+                    target=$(readlink -f "$path" 2>/dev/null || true)
+                    case "$target" in
+                        /usr/local/share/mise/installs/*/bin/*) rm -f "$path" ;;
+                    esac
+                fi
+                continue
+            fi
             ln -sf "$bin_file" "/usr/local/bin/$name"
         fi
     done
