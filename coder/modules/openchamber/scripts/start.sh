@@ -4,6 +4,10 @@ set -euo pipefail
 export MIX_HOME=/home/coder/.mix
 export HEX_HOME=/home/coder/.hex
 export MIX_ARCHIVES=/home/coder/.mix/archives
+export MISE_INSTALL_PATH=/usr/local/bin/mise
+export MISE_DATA_DIR=/usr/local/share/mise
+export MISE_CONFIG_DIR=/etc/mise
+export MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 export PATH="$HOME/.bun/bin:$PATH"

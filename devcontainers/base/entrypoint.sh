@@ -7,16 +7,14 @@ CODER_GID="${CODER_GID:-}"
 CODER_HOME="${CODER_HOME:-/home/${CODER_USER}}"
 PROJECT_DIR="${CODER_PROJECT_DIR:-${CODER_HOME}/project}"
 
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims:${CODER_HOME}/.local/share/mise/shims"
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims"
+export MISE_INSTALL_PATH="/usr/local/bin/mise"
+export MISE_DATA_DIR="/usr/local/share/mise"
+export MISE_CONFIG_DIR="/etc/mise"
+export MISE_GLOBAL_CONFIG_FILE="/etc/mise/tools.toml"
 export LANG="${LANG:-C.UTF-8}"
 export LANGUAGE="${LANGUAGE:-C.UTF-8}"
 export LC_ALL="${LC_ALL:-C.UTF-8}"
-if [[ "${MISE_DATA_DIR:-}" == "/usr/local/share/mise" ]]; then
-  export MISE_DATA_DIR="${CODER_HOME}/.local/share/mise"
-fi
-if [[ "${MISE_CONFIG_DIR:-}" == "/etc/mise" ]]; then
-  export MISE_CONFIG_DIR="${CODER_HOME}/.config/mise"
-fi
 
 if id -u "${CODER_USER}" >/dev/null 2>&1; then
   CODER_UID="$(id -u "${CODER_USER}")"

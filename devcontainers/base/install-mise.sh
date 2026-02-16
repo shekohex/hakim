@@ -45,12 +45,9 @@ EOF
 # Configure environment for mise shims without activate
 cat << 'EO_PROFILE' > /etc/profile.d/mise.sh
 export MISE_INSTALL_PATH=/usr/local/bin/mise
-if [ -n "${HOME:-}" ]; then
-  export MISE_DATA_DIR="${MISE_DATA_DIR:-$HOME/.local/share/mise}"
-  export MISE_CONFIG_DIR="${MISE_CONFIG_DIR:-$HOME/.config/mise}"
-  export PATH="$PATH:/usr/local/share/mise/shims:$MISE_DATA_DIR/shims"
-else
-  export PATH="$PATH:/usr/local/share/mise/shims"
-fi
+export MISE_DATA_DIR="${MISE_DATA_DIR:-/usr/local/share/mise}"
+export MISE_CONFIG_DIR="${MISE_CONFIG_DIR:-/etc/mise}"
+export MISE_GLOBAL_CONFIG_FILE="${MISE_GLOBAL_CONFIG_FILE:-/etc/mise/tools.toml}"
+export PATH="$PATH:/usr/local/share/mise/shims"
 EO_PROFILE
 chmod +x /etc/profile.d/mise.sh
