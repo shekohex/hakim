@@ -13,25 +13,11 @@ RUN export MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GL
   mise use --global node@${NODE_VERSION} && \
   export NPM_CONFIG_CACHE=/tmp/.npm && \
   npm install -g "node-gyp@${NODE_GYP_VERSION}" && \
-  rm -rf /tmp/.npm /root/.npm && \
-  for bin_path in $(mise bin-paths); do \
-    for bin_file in "$bin_path"/*; do \
-      if [ -f "$bin_file" ] && [ -x "$bin_file" ]; then \
-        ln -sf "$bin_file" "/usr/local/bin/$(basename "$bin_file")"; \
-      fi; \
-    done; \
-  done
+  rm -rf /tmp/.npm /root/.npm
 
 ARG BUN_VERSION=1.3.5
 RUN export MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && source /etc/profile.d/mise.sh && \
-  mise use --global bun@${BUN_VERSION} && \
-  for bin_path in $(mise bin-paths); do \
-    for bin_file in "$bin_path"/*; do \
-      if [ -f "$bin_file" ] && [ -x "$bin_file" ]; then \
-        ln -sf "$bin_file" "/usr/local/bin/$(basename "$bin_file")"; \
-      fi; \
-    done; \
-  done
+  mise use --global bun@${BUN_VERSION}
 
 # VERSION_UPDATE_BEGIN: opencode
 ARG OPENCODE_VERSION=1.2.5
@@ -43,13 +29,16 @@ ARG UV_VERSION=0.9.24
 ARG UV_PYTHON_VERSION=3.12.12
 RUN export MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && source /etc/profile.d/mise.sh && \
   mise use --global uv@${UV_VERSION} && \
-  uv python install "${UV_PYTHON_VERSION}" && \
-  for bin_path in $(mise bin-paths); do \
-    for bin_file in "$bin_path"/*; do \
-      if [ -f "$bin_file" ] && [ -x "$bin_file" ]; then \
-        ln -sf "$bin_file" "/usr/local/bin/$(basename "$bin_file")"; \
-      fi; \
-    done; \
-  done
+  uv python install "${UV_PYTHON_VERSION}"
+
+RUN for bin in node npm npx corepack pnpm yarn bun uv uvx; do \
+  path="/usr/local/bin/${bin}"; \
+  if [ -L "$path" ]; then \
+    target="$(readlink -f "$path" 2>/dev/null || true)"; \
+    case "$target" in \
+      /usr/local/share/mise/installs/*/bin/*) rm -f "$path" ;; \
+    esac; \
+  fi; \
+done
 
 RUN rm -f /etc/mise/tools.toml && printf "[settings]\nexperimental = true\n" > /etc/mise/config.toml

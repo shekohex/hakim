@@ -18,11 +18,3 @@ source /etc/profile.d/mise.sh
 uv python install "${PYTHON_VERSION}"
 
 uv python list
-
-for bin_path in $(mise bin-paths); do
-  for bin_file in "$bin_path"/*; do
-    if [ -f "$bin_file" ] && [ -x "$bin_file" ]; then
-      ln -sf "$bin_file" "/usr/local/bin/$(basename "$bin_file")"
-    fi
-  done
-done
