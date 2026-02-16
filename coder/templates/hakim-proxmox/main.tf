@@ -439,7 +439,7 @@ data "coder_parameter" "proxmox_api_token" {
 data "coder_parameter" "proxmox_username" {
   name         = "proxmox_username"
   display_name = "Proxmox Username"
-  description  = "Used for bind mounts API attach; must be root@pam."
+  description  = "Legacy/unused in current template logic."
   type         = "string"
   default      = "root@pam"
   mutable      = true
@@ -450,7 +450,7 @@ data "coder_parameter" "proxmox_username" {
 data "coder_parameter" "proxmox_password" {
   name         = "proxmox_password"
   display_name = "Proxmox Password"
-  description  = "Used for bind mounts API attach."
+  description  = "Legacy/unused in current template logic."
   type         = "string"
   default      = ""
   mutable      = true
@@ -635,6 +635,18 @@ data "coder_parameter" "proxmox_home_volume_id" {
   order        = 59
 }
 
+data "coder_parameter" "proxmox_home_bind_hook_script_id" {
+  count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
+  name         = "proxmox_home_bind_hook_script_id"
+  display_name = "Home Bind Hook Script ID"
+  description  = "Proxmox hookscript volume id used to auto-create bind path, e.g. local:snippets/hakim-home-bind-hook.sh"
+  type         = "string"
+  default      = "local:snippets/hakim-home-bind-hook.sh"
+  mutable      = true
+  icon         = "https://esm.sh/lucide-static@latest/icons/file-code.svg"
+  order        = 60
+}
+
 data "coder_parameter" "workspace_rebuild_generation" {
   name         = "workspace_rebuild_generation"
   display_name = "Workspace Rebuild Generation"
@@ -643,7 +655,7 @@ data "coder_parameter" "workspace_rebuild_generation" {
   default      = 1
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/refresh-cw.svg"
-  order        = 60
+  order        = 61
 }
 
 data "coder_parameter" "enable_nesting" {
@@ -792,6 +804,7 @@ resource "terraform_data" "workspace_rebuild_generation" {
 }
 
 resource "proxmox_virtual_environment_container" "workspace" {
+  hook_script_file_id   = local.home_bind_mount_enabled ? data.coder_parameter.proxmox_home_bind_hook_script_id[0].value : null
   node_name             = data.coder_parameter.proxmox_node_name.value
   vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
   pool_id               = trimspace(data.coder_parameter.proxmox_pool_id.value) != "" ? data.coder_parameter.proxmox_pool_id.value : null
@@ -805,8 +818,13 @@ resource "proxmox_virtual_environment_container" "workspace" {
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
     precondition {
-      condition     = !local.home_requires_root_session || (trimspace(data.coder_parameter.proxmox_username.value) == "root@pam" && trimspace(data.coder_parameter.proxmox_password.value) != "")
-      error_message = "Bind-mounted /home/coder requires root@pam session auth. Set proxmox_username=root@pam and provide proxmox_password, or use proxmox_home_volume_id with a non-bind storage volume id."
+      condition     = !local.home_requires_root_session || can(regex("^root@pam!", trimspace(data.coder_parameter.proxmox_api_token.value)))
+      error_message = "Bind-mounted /home/coder requires a root@pam API token in proxmox_api_token."
+    }
+
+    precondition {
+      condition     = !local.home_bind_mount_enabled || trimspace(data.coder_parameter.proxmox_home_bind_hook_script_id[0].value) != ""
+      error_message = "Set proxmox_home_bind_hook_script_id to a valid Proxmox hookscript volume id when using auto bind persistence."
     }
 
     precondition {
@@ -830,7 +848,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
   }
 
   dynamic "mount_point" {
-    for_each = local.home_disk_enabled && !local.home_mount_is_bind ? [1] : []
+    for_each = local.home_disk_enabled ? [1] : []
 
     content {
       path   = "/home/coder"
@@ -883,7 +901,6 @@ resource "terraform_data" "workspace_agent_env" {
     agent_url       = data.coder_workspace.me.access_url
     agent_token_sha = sha256(coder_agent.main.token)
     env_sha         = sha256(jsonencode(local.combined_env))
-    home_source     = local.home_mount_is_bind ? local.home_mount_source : ""
   }
 
   provisioner "local-exec" {
@@ -894,11 +911,8 @@ resource "terraform_data" "workspace_agent_env" {
       PVE_NODE_NAME      = data.coder_parameter.proxmox_node_name.value
       PVE_VM_ID          = tostring(proxmox_virtual_environment_container.workspace.vm_id)
       PVE_API_TOKEN      = data.coder_parameter.proxmox_api_token.value
-      PVE_USERNAME       = local.home_mount_is_bind ? data.coder_parameter.proxmox_username.value : ""
-      PVE_PASSWORD       = local.home_mount_is_bind ? data.coder_parameter.proxmox_password.value : ""
       PVE_INSECURE       = tostring(data.coder_parameter.proxmox_insecure.value)
       CT_AGENT_BOOTSTRAP = local.container_agent_bootstrap
-      PVE_HOME_SOURCE    = local.home_mount_is_bind ? local.home_mount_source : ""
     }
   }
 
