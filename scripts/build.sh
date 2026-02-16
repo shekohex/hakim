@@ -180,7 +180,7 @@ for variant in devcontainers/.devcontainer/images/*; do
   variant_name=$(basename "$variant")
   info "Building Variant: $variant_name..."
 
-  tmp_config=$(mktemp)
+  tmp_config="$variant/.devcontainer/.tmp-devcontainer.$$.$variant_name.json"
   jq --arg image "$REGISTRY/hakim-tooling:latest" '.image = $image' "$variant/.devcontainer/devcontainer.json" > "$tmp_config"
 
   devcontainer build $CACHE_ARGS \
