@@ -34,7 +34,7 @@ DISPLAY=:0 \
 SSH_ASKPASS="${askpass_file}" \
 SSH_ASKPASS_REQUIRE=force \
 PVE_ROOT_PASSWORD="${PVE_ROOT_PASSWORD}" \
-setsid -w \
+setsid \
 ssh \
   -o StrictHostKeyChecking=accept-new \
   -o PreferredAuthentications=password \
