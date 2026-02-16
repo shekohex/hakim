@@ -37,8 +37,8 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 
 - Proxmox API endpoint/token
 - Node name, container datastore, template datastore
-- Optional dedicated home volume (`enable_home_disk`, `home_disk_gb`, `proxmox_home_datastore_id`)
-- Optional existing home volume reattach (`proxmox_home_volume_id`)
+- Optional `/home/coder` persistence (`enable_home_disk`)
+- Optional existing home mount source override (`proxmox_home_volume_id`)
 - Network bridge and optional VLAN
 - Variant selector (`image_variant`) + shared `template_tag` or custom `custom_template_file_id`
 - Optional forced rebuild counter (`workspace_rebuild_generation`)
@@ -121,7 +121,7 @@ This builds and publishes `hakim-base`, `hakim-tooling`, and all variants.
 2. Pull that tag into Proxmox templates (`TEMPLATE_TAG=<new-tag>`).
 3. Update workspace `template_tag` to the new tag and apply.
 4. If keeping same tag name (for example `latest`), increment `workspace_rebuild_generation` to force CT recreation.
-5. To preserve user data, keep `/home/coder` on a dedicated volume and set `proxmox_home_volume_id` before rebuild.
+5. To preserve user data, enable home persistence so `/home/coder` is bind-mounted and survives CT replacement.
 
 ## Create a New Variant
 
@@ -186,16 +186,16 @@ Q: Does stopping a workspace delete the CT and disks?
 
 Q: How do I keep user data when rebuilding/replacing a workspace container?
 
-- Use `enable_home_disk = true` so `/home/coder` is a separate mount.
-- If `proxmox_home_volume_id` is empty, Proxmox creates a managed home volume from `proxmox_home_datastore_id` + `home_disk_gb`.
-- Managed home mode requires fixed `proxmox_vm_id` (>0), because template detaches `/home/coder` mount before rebuild destroy.
-- You can set `proxmox_home_volume_id` explicitly to mount an existing volume id or bind path.
+- Use `enable_home_disk = true`.
+- Default behavior creates a per-workspace bind mount at `/var/lib/vz/hakim-homes/<owner>/<workspace>` and mounts it to `/home/coder`.
+- This mode requires a `root@pam` API token because template uploads and runs a Proxmox pre-start hook script.
+- You can set `proxmox_home_volume_id` explicitly to mount an existing source instead (volume id or absolute host path).
 
 Q: What does `proxmox_home_volume_id` look like?
 
 - It must be the mount source value Proxmox uses for `/home/coder`.
 - Volume example: `local-lvm:subvol-300-disk-1`.
-- Bind path example: `/mnt/pve/data/coder-homes/ws-raptors`.
+- Bind path example: `/var/lib/vz/hakim-homes/alice/my-workspace`.
 
 Q: How do I get `proxmox_home_volume_id` from CLI (`pct config <ctid>`) ?
 
@@ -207,12 +207,12 @@ Q: How do I get `proxmox_home_volume_id` from CLI (`pct config <ctid>`) ?
 - Exact filter example: `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder'`.
 - If `rg` is unavailable: `pct config 300 | grep -E '^mp[0-9]+:.*mp=/home/coder'`.
 
-Q: Can you show full CLI examples for both managed volume and bind mount?
+Q: Can you show full CLI examples for volume id and bind mount?
 
-- Managed volume-backed home disk:
+- Existing volume-backed home mount:
   - `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder'`
   - Output: `mp0: local-lvm:subvol-300-disk-1,mp=/home/coder,backup=1,size=30G`
-  - Leave `proxmox_home_volume_id` empty and keep `proxmox_vm_id` fixed (for detach-before-destroy flow)
+  - Set `proxmox_home_volume_id = local-lvm:subvol-300-disk-1`
 - Bind-mounted home directory:
   - `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder'`
   - Output: `mp0: /mnt/pve/data/coder-homes/ws-raptors,mp=/home/coder,backup=1`
@@ -234,13 +234,9 @@ Q: How do I get `proxmox_home_volume_id` from Proxmox UI?
 Q: How do I clean up home data after deleting a workspace?
 
 - If you used a bind path, remove it explicitly on the Proxmox host (for example `rm -rf /path/to/home-bind`).
-- If you used managed home volume mode, use `scripts/prune-home-volumes.sh` on the Proxmox host.
-- If you used an external volume id, remove it explicitly from Proxmox storage when you are sure the workspace is gone.
+- If you used an external volume id via `proxmox_home_volume_id`, remove it explicitly from Proxmox storage when you are sure the workspace is gone.
 
 Q: Is there a helper script for managed-volume cleanup?
 
-- Yes: `scripts/prune-home-volumes.sh`.
-- Dry run for CT 300 on `local-lvm`:
-  - `bash scripts/prune-home-volumes.sh local-lvm 300 --dry-run`
-- Apply deletion for stale detached home volumes of CT 300:
-  - `bash scripts/prune-home-volumes.sh local-lvm 300 --apply`
+- Not in the default bind-mount flow.
+- If you use `proxmox_home_volume_id` with a storage volume id, clean it up directly in Proxmox when no longer needed.
