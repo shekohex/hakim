@@ -180,11 +180,16 @@ for variant in devcontainers/.devcontainer/images/*; do
   variant_name=$(basename "$variant")
   info "Building Variant: $variant_name..."
 
+  tmp_config=$(mktemp)
+  jq --arg image "$REGISTRY/hakim-tooling:latest" '.image = $image' "$variant/.devcontainer/devcontainer.json" > "$tmp_config"
+
   devcontainer build $CACHE_ARGS \
     --workspace-folder devcontainers \
-    --config "$variant/.devcontainer/devcontainer.json" \
+    --config "$tmp_config" \
     --image-name "$REGISTRY/hakim-$variant_name:latest" \
     --image-name "$REGISTRY/hakim-$variant_name:$TIMESTAMP" .
+
+  rm -f "$tmp_config"
 
   add_image_tags "hakim-$variant_name"
 done
