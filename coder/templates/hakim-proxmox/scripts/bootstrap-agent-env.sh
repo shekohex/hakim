@@ -14,6 +14,7 @@ PVE_VM_ID="${PVE_VM_ID}"
 PVE_API_TOKEN="${PVE_API_TOKEN}"
 PVE_INSECURE="${PVE_INSECURE:-true}"
 CT_AGENT_BOOTSTRAP="${CT_AGENT_BOOTSTRAP}"
+PVE_HOME_SOURCE="${PVE_HOME_SOURCE:-}"
 
 AUTH_HEADER="Authorization: PVEAPIToken=${PVE_API_TOKEN}"
 
@@ -115,6 +116,11 @@ else
   if [[ -n "${stop_upid}" ]]; then
     wait_task "${stop_upid}"
   fi
+fi
+
+if [[ -n "${PVE_HOME_SOURCE}" ]]; then
+  api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
+    --data-urlencode "mp0=${PVE_HOME_SOURCE},mp=/home/coder,backup=0" >/dev/null
 fi
 
 start_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/start")"

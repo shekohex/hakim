@@ -36,7 +36,6 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 ## Required Template Inputs
 
 - Proxmox API endpoint/token
-- Optional root session credentials for bind mounts (`proxmox_username`, `proxmox_password`)
 - Node name, container datastore, template datastore
 - Optional `/home/coder` persistence (`enable_home_disk`)
 - Optional existing home mount source override (`proxmox_home_volume_id`)
@@ -189,8 +188,8 @@ Q: How do I keep user data when rebuilding/replacing a workspace container?
 
 - Use `enable_home_disk = true`.
 - Default behavior creates a per-workspace bind mount at `/var/lib/vz/hakim-homes/<owner>/<workspace>` and mounts it to `/home/coder`.
-- Bind mounts require `proxmox_username = root@pam` and a non-empty `proxmox_password`.
-- The provisioner must be able to SSH to `root@<proxmox_node_name>` using that password to create the host bind directory before CT creation.
+- Bind mounts require a `root@pam` API token in `proxmox_api_token`.
+- The template attaches bind mounts via Proxmox API after CT creation while stopped (no SSH from provisioner required).
 - You can set `proxmox_home_volume_id` explicitly to mount an existing source instead (volume id or absolute host path).
 
 Q: What does `proxmox_home_volume_id` look like?
@@ -217,7 +216,7 @@ Q: Can you show full CLI examples for volume id and bind mount?
   - Set `proxmox_home_volume_id = local-lvm:subvol-300-disk-1`
 - Bind-mounted home directory:
   - `pct config 300 | rg '^mp[0-9]+:.*mp=/home/coder'`
-  - Output: `mp0: /mnt/pve/data/coder-homes/ws-raptors,mp=/home/coder,backup=1`
+  - Output: `mp0: /mnt/pve/data/coder-homes/ws-raptors,mp=/home/coder,backup=0`
   - Set `proxmox_home_volume_id = /mnt/pve/data/coder-homes/ws-raptors`
 
 Q: Can I extract only the source field automatically?
