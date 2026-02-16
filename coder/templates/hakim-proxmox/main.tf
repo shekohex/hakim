@@ -15,9 +15,9 @@ terraform {
 
 provider "proxmox" {
   endpoint  = data.coder_parameter.proxmox_endpoint.value
-  api_token = data.coder_parameter.proxmox_api_token.value
-  username  = null
-  password  = null
+  api_token = local.home_requires_root_session ? null : data.coder_parameter.proxmox_api_token.value
+  username  = local.home_requires_root_session ? trimspace(data.coder_parameter.proxmox_username.value) : null
+  password  = local.home_requires_root_session ? data.coder_parameter.proxmox_password.value : null
   insecure  = data.coder_parameter.proxmox_insecure.value
 }
 
@@ -439,7 +439,7 @@ data "coder_parameter" "proxmox_api_token" {
 data "coder_parameter" "proxmox_username" {
   name         = "proxmox_username"
   display_name = "Proxmox Username"
-  description  = "Legacy/unused in current template logic."
+  description  = "Used for bind mounts; must be root@pam."
   type         = "string"
   default      = "root@pam"
   mutable      = true
@@ -450,7 +450,7 @@ data "coder_parameter" "proxmox_username" {
 data "coder_parameter" "proxmox_password" {
   name         = "proxmox_password"
   display_name = "Proxmox Password"
-  description  = "Legacy/unused in current template logic."
+  description  = "Used for bind mounts."
   type         = "string"
   default      = ""
   mutable      = true
@@ -818,8 +818,8 @@ resource "proxmox_virtual_environment_container" "workspace" {
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
     precondition {
-      condition     = !local.home_requires_root_session || can(regex("^root@pam!", trimspace(data.coder_parameter.proxmox_api_token.value)))
-      error_message = "Bind-mounted /home/coder requires a root@pam API token in proxmox_api_token."
+      condition     = !local.home_requires_root_session || (trimspace(data.coder_parameter.proxmox_username.value) == "root@pam" && trimspace(data.coder_parameter.proxmox_password.value) != "")
+      error_message = "Bind-mounted /home/coder requires root@pam session auth. Set proxmox_username=root@pam and provide proxmox_password."
     }
 
     precondition {
