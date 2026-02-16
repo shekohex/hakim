@@ -688,18 +688,6 @@ locals {
   home_bind_path           = "/var/lib/vz/hakim-homes/${local.home_owner_slug}/${local.home_workspace_slug}"
   home_mount_source        = local.use_existing_home_volume ? local.home_volume_id : local.home_bind_path
   home_mount_is_bind       = startswith(local.home_mount_source, "/")
-  home_bind_hook_file_name = "hakim-home-bind-${local.home_owner_slug}-${local.home_workspace_slug}.sh"
-  home_bind_hook_script    = <<-EOT
-#!/bin/bash
-set -euo pipefail
-
-PHASE="$${2:-}"
-if [ "$PHASE" != "pre-start" ]; then
-  exit 0
-fi
-
-install -d -m 0755 -o 101000 -g 101000 "${local.home_bind_path}"
-EOT
 
   project_dir      = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script = file("${path.module}/scripts/setup-git.sh")
@@ -777,22 +765,7 @@ resource "terraform_data" "workspace_rebuild_generation" {
   ]
 }
 
-resource "proxmox_virtual_environment_file" "home_bind_hook" {
-  count = local.home_bind_mount_enabled ? 1 : 0
-
-  content_type = "snippets"
-  datastore_id = data.coder_parameter.proxmox_template_datastore_id.value
-  file_mode    = "0755"
-  node_name    = data.coder_parameter.proxmox_node_name.value
-
-  source_raw {
-    data      = local.home_bind_hook_script
-    file_name = local.home_bind_hook_file_name
-  }
-}
-
 resource "proxmox_virtual_environment_container" "workspace" {
-  hook_script_file_id   = local.home_bind_mount_enabled ? proxmox_virtual_environment_file.home_bind_hook[0].id : null
   node_name             = data.coder_parameter.proxmox_node_name.value
   vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
   pool_id               = trimspace(data.coder_parameter.proxmox_pool_id.value) != "" ? data.coder_parameter.proxmox_pool_id.value : null
@@ -804,11 +777,6 @@ resource "proxmox_virtual_environment_container" "workspace" {
   environment_variables = local.container_environment_variables
   lifecycle {
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
-
-    precondition {
-      condition     = !local.home_bind_mount_enabled || can(regex("^root@pam!", data.coder_parameter.proxmox_api_token.value))
-      error_message = "Enable Home Disk requires a root@pam API token because the template uploads and runs a Proxmox hook script for bind-mount setup."
-    }
 
     precondition {
       condition     = data.coder_parameter.image_variant.value != "custom" || trimspace(data.coder_parameter.custom_template_file_id[0].value) != ""

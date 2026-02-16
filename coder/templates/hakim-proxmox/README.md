@@ -188,7 +188,6 @@ Q: How do I keep user data when rebuilding/replacing a workspace container?
 
 - Use `enable_home_disk = true`.
 - Default behavior creates a per-workspace bind mount at `/var/lib/vz/hakim-homes/<owner>/<workspace>` and mounts it to `/home/coder`.
-- This mode requires a `root@pam` API token because template uploads and runs a Proxmox pre-start hook script.
 - You can set `proxmox_home_volume_id` explicitly to mount an existing source instead (volume id or absolute host path).
 
 Q: What does `proxmox_home_volume_id` look like?
