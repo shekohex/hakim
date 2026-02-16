@@ -31,6 +31,10 @@ RUN export MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GL
   mise use --global uv@${UV_VERSION} && \
   uv python install "${UV_PYTHON_VERSION}"
 
+RUN install -d -m 0755 -o coder -g coder /home/coder/.config/mise && \
+  printf '[tools]\nnode = "%s"\nbun = "%s"\nuv = "%s"\n\n[settings]\nexperimental = true\n' "${NODE_VERSION}" "${BUN_VERSION}" "${UV_VERSION}" > /home/coder/.config/mise/config.toml && \
+  chown coder:coder /home/coder/.config/mise/config.toml
+
 RUN for bin in node npm npx corepack pnpm yarn bun uv uvx; do \
   path="/usr/local/bin/${bin}"; \
   if [ -L "$path" ]; then \
