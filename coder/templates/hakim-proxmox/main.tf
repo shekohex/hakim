@@ -848,7 +848,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
   }
 
   dynamic "mount_point" {
-    for_each = local.home_disk_enabled ? [1] : []
+    for_each = local.home_disk_enabled && !local.home_mount_is_bind ? [1] : []
 
     content {
       path   = "/home/coder"
@@ -901,6 +901,7 @@ resource "terraform_data" "workspace_agent_env" {
     agent_url       = data.coder_workspace.me.access_url
     agent_token_sha = sha256(coder_agent.main.token)
     env_sha         = sha256(jsonencode(local.combined_env))
+    home_source     = local.home_mount_is_bind ? local.home_mount_source : ""
   }
 
   provisioner "local-exec" {
@@ -911,8 +912,11 @@ resource "terraform_data" "workspace_agent_env" {
       PVE_NODE_NAME      = data.coder_parameter.proxmox_node_name.value
       PVE_VM_ID          = tostring(proxmox_virtual_environment_container.workspace.vm_id)
       PVE_API_TOKEN      = data.coder_parameter.proxmox_api_token.value
+      PVE_USERNAME       = local.home_mount_is_bind ? data.coder_parameter.proxmox_username.value : ""
+      PVE_PASSWORD       = local.home_mount_is_bind ? data.coder_parameter.proxmox_password.value : ""
       PVE_INSECURE       = tostring(data.coder_parameter.proxmox_insecure.value)
       CT_AGENT_BOOTSTRAP = local.container_agent_bootstrap
+      PVE_HOME_SOURCE    = local.home_mount_is_bind ? local.home_mount_source : ""
     }
   }
 

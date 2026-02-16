@@ -191,6 +191,7 @@ Q: How do I keep user data when rebuilding/replacing a workspace container?
 - Use `enable_home_disk = true`.
 - Default behavior creates a per-workspace bind mount at `/var/lib/vz/hakim-homes/<owner>/<workspace>` and mounts it to `/home/coder`.
 - Bind mounts require `proxmox_username = root@pam` and a non-empty `proxmox_password`.
+- The template creates CT first, then attaches bind mount via Proxmox API while CT is stopped.
 - Auto bind mode also requires a host hook script referenced by `proxmox_home_bind_hook_script_id` (default: `local:snippets/hakim-home-bind-hook.sh`) to create/chmod the bind path before container start.
 - You can set `proxmox_home_volume_id` explicitly to mount an existing source instead (volume id or absolute host path).
 
