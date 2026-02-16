@@ -23,6 +23,8 @@ echo "Installing Erlang ${ERLANG_VERSION} and Elixir ${ELIXIR_VERSION} via Mise.
 
 export MISE_YES=1
 export MISE_DATA_DIR=/usr/local/share/mise
+export MISE_CONFIG_DIR=/etc/mise
+export MISE_GLOBAL_CONFIG_FILE=/etc/mise/config.toml
 
 if [ -f /etc/profile.d/mise.sh ]; then
     source /etc/profile.d/mise.sh
@@ -51,29 +53,31 @@ if [ "$ERLANG_VERSION" != "latest" ]; then
 fi
 
 if [ -n "$REQUESTED_OTP_MAJOR" ] && [ "$CURRENT_OTP" = "$REQUESTED_OTP_MAJOR" ] && [ "$CURRENT_ELIXIR" = "$ELIXIR_VERSION" ]; then
-    echo "Requested Erlang/Elixir already active, skipping Mise install"
+    echo "Requested Erlang/Elixir already active, ensuring Mise global config"
 else
-    echo "Installing Erlang ${ERLANG_VERSION}..."
-    mise use --global "erlang@${ERLANG_VERSION}"
-
-    INSTALLED_OTP_MAJOR=$(erl -noshell -eval 'io:format("~s", [erlang:system_info(otp_release)]), halt().' 2>/dev/null || true)
-    if [ -z "$INSTALLED_OTP_MAJOR" ]; then
-        echo "Could not determine installed Erlang OTP major version" >&2
-        exit 1
-    fi
-
-    ELIXIR_SPEC=""
-    if [ "$ELIXIR_VERSION" = "latest" ]; then
-        ELIXIR_SPEC="latest-otp-${INSTALLED_OTP_MAJOR}"
-    elif [[ "$ELIXIR_VERSION" == *"-otp-"* ]]; then
-        ELIXIR_SPEC="$ELIXIR_VERSION"
-    else
-        ELIXIR_SPEC="${ELIXIR_VERSION}-otp-${INSTALLED_OTP_MAJOR}"
-    fi
-
-    echo "Installing Elixir ${ELIXIR_SPEC}..."
-    mise use --global "elixir@${ELIXIR_SPEC}"
+    echo "Installing Erlang ${ERLANG_VERSION} and Elixir ${ELIXIR_VERSION} via Mise..."
 fi
+
+echo "Ensuring Erlang ${ERLANG_VERSION} is configured..."
+mise use --global "erlang@${ERLANG_VERSION}"
+
+INSTALLED_OTP_MAJOR=$(erl -noshell -eval 'io:format("~s", [erlang:system_info(otp_release)]), halt().' 2>/dev/null || true)
+if [ -z "$INSTALLED_OTP_MAJOR" ]; then
+    echo "Could not determine installed Erlang OTP major version" >&2
+    exit 1
+fi
+
+ELIXIR_SPEC=""
+if [ "$ELIXIR_VERSION" = "latest" ]; then
+    ELIXIR_SPEC="latest-otp-${INSTALLED_OTP_MAJOR}"
+elif [[ "$ELIXIR_VERSION" == *"-otp-"* ]]; then
+    ELIXIR_SPEC="$ELIXIR_VERSION"
+else
+    ELIXIR_SPEC="${ELIXIR_VERSION}-otp-${INSTALLED_OTP_MAJOR}"
+fi
+
+echo "Ensuring Elixir ${ELIXIR_SPEC} is configured..."
+mise use --global "elixir@${ELIXIR_SPEC}"
 
 rm -rf /root/.cache/mise
 
@@ -123,7 +127,7 @@ if [ "$SEED_USER_HOME" = "true" ]; then
             echo "Installing Hex package manager for ${_REMOTE_USER}..."
             hex_ok=false
             for attempt in 1 2; do
-                if su -s /bin/bash "${_REMOTE_USER}" -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix local.hex --force"; then
+                if su -s /bin/bash "${_REMOTE_USER}" -c "MISE_DATA_DIR=\"${MISE_DATA_DIR}\" MISE_CONFIG_DIR=\"${MISE_CONFIG_DIR}\" MISE_GLOBAL_CONFIG_FILE=\"${MISE_GLOBAL_CONFIG_FILE}\" PATH=\"/usr/local/bin:/usr/local/share/mise/shims:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin\" MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix local.hex --force"; then
                     hex_ok=true
                     break
                 fi
@@ -142,7 +146,7 @@ if [ "$SEED_USER_HOME" = "true" ]; then
             echo "Installing Rebar build tool for ${_REMOTE_USER}..."
             rebar_ok=false
             for attempt in 1 2; do
-                if su -s /bin/bash "${_REMOTE_USER}" -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix local.rebar --force"; then
+                if su -s /bin/bash "${_REMOTE_USER}" -c "MISE_DATA_DIR=\"${MISE_DATA_DIR}\" MISE_CONFIG_DIR=\"${MISE_CONFIG_DIR}\" MISE_GLOBAL_CONFIG_FILE=\"${MISE_GLOBAL_CONFIG_FILE}\" PATH=\"/usr/local/bin:/usr/local/share/mise/shims:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin\" MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix local.rebar --force"; then
                     rebar_ok=true
                     break
                 fi
