@@ -9,6 +9,7 @@ for required in install mktemp rm chmod ssh setsid; do
 done
 
 PVE_NODE_NAME="${PVE_NODE_NAME}"
+PVE_SSH_HOST="${PVE_SSH_HOST:-${PVE_NODE_NAME}}"
 PVE_BIND_PATH="${PVE_BIND_PATH}"
 PVE_ROOT_PASSWORD="${PVE_ROOT_PASSWORD}"
 
@@ -40,5 +41,5 @@ ssh \
   -o PreferredAuthentications=password \
   -o PubkeyAuthentication=no \
   -o NumberOfPasswordPrompts=1 \
-  "root@${PVE_NODE_NAME}" \
+  "root@${PVE_SSH_HOST}" \
   "install -d -m 0755 -o 101000 -g 101000 \"${PVE_BIND_PATH}\""

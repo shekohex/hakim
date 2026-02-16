@@ -700,6 +700,8 @@ locals {
   selected_template_file_id = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.custom_template_file_id[0].value : (
     "${data.coder_parameter.proxmox_template_datastore_id.value}:vztmpl/hakim-${data.coder_parameter.image_variant.value}_${local.selected_template_tag}.tar"
   )
+  proxmox_endpoint_hostport = split("/", trimprefix(trimprefix(trimspace(data.coder_parameter.proxmox_endpoint.value), "https://"), "http://"))[0]
+  proxmox_ssh_host          = split(":", local.proxmox_endpoint_hostport)[0]
 
   container_environment_variables = local.combined_env
   container_agent_bootstrap       = base64encode("${data.coder_workspace.me.access_url}|${coder_agent.main.token}")
@@ -805,6 +807,7 @@ resource "terraform_data" "home_bind_path" {
 
     environment = {
       PVE_NODE_NAME     = data.coder_parameter.proxmox_node_name.value
+      PVE_SSH_HOST      = local.proxmox_ssh_host
       PVE_BIND_PATH     = local.home_bind_path
       PVE_ROOT_PASSWORD = data.coder_parameter.proxmox_password.value
     }
