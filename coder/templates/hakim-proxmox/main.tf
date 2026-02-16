@@ -16,8 +16,8 @@ terraform {
 provider "proxmox" {
   endpoint  = data.coder_parameter.proxmox_endpoint.value
   api_token = local.home_requires_root_session ? null : data.coder_parameter.proxmox_api_token.value
-  username  = local.home_requires_root_session ? trimspace(data.coder_parameter.proxmox_username[0].value) : null
-  password  = local.home_requires_root_session ? data.coder_parameter.proxmox_password[0].value : null
+  username  = local.home_requires_root_session ? trimspace(data.coder_parameter.proxmox_username.value) : null
+  password  = local.home_requires_root_session ? data.coder_parameter.proxmox_password.value : null
   insecure  = data.coder_parameter.proxmox_insecure.value
 }
 
@@ -437,7 +437,6 @@ data "coder_parameter" "proxmox_api_token" {
 }
 
 data "coder_parameter" "proxmox_username" {
-  count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
   name         = "proxmox_username"
   display_name = "Proxmox Username"
   description  = "Used only for bind mounts. Must be root@pam."
@@ -449,7 +448,6 @@ data "coder_parameter" "proxmox_username" {
 }
 
 data "coder_parameter" "proxmox_password" {
-  count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
   name         = "proxmox_password"
   display_name = "Proxmox Password"
   description  = "Used only for bind mounts."
@@ -807,7 +805,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
     precondition {
-      condition     = !local.home_requires_root_session || (length(data.coder_parameter.proxmox_username) > 0 && trimspace(data.coder_parameter.proxmox_username[0].value) == "root@pam" && length(data.coder_parameter.proxmox_password) > 0 && trimspace(data.coder_parameter.proxmox_password[0].value) != "")
+      condition     = !local.home_requires_root_session || (trimspace(data.coder_parameter.proxmox_username.value) == "root@pam" && trimspace(data.coder_parameter.proxmox_password.value) != "")
       error_message = "Bind-mounted /home/coder requires root@pam session auth. Set proxmox_username=root@pam and provide proxmox_password, or use proxmox_home_volume_id with a non-bind storage volume id."
     }
 
