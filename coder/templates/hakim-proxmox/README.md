@@ -36,6 +36,7 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 ## Required Template Inputs
 
 - Proxmox API endpoint/token
+- Optional root session credentials for bind mounts (`proxmox_username`, `proxmox_password`)
 - Node name, container datastore, template datastore
 - Optional `/home/coder` persistence (`enable_home_disk`)
 - Optional existing home mount source override (`proxmox_home_volume_id`)
@@ -188,6 +189,7 @@ Q: How do I keep user data when rebuilding/replacing a workspace container?
 
 - Use `enable_home_disk = true`.
 - Default behavior creates a per-workspace bind mount at `/var/lib/vz/hakim-homes/<owner>/<workspace>` and mounts it to `/home/coder`.
+- Bind mounts require `proxmox_username = root@pam` and a non-empty `proxmox_password`.
 - You can set `proxmox_home_volume_id` explicitly to mount an existing source instead (volume id or absolute host path).
 
 Q: What does `proxmox_home_volume_id` look like?
