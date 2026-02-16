@@ -9,6 +9,29 @@ command_exists() {
   command -v "$1" > /dev/null 2>&1
 }
 
+resolve_bun_bin() {
+  if [ -x "$HOME/.bun/bin/bun" ]; then
+    printf '%s\n' "$HOME/.bun/bin/bun"
+    return 0
+  fi
+
+  for candidate in \
+    /usr/local/share/mise/installs/bun/*/bin/bun \
+    "$HOME/.local/share/mise/installs/bun/*/bin/bun"; do
+    if [ -x "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  if command_exists bun; then
+    command -v bun
+    return 0
+  fi
+
+  return 1
+}
+
 run_with_bun_lock() {
   if command_exists flock; then
     (
@@ -78,13 +101,15 @@ run_pre_install_script() {
 
 install_opencode() {
   if [ "$ARG_INSTALL_OPENCODE" = "true" ]; then
-    if command_exists bun; then
+    BUN_BIN="$(resolve_bun_bin 2> /dev/null || true)"
+    if [ -n "$BUN_BIN" ]; then
+      export PATH="$(dirname "$BUN_BIN"):$PATH"
       if [ ! -x "$HOME/.bun/bin/opencode" ]; then
         echo "Installing OpenCode (version: ${ARG_OPENCODE_VERSION})..."
         if [ "$ARG_OPENCODE_VERSION" = "latest" ]; then
-          run_with_bun_lock bun add -g opencode-ai
+          run_with_bun_lock "$BUN_BIN" add -g opencode-ai
         else
-          run_with_bun_lock bun add -g "opencode-ai@${ARG_OPENCODE_VERSION}"
+          run_with_bun_lock "$BUN_BIN" add -g "opencode-ai@${ARG_OPENCODE_VERSION}"
         fi
       else
         echo "OpenCode already installed in bun global bin"
@@ -104,7 +129,7 @@ install_opencode() {
     fi
 
     OPENCODE_BIN=""
-    if command_exists bun && [ -x "$HOME/.bun/bin/opencode" ]; then
+    if [ -n "$BUN_BIN" ] && [ -x "$HOME/.bun/bin/opencode" ]; then
       OPENCODE_BIN="$HOME/.bun/bin/opencode"
     elif command_exists opencode; then
       OPENCODE_BIN=$(command -v opencode 2> /dev/null || true)

@@ -8,6 +8,29 @@ command_exists() {
   command -v "$1" > /dev/null 2>&1
 }
 
+resolve_bun_bin() {
+  if [ -x "$HOME/.bun/bin/bun" ]; then
+    printf '%s\n' "$HOME/.bun/bin/bun"
+    return 0
+  fi
+
+  for candidate in \
+    /usr/local/share/mise/installs/bun/*/bin/bun \
+    "$HOME/.local/share/mise/installs/bun/*/bin/bun"; do
+    if [ -x "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  if command_exists bun; then
+    command -v bun
+    return 0
+  fi
+
+  return 1
+}
+
 run_with_bun_lock() {
   if command_exists flock; then
     (
@@ -53,28 +76,34 @@ run_pre_install_script() {
 }
 
 install_openchamber() {
+  BUN_BIN=""
   if [ "$ARG_INSTALL_OPENCHAMBER" = "true" ]; then
-    if ! command_exists bun; then
+    BUN_BIN="$(resolve_bun_bin 2> /dev/null || true)"
+    if [ -z "$BUN_BIN" ]; then
       echo "ERROR: Bun is required to install OpenChamber"
       exit 1
     fi
+    export PATH="$(dirname "$BUN_BIN"):$PATH"
 
     if ! command_exists openchamber; then
       LOG_FILE="/tmp/openchamber-install.log"
       if [ "$ARG_OPENCHAMBER_VERSION" = "latest" ]; then
-        if ! run_with_bun_lock bun add -g @openchamber/web 2>&1 | tee "$LOG_FILE"; then
+        if ! run_with_bun_lock "$BUN_BIN" add -g @openchamber/web 2>&1 | tee "$LOG_FILE"; then
           echo "ERROR: OpenChamber install failed. See $LOG_FILE"
           exit 1
         fi
       else
-        if ! run_with_bun_lock bun add -g "@openchamber/web@${ARG_OPENCHAMBER_VERSION}" 2>&1 | tee "$LOG_FILE"; then
+        if ! run_with_bun_lock "$BUN_BIN" add -g "@openchamber/web@${ARG_OPENCHAMBER_VERSION}" 2>&1 | tee "$LOG_FILE"; then
           echo "ERROR: OpenChamber install failed. See $LOG_FILE"
           exit 1
         fi
       fi
     fi
 
-    OPENCHAMBER_BIN=$(command -v openchamber 2> /dev/null || true)
+    OPENCHAMBER_BIN="$HOME/.bun/bin/openchamber"
+    if [ ! -f "$OPENCHAMBER_BIN" ]; then
+      OPENCHAMBER_BIN=$(command -v openchamber 2> /dev/null || true)
+    fi
     if [ -n "$OPENCHAMBER_BIN" ] && [ -f "$OPENCHAMBER_BIN" ] && command_exists sudo; then
       sudo ln -sf "$OPENCHAMBER_BIN" /usr/local/bin/openchamber
     fi
