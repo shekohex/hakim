@@ -12,11 +12,15 @@ PVE_ENDPOINT="${PVE_ENDPOINT%/}"
 PVE_NODE_NAME="${PVE_NODE_NAME}"
 PVE_VM_ID="${PVE_VM_ID}"
 PVE_API_TOKEN="${PVE_API_TOKEN}"
+PVE_USERNAME="${PVE_USERNAME:-}"
+PVE_PASSWORD="${PVE_PASSWORD:-}"
 PVE_INSECURE="${PVE_INSECURE:-true}"
 CT_AGENT_BOOTSTRAP="${CT_AGENT_BOOTSTRAP}"
 PVE_HOME_SOURCE="${PVE_HOME_SOURCE:-}"
 
 AUTH_HEADER="Authorization: PVEAPIToken=${PVE_API_TOKEN}"
+PVE_AUTH_COOKIE=""
+PVE_CSRF_TOKEN=""
 
 curl_flags=(--silent --show-error)
 if [[ "${PVE_INSECURE,,}" == "true" || "${PVE_INSECURE}" == "1" ]]; then
@@ -74,6 +78,68 @@ json_exitstatus_value() {
   sed -n 's/.*"exitstatus":"\([^"]*\)".*/\1/p'
 }
 
+json_field_value() {
+  local key="$1"
+  sed -n "s/.*\"${key}\":\"\([^\"]*\)\".*/\1/p"
+}
+
+session_auth() {
+  if [[ -n "${PVE_AUTH_COOKIE}" && -n "${PVE_CSRF_TOKEN}" ]]; then
+    return 0
+  fi
+
+  if [[ -z "${PVE_USERNAME}" || -z "${PVE_PASSWORD}" ]]; then
+    printf 'bind mount requires PVE_USERNAME and PVE_PASSWORD\n' >&2
+    return 1
+  fi
+
+  local response_file
+  response_file="$(mktemp)"
+
+  local status
+  status="$(curl "${curl_flags[@]}" --output "${response_file}" --write-out '%{http_code}' --request POST "${PVE_ENDPOINT}/api2/json/access/ticket" --data-urlencode "username=${PVE_USERNAME}" --data-urlencode "password=${PVE_PASSWORD}")"
+  local body
+  body="$(<"${response_file}")"
+  rm -f "${response_file}"
+
+  if [[ "${status}" -ge 400 ]]; then
+    printf 'HTTP POST /api2/json/access/ticket failed: %s\n' "${body}" >&2
+    return 1
+  fi
+
+  PVE_AUTH_COOKIE="$(printf '%s' "${body}" | json_field_value ticket)"
+  PVE_CSRF_TOKEN="$(printf '%s' "${body}" | json_field_value CSRFPreventionToken)"
+
+  if [[ -z "${PVE_AUTH_COOKIE}" || -z "${PVE_CSRF_TOKEN}" ]]; then
+    printf 'failed to parse Proxmox session auth response\n' >&2
+    return 1
+  fi
+}
+
+session_api_call() {
+  local method="$1"
+  local path="$2"
+  shift 2
+
+  session_auth
+
+  local response_file
+  response_file="$(mktemp)"
+
+  local status
+  status="$(curl "${curl_flags[@]}" --output "${response_file}" --write-out '%{http_code}' --request "${method}" "${PVE_ENDPOINT}${path}" -H "Cookie: PVEAuthCookie=${PVE_AUTH_COOKIE}" -H "CSRFPreventionToken: ${PVE_CSRF_TOKEN}" "$@")"
+  local body
+  body="$(<"${response_file}")"
+  rm -f "${response_file}"
+
+  if [[ "${status}" -ge 400 ]]; then
+    printf 'HTTP %s %s failed: %s\n' "${method}" "${path}" "${body}" >&2
+    return 1
+  fi
+
+  printf '%s' "${body}"
+}
+
 wait_task() {
   local upid="$1"
   local deadline=$(( $(date +%s) + 300 ))
@@ -119,7 +185,7 @@ else
 fi
 
 if [[ -n "${PVE_HOME_SOURCE}" ]]; then
-  api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
+  session_api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
     --data-urlencode "mp0=${PVE_HOME_SOURCE},mp=/home/coder,backup=0" >/dev/null
 fi
 
