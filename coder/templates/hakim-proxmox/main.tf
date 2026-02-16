@@ -759,7 +759,7 @@ locals {
   user_env   = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
   secret_env = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
   default_env = {
-    PATH                  = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/coder/.local/share/mise/shims:/usr/local/share/mise/shims"
+    PATH                  = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims:/home/coder/.local/share/mise/shims"
     LANG                  = "C.UTF-8"
     LANGUAGE              = "C.UTF-8"
     LC_ALL                = "C.UTF-8"

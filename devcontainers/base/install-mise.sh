@@ -48,7 +48,7 @@ export MISE_INSTALL_PATH=/usr/local/bin/mise
 if [ -n "${HOME:-}" ]; then
   export MISE_DATA_DIR="${MISE_DATA_DIR:-$HOME/.local/share/mise}"
   export MISE_CONFIG_DIR="${MISE_CONFIG_DIR:-$HOME/.config/mise}"
-  export PATH="$PATH:$MISE_DATA_DIR/shims:/usr/local/share/mise/shims"
+  export PATH="$PATH:/usr/local/share/mise/shims:$MISE_DATA_DIR/shims"
 else
   export PATH="$PATH:/usr/local/share/mise/shims"
 fi

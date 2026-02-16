@@ -24,7 +24,7 @@ if [ "${_REMOTE_USER}" = "root" ]; then
 fi
 
 USER_HOME=$(eval echo ~"${_REMOTE_USER}")
-MISE_PATH_EXPORT='export PATH="$PATH:$HOME/.local/share/mise/shims:/usr/local/share/mise/shims"'
+MISE_PATH_EXPORT='export PATH="$PATH:/usr/local/share/mise/shims:$HOME/.local/share/mise/shims"'
 
 add_to_rc() {
     local file="$1"
