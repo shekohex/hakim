@@ -413,6 +413,71 @@ data "coder_parameter" "git_credential_helper" {
   order        = 27
 }
 
+data "coder_parameter" "enable_coder_login" {
+  name         = "enable_coder_login"
+  display_name = "Enable Coder Login"
+  description  = "Auto-login to Coder in the workspace shell."
+  type         = "bool"
+  default      = true
+  icon         = "/icon/coder.svg"
+  order        = 62
+}
+
+data "coder_parameter" "enable_git_commit_signing" {
+  name         = "enable_git_commit_signing"
+  display_name = "Enable Git Commit Signing"
+  description  = "Use Coder SSH key for Git SSH commit signing."
+  type         = "bool"
+  default      = true
+  icon         = "/icon/git.svg"
+  order        = 63
+}
+
+data "coder_parameter" "enable_zed" {
+  name         = "enable_zed"
+  display_name = "Enable Zed"
+  description  = "Show Zed launcher app in workspace apps."
+  type         = "bool"
+  default      = true
+  icon         = "/icon/zed.svg"
+  order        = 64
+}
+
+data "coder_parameter" "enable_tmux" {
+  name         = "enable_tmux"
+  display_name = "Enable tmux"
+  description  = "Install and configure tmux with persistence plugins."
+  type         = "bool"
+  default      = true
+  icon         = "/icon/terminal.svg"
+  order        = 65
+}
+
+data "coder_parameter" "tmux_sessions" {
+  count        = data.coder_parameter.enable_tmux.value ? 1 : 0
+  name         = "tmux_sessions"
+  display_name = "tmux Sessions"
+  description  = "Comma-separated sessions (e.g. default,dev,ops)."
+  type         = "string"
+  default      = "default"
+  mutable      = true
+  icon         = "/icon/terminal.svg"
+  order        = 66
+}
+
+data "coder_parameter" "tmux_config" {
+  count        = data.coder_parameter.enable_tmux.value ? 1 : 0
+  name         = "tmux_config"
+  display_name = "tmux Config"
+  description  = "Optional custom ~/.tmux.conf content."
+  type         = "string"
+  form_type    = "textarea"
+  default      = ""
+  mutable      = true
+  icon         = "/icon/terminal.svg"
+  order        = 67
+}
+
 data "coder_parameter" "proxmox_endpoint" {
   name         = "proxmox_endpoint"
   display_name = "Proxmox Endpoint"
@@ -727,8 +792,12 @@ locals {
   home_mount_is_bind         = startswith(local.home_mount_source, "/")
   home_requires_root_session = local.home_disk_enabled && local.home_mount_is_bind
 
-  project_dir      = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
-  git_setup_script = file("${path.module}/scripts/setup-git.sh")
+  project_dir         = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
+  git_setup_script    = file("${path.module}/scripts/setup-git.sh")
+  tmux_sessions_raw   = length(data.coder_parameter.tmux_sessions) > 0 ? data.coder_parameter.tmux_sessions[0].value : "default"
+  tmux_sessions_clean = [for session in split(",", local.tmux_sessions_raw) : trimspace(session) if trimspace(session) != ""]
+  tmux_sessions       = length(local.tmux_sessions_clean) > 0 ? local.tmux_sessions_clean : ["default"]
+  tmux_config         = length(data.coder_parameter.tmux_config) > 0 ? data.coder_parameter.tmux_config[0].value : ""
 }
 
 resource "coder_agent" "main" {
@@ -1025,6 +1094,39 @@ module "git-clone" {
 module "dotfiles" {
   source   = "registry.coder.com/coder/dotfiles/coder"
   agent_id = coder_agent.main.id
+}
+
+module "coder-login" {
+  count    = data.coder_parameter.enable_coder_login.value ? data.coder_workspace.me.start_count : 0
+  source   = "registry.coder.com/coder/coder-login/coder"
+  version  = "1.1.1"
+  agent_id = coder_agent.main.id
+}
+
+module "git-commit-signing" {
+  count      = data.coder_parameter.enable_git_commit_signing.value ? data.coder_workspace.me.start_count : 0
+  source     = "registry.coder.com/coder/git-commit-signing/coder"
+  version    = "1.0.32"
+  agent_id   = coder_agent.main.id
+  depends_on = [coder_script.git_setup]
+}
+
+module "zed" {
+  count    = data.coder_parameter.enable_zed.value ? data.coder_workspace.me.start_count : 0
+  source   = "registry.coder.com/coder/zed/coder"
+  version  = "1.1.4"
+  agent_id = coder_agent.main.id
+  folder   = local.project_dir
+  order    = 0
+}
+
+module "tmux" {
+  count       = data.coder_parameter.enable_tmux.value ? data.coder_workspace.me.start_count : 0
+  source      = "registry.coder.com/anomaly/tmux/coder"
+  version     = "1.0.4"
+  agent_id    = coder_agent.main.id
+  sessions    = local.tmux_sessions
+  tmux_config = local.tmux_config
 }
 
 module "vault" {
