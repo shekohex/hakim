@@ -783,6 +783,7 @@ locals {
 
   container_environment_variables = local.combined_env
   container_agent_bootstrap       = base64encode("${data.coder_workspace.me.access_url}|${coder_agent.main.token}")
+  container_runtime_env_b64       = join(",", [for key in sort(keys(local.combined_env)) : "${key}=${base64encode(tostring(local.combined_env[key]))}"])
 
   home_disk_enabled          = data.coder_parameter.enable_home_disk.value
   home_volume_id             = length(data.coder_parameter.proxmox_home_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_home_volume_id[0].value) : ""
@@ -988,6 +989,7 @@ resource "terraform_data" "workspace_agent_env" {
       PVE_PASSWORD       = local.home_mount_is_bind ? data.coder_parameter.proxmox_password.value : ""
       PVE_INSECURE       = tostring(data.coder_parameter.proxmox_insecure.value)
       CT_AGENT_BOOTSTRAP = local.container_agent_bootstrap
+      CT_RUNTIME_ENV_B64 = local.container_runtime_env_b64
       PVE_HOME_SOURCE    = local.home_mount_is_bind ? local.home_mount_source : ""
     }
   }

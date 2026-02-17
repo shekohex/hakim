@@ -18,6 +18,7 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 4. Provisioner-side post-create agent bootstrap is applied through `scripts/bootstrap-agent-env.sh` using bash+curl (no python dependency).
 5. Template runs the same module stack used by Docker template (`opencode`, `openchamber`, `openclaw-node`, `code-server`, etc).
 6. When `enable_home_disk = true`, Docker daemon data root is set to `/home/coder/.local/share/docker` so pulled images survive CT replacement.
+7. Runtime env updates preserve merged template env (`default_env` + `user_env` + `secret_env`) while injecting `CODER_AGENT_BOOTSTRAP`.
 
 ## Design Goals
 

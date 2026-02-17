@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-for required in curl sed; do
+for required in curl sed base64; do
   command -v "$required" >/dev/null 2>&1 || {
     printf 'missing required command: %s\n' "$required" >&2
     exit 1
@@ -16,6 +16,7 @@ PVE_USERNAME="${PVE_USERNAME:-}"
 PVE_PASSWORD="${PVE_PASSWORD:-}"
 PVE_INSECURE="${PVE_INSECURE:-true}"
 CT_AGENT_BOOTSTRAP="${CT_AGENT_BOOTSTRAP}"
+CT_RUNTIME_ENV_B64="${CT_RUNTIME_ENV_B64:-}"
 PVE_HOME_SOURCE="${PVE_HOME_SOURCE:-}"
 
 AUTH_HEADER="Authorization: PVEAPIToken=${PVE_API_TOKEN}"
@@ -140,6 +141,58 @@ session_api_call() {
   printf '%s' "${body}"
 }
 
+decode_base64() {
+  if printf '%s' "$1" | base64 --decode >/dev/null 2>&1; then
+    printf '%s' "$1" | base64 --decode
+    return 0
+  fi
+
+  if printf '%s' "$1" | base64 -d >/dev/null 2>&1; then
+    printf '%s' "$1" | base64 -d
+    return 0
+  fi
+
+  if printf '%s' "$1" | base64 -D >/dev/null 2>&1; then
+    printf '%s' "$1" | base64 -D
+    return 0
+  fi
+
+  return 1
+}
+
+declare -a RUNTIME_ENV_ARGS=()
+
+build_runtime_env_args() {
+  local pairs_raw="$1"
+  local pair key encoded value
+
+  RUNTIME_ENV_ARGS=()
+
+  if [[ -n "${pairs_raw}" ]]; then
+    IFS=',' read -r -a pairs <<< "${pairs_raw}"
+
+    for pair in "${pairs[@]}"; do
+      [[ -n "${pair}" ]] || continue
+
+      key="${pair%%=*}"
+      encoded="${pair#*=}"
+
+      if [[ -z "${key}" ]]; then
+        continue
+      fi
+
+      value="$(decode_base64 "${encoded}")" || {
+        printf 'failed to decode env value for key: %s\n' "${key}" >&2
+        return 1
+      }
+
+      RUNTIME_ENV_ARGS+=(--data-urlencode "env=${key}=${value}")
+    done
+  fi
+
+  RUNTIME_ENV_ARGS+=(--data-urlencode "env=CODER_AGENT_BOOTSTRAP=${CT_AGENT_BOOTSTRAP}")
+}
+
 wait_task() {
   local upid="$1"
   local deadline=$(( $(date +%s) + 300 ))
@@ -165,8 +218,10 @@ wait_task() {
   return 1
 }
 
+build_runtime_env_args "${CT_RUNTIME_ENV_B64}"
+
 api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
-  --data-urlencode "env=CODER_AGENT_BOOTSTRAP=${CT_AGENT_BOOTSTRAP}" >/dev/null
+  "${RUNTIME_ENV_ARGS[@]}" >/dev/null
 
 stop_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/stop")"
 stop_status="$(printf '%s' "${stop_result}" | sed -n '1p')"
