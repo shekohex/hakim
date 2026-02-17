@@ -49,7 +49,10 @@ chown -R "${CODER_UID}:${CODER_GID}" "${CODER_HOME}/.config/mise" "${CODER_HOME}
 
 if [[ "${START_DOCKER_DAEMON:-1}" == "1" || "${START_DOCKER_DAEMON:-}" == "true" ]]; then
   if command -v dockerd >/dev/null 2>&1 && ! docker info >/dev/null 2>&1; then
-    mkdir -p /var/run/docker /var/lib/docker /var/log
+    docker_data_root="${DOCKER_DATA_ROOT:-/var/lib/docker}"
+    docker_log_file="${DOCKER_LOG_FILE:-/var/log/dockerd.log}"
+    mkdir -p /var/run/docker "${docker_data_root}" /var/log
+    mkdir -p "$(dirname "${docker_log_file}")"
 
     if [[ -S /var/run/docker.sock ]] && ! pgrep -x dockerd >/dev/null 2>&1; then
       rm -f /var/run/docker.sock
@@ -81,10 +84,10 @@ if [[ "${START_DOCKER_DAEMON:-1}" == "1" || "${START_DOCKER_DAEMON:-}" == "true"
 
     nohup dockerd \
       --host=unix:///var/run/docker.sock \
-      --data-root="${DOCKER_DATA_ROOT:-/var/lib/docker}" \
+      --data-root="${docker_data_root}" \
       --exec-root="${DOCKER_EXEC_ROOT:-/var/run/docker}" \
       --storage-driver="${DOCKER_STORAGE_DRIVER:-vfs}" \
-      >"${DOCKER_LOG_FILE:-/var/log/dockerd.log}" 2>&1 &
+      >"${docker_log_file}" 2>&1 &
 
     for _ in $(seq 1 30); do
       if docker info >/dev/null 2>&1; then

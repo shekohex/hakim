@@ -657,7 +657,7 @@ data "coder_parameter" "container_disk_gb" {
 data "coder_parameter" "enable_home_disk" {
   name         = "enable_home_disk"
   display_name = "Enable Home Persistence"
-  description  = "Persist /home/coder using a host bind mount."
+  description  = "Persist /home/coder using a host bind mount (includes Docker cache persistence)."
   type         = "bool"
   default      = false
   icon         = "https://esm.sh/lucide-static@latest/icons/hard-drive.svg"
@@ -771,7 +771,10 @@ locals {
     START_DOCKER_DAEMON   = "1"
     DOCKER_STORAGE_DRIVER = "vfs"
   }
-  combined_env = merge(local.default_env, local.user_env, local.secret_env)
+  docker_data_root_env = data.coder_parameter.enable_home_disk.value ? {
+    DOCKER_DATA_ROOT = "/home/coder/.local/share/docker"
+  } : {}
+  combined_env = merge(local.default_env, local.docker_data_root_env, local.user_env, local.secret_env)
 
   selected_template_tag = length(data.coder_parameter.template_tag) > 0 && trimspace(data.coder_parameter.template_tag[0].value) != "" ? trimspace(data.coder_parameter.template_tag[0].value) : "latest"
   selected_template_file_id = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.custom_template_file_id[0].value : (

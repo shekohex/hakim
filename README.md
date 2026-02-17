@@ -22,6 +22,7 @@ Hakim images are also OCI-ready for Proxmox LXC templates and can run `coder age
 The `coder-templates/hakim` template exposes several parameters to customize the workspace.
 
 For Proxmox, use `coder/templates/hakim-proxmox` with shared pre-pulled OCI templates in Proxmox storage (`vztmpl`).
+Enable `enable_home_disk` to persist `/home/coder`; Docker daemon data is then stored at `/home/coder/.local/share/docker` so pulled images survive workspace container rebuilds.
 
 ### Core Parameters
 | Parameter | Description | Default | Options |

@@ -17,6 +17,7 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 3. Hakim image entrypoint starts `coder agent` automatically when `CODER_AGENT_URL` and `CODER_AGENT_TOKEN` are present.
 4. Provisioner-side post-create agent bootstrap is applied through `scripts/bootstrap-agent-env.sh` using bash+curl (no python dependency).
 5. Template runs the same module stack used by Docker template (`opencode`, `openchamber`, `openclaw-node`, `code-server`, etc).
+6. When `enable_home_disk = true`, Docker daemon data root is set to `/home/coder/.local/share/docker` so pulled images survive CT replacement.
 
 ## Design Goals
 
@@ -124,6 +125,7 @@ This builds and publishes `hakim-base`, `hakim-tooling`, and all variants.
 3. Update workspace `template_tag` to the new tag and apply.
 4. If keeping same tag name (for example `latest`), increment `workspace_rebuild_generation` to force CT recreation.
 5. To preserve user data, enable home persistence so `/home/coder` is bind-mounted and survives CT replacement.
+6. Docker cache/images are persisted with home persistence via `DOCKER_DATA_ROOT=/home/coder/.local/share/docker`.
 
 ## Create a New Variant
 
@@ -194,6 +196,13 @@ Q: How do I keep user data when rebuilding/replacing a workspace container?
 - The template creates CT first, then attaches bind mount via Proxmox API while CT is stopped.
 - Auto bind mode also requires a host hook script referenced by `proxmox_home_bind_hook_script_id` (default: `local:snippets/hakim-home-bind-hook.sh`) to create/chmod the bind path before container start.
 - You can set `proxmox_home_volume_id` explicitly to mount an existing source instead (volume id or absolute host path).
+
+Q: How do I keep Docker images after workspace reset/rebuild?
+
+- Enable `enable_home_disk = true` so `/home/coder` is persistent.
+- The template automatically sets `DOCKER_DATA_ROOT=/home/coder/.local/share/docker` when home persistence is enabled.
+- Verify in workspace: `docker info | rg 'Docker Root Dir'` should show `/home/coder/.local/share/docker`.
+- Pull once (for example `docker pull alpine:latest`), recreate CT, and the image remains available.
 
 Install the default hook script on the Proxmox host once:
 
