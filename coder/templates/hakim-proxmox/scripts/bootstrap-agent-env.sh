@@ -160,13 +160,31 @@ decode_base64() {
   return 1
 }
 
-declare -a RUNTIME_ENV_ARGS=()
+RUNTIME_ENV_FILE="$(mktemp)"
 
-build_runtime_env_args() {
+cleanup() {
+  rm -f "${RUNTIME_ENV_FILE}"
+}
+
+trap cleanup EXIT
+
+append_runtime_env_pair() {
+  local key="$1"
+  local value="$2"
+
+  if [[ -s "${RUNTIME_ENV_FILE}" ]]; then
+    printf '\0' >>"${RUNTIME_ENV_FILE}"
+  fi
+
+  printf '%s=%s' "${key}" "${value}" >>"${RUNTIME_ENV_FILE}"
+}
+
+build_runtime_env_file() {
   local pairs_raw="$1"
+  local -a pairs=()
   local pair key encoded value
 
-  RUNTIME_ENV_ARGS=()
+  : >"${RUNTIME_ENV_FILE}"
 
   if [[ -n "${pairs_raw}" ]]; then
     IFS=',' read -r -a pairs <<< "${pairs_raw}"
@@ -186,11 +204,11 @@ build_runtime_env_args() {
         return 1
       }
 
-      RUNTIME_ENV_ARGS+=(--data-urlencode "env=${key}=${value}")
+      append_runtime_env_pair "${key}" "${value}"
     done
   fi
 
-  RUNTIME_ENV_ARGS+=(--data-urlencode "env=CODER_AGENT_BOOTSTRAP=${CT_AGENT_BOOTSTRAP}")
+  append_runtime_env_pair "CODER_AGENT_BOOTSTRAP" "${CT_AGENT_BOOTSTRAP}"
 }
 
 wait_task() {
@@ -218,10 +236,10 @@ wait_task() {
   return 1
 }
 
-build_runtime_env_args "${CT_RUNTIME_ENV_B64}"
+build_runtime_env_file "${CT_RUNTIME_ENV_B64}"
 
 api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
-  "${RUNTIME_ENV_ARGS[@]}" >/dev/null
+  --data-urlencode "env@${RUNTIME_ENV_FILE}" >/dev/null
 
 stop_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/stop")"
 stop_status="$(printf '%s' "${stop_result}" | sed -n '1p')"
