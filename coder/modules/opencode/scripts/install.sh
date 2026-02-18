@@ -152,7 +152,7 @@ install_opencode() {
 }
 
 setup_opencode_config() {
-  local opencode_config_file="$HOME/.config/opencode/opencode.json"
+  local opencode_config_file="$HOME/.config/opencode/opencode.jsonc"
   local auth_json_file="$HOME/.local/share/opencode/auth.json"
 
   mkdir -p "$(dirname "$auth_json_file")"
@@ -161,8 +161,12 @@ setup_opencode_config() {
   setup_opencode_auth "$auth_json_file"
 
   if [ -n "$ARG_OPENCODE_CONFIG" ]; then
-    echo "Writing to the config file"
-    echo "$ARG_OPENCODE_CONFIG" > "$opencode_config_file"
+    if [ -f "$opencode_config_file" ]; then
+      echo "WARNING: $opencode_config_file already exists, skipping config write"
+    else
+      echo "Writing to the config file"
+      echo "$ARG_OPENCODE_CONFIG" > "$opencode_config_file"
+    fi
   fi
 
   if [ "$ARG_REPORT_TASKS" = "true" ]; then
