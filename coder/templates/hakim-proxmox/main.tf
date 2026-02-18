@@ -1134,8 +1134,7 @@ module "coder-login" {
 
 module "git-commit-signing" {
   count      = data.coder_parameter.enable_git_commit_signing.value ? data.coder_workspace.me.start_count : 0
-  source     = "registry.coder.com/coder/git-commit-signing/coder"
-  version    = "1.0.32"
+  source     = "github.com/shekohex/hakim//coder/modules/git-commit-signing?ref=main"
   agent_id   = coder_agent.main.id
   depends_on = [coder_script.git_setup]
 }
