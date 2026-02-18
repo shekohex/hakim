@@ -20,6 +20,8 @@ ARG_WORKDIR=${ARG_WORKDIR:-"$HOME"}
 ARG_PORT=${ARG_PORT:-6904}
 ARG_UI_PASSWORD=$(echo -n "${ARG_UI_PASSWORD:-}" | base64 -d 2> /dev/null || echo "")
 ARG_STARTUP_TIMEOUT=${ARG_STARTUP_TIMEOUT:-180}
+ARG_REUSE_OPENCODE=${ARG_REUSE_OPENCODE:-false}
+ARG_OPENCODE_PORT=${ARG_OPENCODE_PORT:-4096}
 
 wait_for_command() {
   local cmd="$1"
@@ -62,9 +64,15 @@ if ! command_exists openchamber; then
   exit 1
 fi
 
-if ! wait_for_command opencode "$ARG_STARTUP_TIMEOUT"; then
-  echo "ERROR: OpenCode command did not become available in time"
-  exit 1
+if [ "$ARG_REUSE_OPENCODE" = "true" ]; then
+  echo "OpenChamber configured to reuse external OpenCode server on port $ARG_OPENCODE_PORT"
+  export OPENCODE_SKIP_START=true
+  export OPENCODE_PORT=$ARG_OPENCODE_PORT
+else
+  if ! wait_for_command opencode "$ARG_STARTUP_TIMEOUT"; then
+    echo "ERROR: OpenCode command did not become available in time"
+    exit 1
+  fi
 fi
 
 cd "$ARG_WORKDIR"

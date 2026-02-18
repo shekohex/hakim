@@ -75,7 +75,7 @@ variable "openchamber_version" {
   type        = string
   description = "The version of OpenChamber to install."
   # VERSION_UPDATE_BEGIN: openchamber
-  default     = "1.7.0"
+  default = "1.7.0"
   # VERSION_UPDATE_END: openchamber
 }
 
@@ -89,6 +89,18 @@ variable "ui_password" {
   type        = string
   description = "Optional UI password for OpenChamber."
   default     = ""
+}
+
+variable "reuse_opencode_server" {
+  type        = bool
+  description = "When enabled, OpenChamber will connect to an external OpenCode server instead of starting its own."
+  default     = true
+}
+
+variable "opencode_port" {
+  type        = number
+  description = "Port of the external OpenCode server to connect to (only used when reuse_opencode_server is enabled)."
+  default     = 4096
 }
 
 locals {
@@ -126,6 +138,8 @@ resource "coder_script" "openchamber_start" {
     ARG_WORKDIR='${local.workdir}' \
     ARG_PORT='${var.port}' \
     ARG_UI_PASSWORD='${var.ui_password != null ? base64encode(replace(var.ui_password, "'", "'\\''")) : ""}' \
+    ARG_REUSE_OPENCODE='${var.reuse_opencode_server}' \
+    ARG_OPENCODE_PORT='${var.opencode_port}' \
     bash -lc "$START_SCRIPT"
 
     rm -f "$INSTALL_SCRIPT" "$START_SCRIPT"
