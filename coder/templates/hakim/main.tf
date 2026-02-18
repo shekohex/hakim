@@ -285,6 +285,28 @@ data "coder_parameter" "openchamber_ui_password" {
   order        = 6
 }
 
+data "coder_parameter" "openchamber_reuse_opencode" {
+  name         = "openchamber_reuse_opencode"
+  display_name = "OpenChamber: Reuse External OpenCode"
+  description  = "When enabled, OpenChamber will connect to an external OpenCode server instead of starting its own. All connections will share the same OpenCode state."
+  type         = "bool"
+  default      = true
+  mutable      = true
+  icon         = "https://opencode.ai/favicon-96x96-v3.png"
+  order        = 7
+}
+
+data "coder_parameter" "openchamber_opencode_port" {
+  name         = "openchamber_opencode_port"
+  display_name = "OpenChamber: OpenCode Server Port"
+  description  = "Port of the external OpenCode server to connect to (only used when 'Reuse External OpenCode' is enabled)."
+  type         = "number"
+  default      = 4096
+  mutable      = true
+  icon         = "https://opencode.ai/favicon-96x96-v3.png"
+  order        = 8
+}
+
 data "coder_parameter" "enable_openclaw_node" {
   name         = "enable_openclaw_node"
   display_name = "Enable OpenClaw Node Host"
@@ -623,14 +645,16 @@ module "openchamber" {
     "rust",
     "elixir"
   ], data.coder_parameter.image_variant.value) ? 1 : 0
-  source              = "github.com/shekohex/hakim//coder/modules/openchamber?ref=main"
-  agent_id            = coder_agent.main.id
-  workdir             = local.project_dir
-  ui_password         = data.coder_parameter.openchamber_ui_password.value
-  install_openchamber = true
-  order               = 998
-  subdomain           = true
-  depends_on          = [module.opencode]
+  source                = "github.com/shekohex/hakim//coder/modules/openchamber?ref=main"
+  agent_id              = coder_agent.main.id
+  workdir               = local.project_dir
+  ui_password           = data.coder_parameter.openchamber_ui_password.value
+  reuse_opencode_server = data.coder_parameter.openchamber_reuse_opencode.value
+  opencode_port         = data.coder_parameter.openchamber_opencode_port.value
+  install_openchamber   = true
+  order                 = 998
+  subdomain             = true
+  depends_on            = [module.opencode]
 }
 
 module "openclaw_node" {
