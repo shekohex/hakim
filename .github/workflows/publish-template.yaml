@@ -29,13 +29,14 @@ jobs:
       - name: Find templates
         id: find
         run: |
-          # List template directories in coder/templates, ignore hidden files/dirs
-          templates=$(while IFS= read -r dir; do
+          # List template directories in coder/templates, ignore hidden dirs and shared.
+          # Keep only directories that contain a main.tf file.
+          templates=$(find coder/templates -mindepth 1 -maxdepth 1 -type d \
+            -not -name '.*' \
+            -not -name 'shared' \
+            -print0 | while IFS= read -r -d '' dir; do
             [ -f "$dir/main.tf" ] && basename "$dir"
-          done < <(find coder/templates -mindepth 1 -maxdepth 1 -type d \
-            -not -path '*/.*' \
-            -not -name 'shared') \
-            | jq -R -s -c 'split("\\n") | map(select(length > 0))')
+            done | jq -R -s -c 'split("\n") | map(select(length > 0))')
 
           if ! echo "$templates" | jq -e 'index("hakim") and index("hakim-proxmox")' > /dev/null; then
             echo "Required templates not found. Expected both hakim and hakim-proxmox." >&2
