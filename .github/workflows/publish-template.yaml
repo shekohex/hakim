@@ -29,10 +29,13 @@ jobs:
       - name: Find templates
         id: find
         run: |
-          # List directories in coder/templates, ignore hidden files/dirs
-          # We use ls -d to get directories, basename to get just the folder name
-          # jq to format as JSON array
-          templates=$(find coder/templates -mindepth 1 -maxdepth 1 -type d -not -path '*/.*' | xargs -n1 basename | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          # List template directories in coder/templates, ignore hidden files/dirs
+          templates=$(while IFS= read -r dir; do
+            [ -f "$dir/main.tf" ] && basename "$dir"
+          done < <(find coder/templates -mindepth 1 -maxdepth 1 -type d \
+            -not -path '*/.*' \
+            -not -name 'shared') \
+            | jq -R -s -c 'split("\\n") | map(select(length > 0))')
 
           if ! echo "$templates" | jq -e 'index("hakim") and index("hakim-proxmox")' > /dev/null; then
             echo "Required templates not found. Expected both hakim and hakim-proxmox." >&2
