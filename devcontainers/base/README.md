@@ -7,8 +7,17 @@ This is the foundational image for the Hakim Coder Template system. It is based 
 - **Docker-in-Docker**: Pre-configured for running containers inside the workspace.
 - **Mise**: A polyglot tool version manager, installed globally at `/usr/local/bin/mise`.
 - **Common Tools**: `curl`, `wget`, `git`, `jq`, `unzip`, `sudo`.
+- **Browser Testing**: Chrome for Testing and matching ChromeDriver are installed for automation.
 - **Coder User**: A non-root user `coder` with passwordless sudo.
 - **Coder-Agent-Native Entrypoint**: `/usr/local/bin/hakim-entrypoint` prepares `coder` home/project dirs and starts `coder agent` automatically when `CODER_AGENT_URL` and `CODER_AGENT_TOKEN` are set.
+
+## Browser Tooling Paths
+
+- Chrome launcher: `/usr/bin/google-chrome-stable` (symlink to `/opt/chrome-linux64/chrome`)
+- Chrome binary: `/opt/chrome-linux64/chrome`
+- ChromeDriver launcher: `/usr/local/bin/chromedriver` (symlink to `/opt/chromedriver-linux64/chromedriver`)
+- ChromeDriver binary: `/opt/chromedriver-linux64/chromedriver`
+- Version source: Chrome for Testing stable channel (`GOOGLE_CHROME_VERSION` build arg)
 
 ## Usage
 
