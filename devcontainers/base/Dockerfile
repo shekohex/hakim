@@ -98,15 +98,21 @@ RUN ARCH=$(case ${TARGETARCH} in amd64) echo "x86_64" ;; arm64) echo "aarch64" ;
   curl -fsSL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-${ARCH}" -o docker-compose
 
 # =============================================================================
-# Stage 2e: Download Google Chrome (version-isolated)
+# Stage 2e: Download Chrome for Testing (version-isolated)
 # =============================================================================
-FROM base-system AS chrome-downloader
+FROM base-system AS chrome-for-testing-downloader
 
-ARG GOOGLE_CHROME_VERSION=143.0.7499.192-1
+ARG TARGETARCH=amd64
+# VERSION_UPDATE_BEGIN: chrome
+ARG GOOGLE_CHROME_VERSION=143.0.7499.192
+# VERSION_UPDATE_END: chrome
 
 WORKDIR /downloads
 
-RUN wget -q "https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${GOOGLE_CHROME_VERSION}_amd64.deb" -O google-chrome.deb
+RUN CFT_VERSION="${GOOGLE_CHROME_VERSION%%-*}" && \
+  CFT_PLATFORM=$(case "${TARGETARCH}" in amd64) echo "linux64" ;; *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; esac) && \
+  wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VERSION}/${CFT_PLATFORM}/chrome-${CFT_PLATFORM}.zip" -O chrome-linux64.zip && \
+  wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VERSION}/${CFT_PLATFORM}/chromedriver-${CFT_PLATFORM}.zip" -O chromedriver-linux64.zip
 
 FROM ${DOCKER_CLI_IMAGE} AS docker-cli
 
@@ -146,13 +152,32 @@ COPY --from=docker-compose-downloader /downloads/docker-compose /usr/local/lib/d
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
-  --mount=type=bind,from=chrome-downloader,source=/downloads/google-chrome.deb,target=/tmp/google-chrome.deb \
-  dpkg -i /tmp/google-chrome.deb || apt --fix-broken install -y
+  --mount=type=bind,from=chrome-for-testing-downloader,source=/downloads/chrome-linux64.zip,target=/tmp/chrome-linux64.zip \
+  --mount=type=bind,from=chrome-for-testing-downloader,source=/downloads/chromedriver-linux64.zip,target=/tmp/chromedriver-linux64.zip \
+  unzip -q /tmp/chrome-linux64.zip -d /opt && \
+  unzip -q /tmp/chromedriver-linux64.zip -d /opt && \
+  ln -sf /opt/chrome-linux64/chrome /usr/bin/google-chrome-stable && \
+  ln -sf /opt/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
+  chmod +x /opt/chrome-linux64/chrome /usr/local/bin/chromedriver
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
-  apt-get update && apt-get install -y --no-install-recommends \
-  libsecret-1-0 docker.io && \
+  apt-get update && \
+  select_package() { for pkg in "$@"; do if apt-cache show "$pkg" >/dev/null 2>&1; then echo "$pkg"; return 0; fi; done; return 1; } && \
+  apt_packages=( \
+    ca-certificates docker.io fonts-liberation libsecret-1-0 xdg-utils \
+    libc6 libcairo2 libcups2 libdbus-1-3 libdrm2 libexpat1 libfontconfig1 \
+    libgbm1 libgcc-s1 libgdk-pixbuf-2.0-0 libnspr4 libnss3 libstdc++6 libu2f-udev \
+    libvulkan1 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 \
+    libxext6 libxfixes3 libxi6 libxkbcommon0 libxrandr2 libxrender1 libxshmfence1 \
+    libxss1 libxtst6 \
+  ) && \
+  apt_packages+=("$(select_package libasound2t64 libasound2)") && \
+  apt_packages+=("$(select_package libatk-bridge2.0-0t64 libatk-bridge2.0-0)") && \
+  apt_packages+=("$(select_package libatk1.0-0t64 libatk1.0-0)") && \
+  apt_packages+=("$(select_package libglib2.0-0t64 libglib2.0-0)") && \
+  apt_packages+=("$(select_package libpango-1.0-0t64 libpango-1.0-0)") && \
+  apt-get install -y --no-install-recommends "${apt_packages[@]}" && \
   rm -rf /var/lib/apt/lists/*
 
 COPY --from=coder-downloader /downloads/coder /usr/local/bin/coder

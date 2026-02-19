@@ -56,7 +56,7 @@ function fetch_all_latest_versions() {
   info "Fetching latest tool versions..."
   LATEST_CODER=$(fetch_latest_version "coder/coder")
   LATEST_CODE_SERVER=$(fetch_latest_version "coder/code-server")
-  LATEST_CHROME=$(curl -sL "https://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages" 2>/dev/null | rg -A1 "^Package: google-chrome-stable" | rg "^Version:" | awk '{print $2}')
+  LATEST_CHROME=$(curl -fsSL "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE" 2>/dev/null | tr -d '\r')
   info "Latest versions: coder=$LATEST_CODER, code-server=$LATEST_CODE_SERVER, chrome=$LATEST_CHROME"
 }
 

@@ -79,6 +79,25 @@ jobs:
             echo "Failed to fetch version for $pkg after $max_retries attempts" >&2
             return 1
           }
+
+          fetch_cft_version() {
+            local max_retries=3
+            local retry_count=0
+
+            while [ $retry_count -lt $max_retries ]; do
+              if version=$(curl -fsSL "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE" 2>/dev/null | tr -d '\r'); then
+                if [ -n "$version" ]; then
+                  echo "$version"
+                  return 0
+                fi
+              fi
+              retry_count=$((retry_count + 1))
+              sleep $((retry_count * 2))
+            done
+
+            echo "Failed to fetch Chrome for Testing version after $max_retries attempts" >&2
+            return 1
+          }
           
           echo "Fetching latest versions..."
           
@@ -88,12 +107,14 @@ jobs:
           OPENCODE_VERSION=$(fetch_github_version "$OPENCODE_REPO") || exit 1
           OPENCHAMBER_VERSION=$(fetch_npm_version "$OPENCHAMBER_PKG") || exit 1
           OPENCLAW_VERSION=$(fetch_npm_version "$OPENCLAW_PKG") || exit 1
+          CHROME_VERSION=$(fetch_cft_version) || exit 1
           
           echo "coder_version=$CODER_VERSION" >> "$GITHUB_OUTPUT"
           echo "code_server_version=$CODE_SERVER_VERSION" >> "$GITHUB_OUTPUT"
           echo "opencode_version=$OPENCODE_VERSION" >> "$GITHUB_OUTPUT"
           echo "openchamber_version=$OPENCHAMBER_VERSION" >> "$GITHUB_OUTPUT"
           echo "openclaw_version=$OPENCLAW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "chrome_version=$CHROME_VERSION" >> "$GITHUB_OUTPUT"
           
           echo "Latest versions:"
           echo "  Coder: $CODER_VERSION"
@@ -101,6 +122,7 @@ jobs:
           echo "  OpenCode: $OPENCODE_VERSION"
           echo "  OpenChamber: $OPENCHAMBER_VERSION"
           echo "  OpenClaw: $OPENCLAW_VERSION"
+          echo "  Chrome for Testing: $CHROME_VERSION"
 
       - name: Update Dockerfile versions
         run: |
@@ -117,6 +139,11 @@ jobs:
           # Update CODE_SERVER_VERSION with tag protection
           sed -i \
             -e '/# VERSION_UPDATE_BEGIN: code-server/,/# VERSION_UPDATE_END: code-server/{s/ARG CODE_SERVER_VERSION=.*/ARG CODE_SERVER_VERSION=${{ steps.check.outputs.code_server_version }}/}' \
+            "$BASE_DOCKERFILE"
+
+          # Update GOOGLE_CHROME_VERSION with tag protection
+          sed -i \
+            -e '/# VERSION_UPDATE_BEGIN: chrome/,/# VERSION_UPDATE_END: chrome/{s/ARG GOOGLE_CHROME_VERSION=.*/ARG GOOGLE_CHROME_VERSION=${{ steps.check.outputs.chrome_version }}/}' \
             "$BASE_DOCKERFILE"
 
           # Update OPENCODE_VERSION with tag protection
@@ -179,6 +206,7 @@ jobs:
           - opencode: ${{ steps.check.outputs.opencode_version }}
           - openchamber: ${{ steps.check.outputs.openchamber_version }}
           - openclaw: ${{ steps.check.outputs.openclaw_version }}
+          - chrome: ${{ steps.check.outputs.chrome_version }}
           COMMIT_MSG_EOF
           
           git commit -F /tmp/commit_msg.txt

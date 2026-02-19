@@ -46,9 +46,11 @@ jobs:
         run: |
           CODER_VERSION=$(gh release view --repo coder/coder --json tagName -q '.tagName' | sed 's/^v//')
           CODE_SERVER_VERSION=$(gh release view --repo coder/code-server --json tagName -q '.tagName' | sed 's/^v//')
+          CHROME_VERSION=$(curl -fsSL "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE" | tr -d '\r')
           echo "coder=$CODER_VERSION" >> $GITHUB_OUTPUT
           echo "code_server=$CODE_SERVER_VERSION" >> $GITHUB_OUTPUT
-          echo "Resolved versions: coder=$CODER_VERSION, code-server=$CODE_SERVER_VERSION"
+          echo "chrome=$CHROME_VERSION" >> $GITHUB_OUTPUT
+          echo "Resolved versions: coder=$CODER_VERSION, code-server=$CODE_SERVER_VERSION, chrome=$CHROME_VERSION"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -68,6 +70,7 @@ jobs:
           build-args: |
             CODER_VERSION=${{ steps.versions.outputs.coder }}
             CODE_SERVER_VERSION=${{ steps.versions.outputs.code_server }}
+            GOOGLE_CHROME_VERSION=${{ steps.versions.outputs.chrome }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/hakim-base:latest
             ghcr.io/${{ github.repository_owner }}/hakim-base:${{ github.run_id }}
