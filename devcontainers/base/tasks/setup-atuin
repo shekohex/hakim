@@ -1,0 +1,10 @@
+#!/bin/bash
+#MISE description="Setup Atuin"
+set -euo pipefail
+
+bashrc="/etc/bash.bashrc"
+line='eval "$(/usr/local/bin/atuin init bash)"'
+
+if ! grep -Fqx "$line" "$bashrc"; then
+  echo "$line" >> "$bashrc"
+fi

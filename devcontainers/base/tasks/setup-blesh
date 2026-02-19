@@ -1,6 +1,6 @@
 #!/bin/bash
 #MISE description="Setup ble.sh"
-set -e
+set -euo pipefail
 
 echo "Installing ble.sh..."
 
@@ -10,13 +10,54 @@ git clone --recursive --depth 1 --shallow-submodules https://github.com/akinomyo
 make -C /tmp/ble.sh install PREFIX=/usr/local
 rm -rf /tmp/ble.sh
 
-# Add to bashrc
-# We prepend the source command to ensure it runs early, but attach at the end
-# Since we can't easily prepend to /etc/bash.bashrc without a temp file, we will just append the recommended block.
-# The reliable setup from docs:
-cat << 'EOF' >> /etc/bash.bashrc
+bashrc="/etc/bash.bashrc"
 
+remove_block() {
+  local start_marker="$1"
+  local end_marker="$2"
+  if grep -Fxq "$start_marker" "$bashrc"; then
+    local tmp_file
+    tmp_file="$(mktemp)"
+    awk -v start="$start_marker" -v end="$end_marker" '
+      $0 == start { in_block = 1; next }
+      $0 == end { in_block = 0; next }
+      !in_block { print }
+    ' "$bashrc" > "$tmp_file"
+    mv "$tmp_file" "$bashrc"
+  fi
+}
+
+remove_block "### hakim-bash-history-start" "### hakim-bash-history-end"
+remove_block "### hakim-blesh-start" "### hakim-blesh-end"
+
+cat << 'EOF' >> "$bashrc"
+### hakim-bash-history-start
+export HISTSIZE=50000
+export HISTFILESIZE=100000
+export HISTCONTROL=ignoreboth:erasedups
+export HISTIGNORE='ls:ll:la:l:pwd:cd:cd -:clear:history:h:exit:logout:bg:fg:jobs'
+export HISTTIMEFORMAT='%F %T '
+shopt -s histappend cmdhist lithist
+if [[ -z "${__HAKIM_HISTORY_HOOKED:-}" ]]; then
+  __hakim_history_append() {
+    builtin history -a
+    builtin history -n
+  }
+  if [[ -n "${PROMPT_COMMAND:-}" ]]; then
+    case ";${PROMPT_COMMAND};" in
+      *";__hakim_history_append;"*) ;;
+      *) PROMPT_COMMAND="__hakim_history_append; ${PROMPT_COMMAND}" ;;
+    esac
+  else
+    PROMPT_COMMAND="__hakim_history_append"
+  fi
+  export __HAKIM_HISTORY_HOOKED=1
+fi
+### hakim-bash-history-end
+
+### hakim-blesh-start
 # ble.sh
 [[ $- == *i* ]] && source -- /usr/local/share/blesh/ble.sh --attach=none
 [[ ! ${BLE_VERSION-} ]] || ble-attach
+### hakim-blesh-end
 EOF

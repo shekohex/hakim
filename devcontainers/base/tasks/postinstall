@@ -1,5 +1,5 @@
 #!/bin/bash
 #MISE description="Post-install setup"
-#MISE depends=["setup-starship", "setup-zoxide", "expose-tools", "setup-blesh"]
+#MISE depends=["setup-starship", "setup-zoxide", "setup-direnv", "setup-atuin", "expose-tools", "setup-blesh"]
 
 echo "Post-install configuration complete."
