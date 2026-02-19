@@ -494,7 +494,7 @@ data "coder_parameter" "tmux_config" {
   description  = "Optional custom ~/.tmux.conf content."
   type         = "string"
   form_type    = "textarea"
-  default      = trimspace(file("${path.module}/../shared/tmux.conf"))
+  default      = trimspace(file("${path.module}/tmux.conf"))
   mutable      = true
   icon         = "/icon/terminal.svg"
   order        = 67
