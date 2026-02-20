@@ -28,6 +28,7 @@ workspace_key_dir="${keys_root}/${workspace}"
 host_key_dir="${keys_root}/${host}"
 key_ttl_seconds="${CODER_ET_KEY_TTL_SECONDS:-3600}"
 startup_timeout_seconds="${CODER_ET_STARTUP_TIMEOUT_SECONDS:-8}"
+known_hosts_file="${CODER_ET_KNOWN_HOSTS_FILE:-$HOME/.ssh/coder_known_hosts}"
 
 port_forward_log_file="${workspace_state_dir}/port-forward.log"
 port_forward_pid_file="${workspace_state_dir}/port-forward.pid"
@@ -94,6 +95,27 @@ wait_for_tcp() {
   for _ in $(seq 1 "$timeout"); do
     if (echo >/dev/tcp/"$host"/"$port") >/dev/null 2>&1; then
       return 0
+    fi
+    sleep 1
+  done
+
+  return 1
+}
+
+wait_for_ssh_banner() {
+  local host="$1"
+  local port="$2"
+  local timeout="$3"
+  local line
+
+  for _ in $(seq 1 "$timeout"); do
+    if exec 3<>/dev/tcp/"$host"/"$port" 2>/dev/null; then
+      IFS= read -r -t 1 line <&3 || true
+      exec 3<&-
+      exec 3>&-
+      if [[ "$line" == SSH-* ]]; then
+        return 0
+      fi
     fi
     sleep 1
   done
@@ -169,6 +191,17 @@ fi
 }
 
 fallback_to_stdio() {
+  if [ -n "${local_workspace_ssh_port:-}" ] && wait_for_ssh_banner 127.0.0.1 "$local_workspace_ssh_port" 1; then
+    printf "ET unavailable for workspace %s, falling back to direct forwarded sshd\n" "$workspace" >&2
+    exec nc 127.0.0.1 "$local_workspace_ssh_port"
+  fi
+
+  if [ -f "$known_hosts_file" ]; then
+    ssh-keygen -R "$host" -f "$known_hosts_file" >/dev/null 2>&1 || true
+    ssh-keygen -R "coder.${workspace}" -f "$known_hosts_file" >/dev/null 2>&1 || true
+    ssh-keygen -R "${workspace}.coder" -f "$known_hosts_file" >/dev/null 2>&1 || true
+  fi
+
   printf "ET unavailable for workspace %s, falling back to coder ssh --stdio\n" "$workspace" >&2
   exec coder ssh --stdio "$workspace"
 }
@@ -219,7 +252,29 @@ if ! coder ssh "$workspace" -- "set -euo pipefail; umask 077; mkdir -p ~/.ssh; t
   exit 1
 fi
 
-if ! pid_running "$port_forward_pid_file" || ! wait_for_tcp 127.0.0.1 "$local_et_port" 1 || ! wait_for_tcp 127.0.0.1 "$local_workspace_ssh_port" 1; then
+workspace_host_key_pub="$(coder ssh "$workspace" -- "set -euo pipefail; cat ~/.local/share/hakim-et/ssh_host_ed25519_key.pub" < /dev/null 2>/dev/null || true)"
+if [[ "$workspace_host_key_pub" == ssh-ed25519* ]]; then
+  host_alias_a="$host"
+  host_alias_b="coder.${workspace}"
+  host_alias_c="${workspace}.coder"
+
+  mkdir -p "$(dirname "$known_hosts_file")"
+  touch "$known_hosts_file"
+  chmod 600 "$known_hosts_file"
+  ssh-keygen -R "$host_alias_a" -f "$known_hosts_file" >/dev/null 2>&1 || true
+  ssh-keygen -R "$host_alias_b" -f "$known_hosts_file" >/dev/null 2>&1 || true
+  ssh-keygen -R "$host_alias_c" -f "$known_hosts_file" >/dev/null 2>&1 || true
+
+  printf "%s %s\n" "$host_alias_a" "$workspace_host_key_pub" >>"$known_hosts_file"
+  if [ "$host_alias_b" != "$host_alias_a" ]; then
+    printf "%s %s\n" "$host_alias_b" "$workspace_host_key_pub" >>"$known_hosts_file"
+  fi
+  if [ "$host_alias_c" != "$host_alias_a" ] && [ "$host_alias_c" != "$host_alias_b" ]; then
+    printf "%s %s\n" "$host_alias_c" "$workspace_host_key_pub" >>"$known_hosts_file"
+  fi
+fi
+
+if ! pid_running "$port_forward_pid_file" || ! wait_for_tcp 127.0.0.1 "$local_et_port" 1 || ! wait_for_tcp 127.0.0.1 "$local_workspace_ssh_port" 1 || ! wait_for_ssh_banner 127.0.0.1 "$local_workspace_ssh_port" 1; then
   stop_pid_file "$port_forward_pid_file"
 
   nohup coder port-forward "$workspace" \
@@ -242,7 +297,7 @@ if ! [[ "$startup_timeout_seconds" =~ ^[0-9]+$ ]] || [ "$startup_timeout_seconds
   startup_timeout_seconds=8
 fi
 
-if ! wait_for_tcp 127.0.0.1 "$local_et_port" "$startup_timeout_seconds" || ! wait_for_tcp 127.0.0.1 "$local_workspace_ssh_port" "$startup_timeout_seconds"; then
+if ! wait_for_tcp 127.0.0.1 "$local_et_port" "$startup_timeout_seconds" || ! wait_for_tcp 127.0.0.1 "$local_workspace_ssh_port" "$startup_timeout_seconds" || ! wait_for_ssh_banner 127.0.0.1 "$local_workspace_ssh_port" "$startup_timeout_seconds"; then
   printf "coder port-forward failed for workspace %s\n" "$workspace" >&2
   printf "See log: %s\n" "$port_forward_log_file" >&2
   fallback_to_stdio

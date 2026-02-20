@@ -55,8 +55,12 @@ flowchart LR
 Set ProxyCommand on developer machine:
 
 ```sshconfig
-Host *.coder
+Host coder.* *.coder
   User coder
+  IdentitiesOnly yes
+  IdentityFile ~/.ssh/coder-keys/%h/id_ed25519
+  StrictHostKeyChecking accept-new
+  UserKnownHostsFile ~/.ssh/coder_known_hosts
   ProxyCommand ~/.ssh/scripts/coder-et-proxy.sh %h %p %r
 ```
 
