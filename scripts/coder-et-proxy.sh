@@ -10,9 +10,12 @@ host="$1"
 port="${2:-22}"
 remote_user="${3:-coder}"
 
-workspace="${host%.coder}"
-if [ -z "$workspace" ]; then
-  workspace="$host"
+workspace="$host"
+if [[ "$workspace" == coder.* ]]; then
+  workspace="${workspace#coder.}"
+fi
+if [[ "$workspace" == *.coder ]]; then
+  workspace="${workspace%.coder}"
 fi
 
 state_root="${XDG_STATE_HOME:-$HOME/.local/state}/hakim-et"
@@ -20,11 +23,13 @@ workspace_state_dir="${state_root}/${workspace}"
 keys_root="${CODER_ET_KEYS_DIR:-$HOME/.ssh/coder-keys}"
 workspace_key_dir="${keys_root}/${workspace}"
 key_ttl_seconds="${CODER_ET_KEY_TTL_SECONDS:-3600}"
+startup_timeout_seconds="${CODER_ET_STARTUP_TIMEOUT_SECONDS:-8}"
 
 port_forward_log_file="${workspace_state_dir}/port-forward.log"
 port_forward_pid_file="${workspace_state_dir}/port-forward.pid"
 et_log_file="${workspace_state_dir}/et.log"
 et_pid_file="${workspace_state_dir}/et.pid"
+setup_log_file="${workspace_state_dir}/setup.log"
 local_key_file="${workspace_key_dir}/id_ed25519"
 local_key_pub_file="${local_key_file}.pub"
 
@@ -139,9 +144,9 @@ should_rotate_key() {
     return 0
   fi
 
-  if ! [[ "$key_ttl_seconds" =~ ^[0-9]+$ ]]; then
-    return 0
-  fi
+if ! [[ "$key_ttl_seconds" =~ ^[0-9]+$ ]]; then
+  return 0
+fi
 
   if [ "$key_ttl_seconds" -eq 0 ]; then
     return 1
@@ -157,6 +162,11 @@ should_rotate_key() {
   fi
 
   return 1
+}
+
+fallback_to_stdio() {
+  printf "ET unavailable for workspace %s, falling back to coder ssh --stdio\n" "$workspace" >&2
+  exec coder ssh --stdio "$workspace"
 }
 
 require_command coder
@@ -189,7 +199,11 @@ chmod 644 "$local_key_pub_file"
 
 marker_prefix_b64="$(printf '%s' "$key_comment_prefix" | base64 | tr -d '\n')"
 pubkey_b64="$(base64 <"$local_key_pub_file" | tr -d '\n')"
-coder ssh "$workspace" -- bash -lc "set -euo pipefail; umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys; marker_prefix=\$(printf '%s' '${marker_prefix_b64}' | base64 -d); pubkey=\$(printf '%s' '${pubkey_b64}' | base64 -d); tmp=\$(mktemp); awk -v marker=\"\$marker_prefix\" 'index(\$0, marker) == 0 { print \$0 }' ~/.ssh/authorized_keys > \"\$tmp\"; printf '%s\\n' \"\$pubkey\" >> \"\$tmp\"; mv \"\$tmp\" ~/.ssh/authorized_keys"
+if ! coder ssh "$workspace" -- bash -lc "set -euo pipefail; umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys; marker_prefix=\$(printf '%s' '${marker_prefix_b64}' | base64 -d); pubkey=\$(printf '%s' '${pubkey_b64}' | base64 -d); tmp=\$(mktemp); awk -v marker=\"\$marker_prefix\" 'index(\$0, marker) == 0 { print \$0 }' ~/.ssh/authorized_keys > \"\$tmp\"; printf '%s\\n' \"\$pubkey\" >> \"\$tmp\"; mv \"\$tmp\" ~/.ssh/authorized_keys" < /dev/null >"$setup_log_file" 2>&1; then
+  printf "coder ssh bootstrap failed for workspace %s\n" "$workspace" >&2
+  printf "See log: %s\n" "$setup_log_file" >&2
+  exit 1
+fi
 
 if ! pid_running "$port_forward_pid_file" || ! wait_for_tcp 127.0.0.1 "$local_et_port" 1 || ! wait_for_tcp 127.0.0.1 "$local_workspace_ssh_port" 1; then
   stop_pid_file "$port_forward_pid_file"
@@ -197,7 +211,7 @@ if ! pid_running "$port_forward_pid_file" || ! wait_for_tcp 127.0.0.1 "$local_et
   nohup coder port-forward "$workspace" \
     --tcp "127.0.0.1:${local_et_port}:2022" \
     --tcp "127.0.0.1:${local_workspace_ssh_port}:2244" \
-    >"$port_forward_log_file" 2>&1 &
+    < /dev/null >"$port_forward_log_file" 2>&1 &
   echo "$!" >"$port_forward_pid_file"
 fi
 
@@ -206,20 +220,24 @@ if ! process_matches "$port_forward_pid_file" "coder port-forward ${workspace}";
   nohup coder port-forward "$workspace" \
     --tcp "127.0.0.1:${local_et_port}:2022" \
     --tcp "127.0.0.1:${local_workspace_ssh_port}:2244" \
-    >"$port_forward_log_file" 2>&1 &
+    < /dev/null >"$port_forward_log_file" 2>&1 &
   echo "$!" >"$port_forward_pid_file"
 fi
 
-if ! wait_for_tcp 127.0.0.1 "$local_et_port" 25 || ! wait_for_tcp 127.0.0.1 "$local_workspace_ssh_port" 25; then
+if ! [[ "$startup_timeout_seconds" =~ ^[0-9]+$ ]] || [ "$startup_timeout_seconds" -lt 1 ]; then
+  startup_timeout_seconds=8
+fi
+
+if ! wait_for_tcp 127.0.0.1 "$local_et_port" "$startup_timeout_seconds" || ! wait_for_tcp 127.0.0.1 "$local_workspace_ssh_port" "$startup_timeout_seconds"; then
   printf "coder port-forward failed for workspace %s\n" "$workspace" >&2
   printf "See log: %s\n" "$port_forward_log_file" >&2
-  exit 1
+  fallback_to_stdio
 fi
 
 if ! process_matches "$port_forward_pid_file" "coder port-forward ${workspace}"; then
   printf "coder port-forward listener ownership check failed for workspace %s\n" "$workspace" >&2
   printf "See log: %s\n" "$port_forward_log_file" >&2
-  exit 1
+  fallback_to_stdio
 fi
 
 if [ "$key_rotated" = "1" ]; then
@@ -229,40 +247,42 @@ fi
 if ! pid_running "$et_pid_file" || ! wait_for_tcp 127.0.0.1 "$local_proxy_ssh_port" 1; then
   stop_pid_file "$et_pid_file"
 
-  nohup et -N -u "$remote_user" "127.0.0.1:${local_et_port}" \
+  nohup et -N "${remote_user}@127.0.0.1" \
+    -p "${local_et_port}" \
     --ssh-option "Port=${local_workspace_ssh_port}" \
     --ssh-option "StrictHostKeyChecking=no" \
     --ssh-option "UserKnownHostsFile=${workspace_state_dir}/known_hosts" \
     --ssh-option "IdentityFile=${local_key_file}" \
     --ssh-option "IdentitiesOnly=yes" \
     -t "${local_proxy_ssh_port}:2244" \
-    >"$et_log_file" 2>&1 &
+    < /dev/null >"$et_log_file" 2>&1 &
   echo "$!" >"$et_pid_file"
 fi
 
-if ! process_matches "$et_pid_file" "127.0.0.1:${local_et_port}"; then
+if ! process_matches "$et_pid_file" "${remote_user}@127.0.0.1" || ! process_matches "$et_pid_file" "-p ${local_et_port}"; then
   stop_pid_file "$et_pid_file"
-  nohup et -N -u "$remote_user" "127.0.0.1:${local_et_port}" \
+  nohup et -N "${remote_user}@127.0.0.1" \
+    -p "${local_et_port}" \
     --ssh-option "Port=${local_workspace_ssh_port}" \
     --ssh-option "StrictHostKeyChecking=no" \
     --ssh-option "UserKnownHostsFile=${workspace_state_dir}/known_hosts" \
     --ssh-option "IdentityFile=${local_key_file}" \
     --ssh-option "IdentitiesOnly=yes" \
     -t "${local_proxy_ssh_port}:2244" \
-    >"$et_log_file" 2>&1 &
+    < /dev/null >"$et_log_file" 2>&1 &
   echo "$!" >"$et_pid_file"
 fi
 
-if ! wait_for_tcp 127.0.0.1 "$local_proxy_ssh_port" 25; then
+if ! wait_for_tcp 127.0.0.1 "$local_proxy_ssh_port" "$startup_timeout_seconds"; then
   printf "et tunnel failed for workspace %s\n" "$workspace" >&2
   printf "See log: %s\n" "$et_log_file" >&2
-  exit 1
+  fallback_to_stdio
 fi
 
-if ! process_matches "$et_pid_file" "127.0.0.1:${local_et_port}"; then
+if ! process_matches "$et_pid_file" "${remote_user}@127.0.0.1" || ! process_matches "$et_pid_file" "-p ${local_et_port}"; then
   printf "et listener ownership check failed for workspace %s\n" "$workspace" >&2
   printf "See log: %s\n" "$et_log_file" >&2
-  exit 1
+  fallback_to_stdio
 fi
 
 exec nc 127.0.0.1 "$local_proxy_ssh_port"
