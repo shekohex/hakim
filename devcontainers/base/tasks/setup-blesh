@@ -32,6 +32,9 @@ remove_block "### hakim-blesh-start" "### hakim-blesh-end"
 
 cat << 'EOF' >> "$bashrc"
 ### hakim-bash-history-start
+export LANG="${LANG:-en_US.UTF-8}"
+export LANGUAGE="${LANGUAGE:-en_US:en}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
 export HISTSIZE=50000
 export HISTFILESIZE=100000
 export HISTCONTROL=ignoreboth:erasedups
