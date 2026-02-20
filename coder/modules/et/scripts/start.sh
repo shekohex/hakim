@@ -113,6 +113,7 @@ ListenAddress ${ARG_BIND_IP}
 HostKey ${SSHD_HOST_KEY_FILE}
 PidFile ${SSHD_PID_FILE}
 AuthorizedKeysFile .ssh/authorized_keys
+StrictModes no
 AllowUsers ${ARG_SSH_USER}
 PubkeyAuthentication yes
 AuthenticationMethods publickey

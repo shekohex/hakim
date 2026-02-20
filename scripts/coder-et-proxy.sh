@@ -22,6 +22,7 @@ state_root="${XDG_STATE_HOME:-$HOME/.local/state}/hakim-et"
 workspace_state_dir="${state_root}/${workspace}"
 keys_root="${CODER_ET_KEYS_DIR:-$HOME/.ssh/coder-keys}"
 workspace_key_dir="${keys_root}/${workspace}"
+host_key_dir="${keys_root}/${host}"
 key_ttl_seconds="${CODER_ET_KEY_TTL_SECONDS:-3600}"
 startup_timeout_seconds="${CODER_ET_STARTUP_TIMEOUT_SECONDS:-8}"
 
@@ -179,6 +180,11 @@ mkdir -p "$workspace_state_dir"
 mkdir -p "$keys_root" "$workspace_key_dir"
 chmod 700 "$keys_root" "$workspace_key_dir"
 
+if [ "$host" != "$workspace" ]; then
+  mkdir -p "$host_key_dir"
+  chmod 700 "$host_key_dir"
+fi
+
 hash="$(printf '%s' "$workspace" | cksum | awk '{print $1}')"
 offset="$((hash % 2000))"
 
@@ -197,9 +203,14 @@ fi
 chmod 600 "$local_key_file"
 chmod 644 "$local_key_pub_file"
 
+if [ "$host" != "$workspace" ]; then
+  ln -sf "$local_key_file" "${host_key_dir}/id_ed25519"
+  ln -sf "$local_key_pub_file" "${host_key_dir}/id_ed25519.pub"
+fi
+
 marker_prefix_b64="$(printf '%s' "$key_comment_prefix" | base64 | tr -d '\n')"
 pubkey_b64="$(base64 <"$local_key_pub_file" | tr -d '\n')"
-if ! coder ssh "$workspace" -- bash -lc "set -euo pipefail; umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys; marker_prefix=\$(printf '%s' '${marker_prefix_b64}' | base64 -d); pubkey=\$(printf '%s' '${pubkey_b64}' | base64 -d); tmp=\$(mktemp); awk -v marker=\"\$marker_prefix\" 'index(\$0, marker) == 0 { print \$0 }' ~/.ssh/authorized_keys > \"\$tmp\"; printf '%s\\n' \"\$pubkey\" >> \"\$tmp\"; mv \"\$tmp\" ~/.ssh/authorized_keys" < /dev/null >"$setup_log_file" 2>&1; then
+if ! coder ssh "$workspace" -- "set -euo pipefail; umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys; marker_prefix=\$(printf '%s' '${marker_prefix_b64}' | base64 -d); pubkey=\$(printf '%s' '${pubkey_b64}' | base64 -d); tmp=\$(mktemp); awk -v marker=\"\$marker_prefix\" 'index(\$0, marker) == 0 { print \$0 }' ~/.ssh/authorized_keys > \"\$tmp\"; printf '%s\\n' \"\$pubkey\" >> \"\$tmp\"; mv \"\$tmp\" ~/.ssh/authorized_keys" < /dev/null >"$setup_log_file" 2>&1; then
   printf "coder ssh bootstrap failed for workspace %s\n" "$workspace" >&2
   printf "See log: %s\n" "$setup_log_file" >&2
   exit 1
