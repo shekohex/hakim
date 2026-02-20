@@ -1,56 +1,43 @@
 # Hakim: Universal Coder Templates
 
-Universal Coder templates with prebuilt DevContainer images and OpenCode AI integration.
+Hakim provides Coder templates and prebuilt DevContainer images for AI-assisted development across multiple language stacks.
 
-## 📦 DevContainer Images
+## DevContainer Images
 
-The images are built using the [DevContainer Features](https://containers.dev/features) specification.
+Images follow the DevContainer Features model and are also OCI-ready for Proxmox LXC usage. The base image can run `coder agent` directly through `CODER_AGENT_URL` and `CODER_AGENT_TOKEN`.
 
-Hakim images are also OCI-ready for Proxmox LXC templates and can run `coder agent` directly via environment variables (`CODER_AGENT_URL`, `CODER_AGENT_TOKEN`) without SSH bootstrap.
-
-| Image Name | Variant | Key Features | Description |
+| Image | Variant | Key tooling | Description |
 | :--- | :--- | :--- | :--- |
-| `hakim-base` | Base | `mise`, `common-utils` | Minimal Debian Trixie image with Docker client and Mise. |
-| `hakim-php` | PHP | `php:8.4`, `laravel`, `nodejs`, `bun` | Laravel development environment with PHP 8.4, Composer, and JS runtimes. |
-| `hakim-dotnet` | .NET | `dotnet:10`, `dotnet:latest`, `nodejs`, `bun` | .NET 10 (Preview) & Latest SDKs with JS runtimes. |
-| `hakim-rust` | Rust | `rust:stable`, `nodejs`, `bun` | Rust Stable toolchain with JS runtimes. |
-| `hakim-js` | JS | `nodejs:lts`, `bun:latest` | Unified JavaScript environment with Node.js LTS and Bun. |
-| `hakim-elixir` | Elixir | `elixir`, `phoenix`, `postgresql-tools`, `nodejs`, `bun` | Elixir + Phoenix environment with PostgreSQL client tools and JS runtimes. |
+| `hakim-base` | Base | `mise`, common utils | Minimal Debian Trixie image with Docker client and core tooling. |
+| `hakim-php` | PHP | `php:8.4`, `laravel`, `nodejs`, `bun` | Laravel-focused workspace with PHP and JS runtimes. |
+| `hakim-dotnet` | .NET | `dotnet:10`, `dotnet:latest`, `nodejs`, `bun` | .NET SDKs with JS runtimes. |
+| `hakim-rust` | Rust | `rust:stable`, `nodejs`, `bun` | Rust toolchain with JS runtimes. |
+| `hakim-js` | JS | `nodejs:lts`, `bun:latest` | JavaScript workspace with Node.js LTS and Bun. |
+| `hakim-elixir` | Elixir | `elixir`, `phoenix`, `postgresql-tools`, `nodejs`, `bun` | Elixir/Phoenix workspace with PostgreSQL client tools and JS runtimes. |
 
-## 🛠️ Coder Template Options
+## Templates
 
-The `coder-templates/hakim` template exposes several parameters to customize the workspace.
+- Docker template: `coder/templates/hakim`
+- Proxmox template: `coder/templates/hakim-proxmox`
 
-For Proxmox, use `coder/templates/hakim-proxmox` with shared pre-pulled OCI templates in Proxmox storage (`vztmpl`).
-Enable `enable_home_disk` to persist `/home/coder`; Docker daemon data is then stored at `/home/coder/.local/share/docker` so pulled images survive workspace container rebuilds.
+For Proxmox, templates are pre-pulled into `vztmpl` storage. With `enable_home_disk = true`, `/home/coder` is persisted and Docker data is stored at `/home/coder/.local/share/docker` to survive container rebuilds.
 
-### Core Parameters
-| Parameter | Description | Default | Options |
-| :--- | :--- | :--- | :--- |
-| **Environment** (`image_variant`) | Selects the environment image. | `base` | `base`, `php`, `dotnet`, `js`, `rust`, `elixir`, `custom` |
-| **Git Repository URL** | Repository to clone on startup. | `""` | Any valid Git URL |
-| **Image URL** | Custom Docker image URL (only used if Env is "Custom"). | `""` | |
+## Common Template Parameters
 
-### AI & Integration
 | Parameter | Description | Default |
 | :--- | :--- | :--- |
-| **System Prompt** | Custom instructions for the OpenCode AI agent. | `""` |
-| **OpenCode Auth** | JSON content of `~/.local/share/opencode/auth.json`. | `{}` |
-| **OpenCode Config** | OpenCode configuration JSON. | `{}` |
-| **Enable Vault CLI** | Install and authenticate Vault via GitHub token. | `false` |
+| `image_variant` | Workspace image variant | `base` |
+| `git_repo_url` | Repository to clone on startup | `""` |
+| `opencode_auth` | OpenCode auth JSON | `{}` |
+| `opencode_config` | OpenCode config JSON | `{}` |
+| `default_env` / `secret_env` | Environment variable injection | `{}` |
+| `preview_port` | Preview app port | `3000` |
+| `setup_script` | Startup shell script | `""` |
+| `enable_et` | Enable ET-based resilient SSH transport | `false` |
 
-### Advanced
-| Parameter | Description | Default |
-| :--- | :--- | :--- |
-| **Environment Variables** | JSON object of env vars to inject. | `{}` |
-| **Secret Env** | Masked JSON object for secrets. | `{}` |
-| **Preview Port** | Web app port for the preview button. | `3000` |
-| **Setup Script** | Bash script to run on startup (cloning, installs). | `""` |
-| **Enable EternalTerminal** (`enable_et`) | Runs loopback `etserver` and hardened `sshd` in workspace for resilient SSH transport. | `false` |
+## Resilient SSH (Optional ET Mode)
 
-## 🔌 Resilient SSH (ET)
-
-When `enable_et = true`, the workspace starts:
+When `enable_et = true`, workspace side services run on loopback only:
 
 - `etserver` on `127.0.0.1:2022`
 - `sshd` on `127.0.0.1:2244`
@@ -65,55 +52,60 @@ flowchart LR
   D --> F[workspace sshd 127.0.0.1:2244]
 ```
 
-Use the local proxy helper:
+Set ProxyCommand on developer machine:
 
 ```sshconfig
 Host *.coder
   User coder
-  ProxyCommand /absolute/path/to/hakim/scripts/coder-et-proxy.sh %h %p %r
+  ProxyCommand ~/.ssh/scripts/coder-et-proxy.sh %h %p %r
 ```
 
-The helper auto-manages `coder port-forward`, starts ET locally, and registers a per-workspace local public key into workspace `~/.ssh/authorized_keys` via `coder ssh`.
+Local prerequisites:
 
-Local machine prerequisites for this flow: `coder` CLI, `et`, and `nc`.
+- `coder` CLI
+- `et`
+- `nc`
 
-- ET website/docs: https://mistertea.github.io/EternalTerminal/
-- ET GitHub docs/install: https://github.com/MisterTea/EternalTerminal
+Install example (macOS/Homebrew):
+
+```bash
+brew install coder/coder/coder MisterTea/et/et netcat
+```
+
+References:
+
+- ET website: https://mistertea.github.io/EternalTerminal/
+- ET docs/install: https://github.com/MisterTea/EternalTerminal
 - Coder docs: https://coder.com/docs
+- ET module details and FAQ: `coder/modules/et/README.md`
 
-Detailed architecture/FAQ is in `coder/modules/et/README.md`.
+## Build
 
-## 🚀 Usage
+Prerequisites:
 
-1.  **Deploy**: Push `coder-templates/hakim` to your Coder deployment.
-2.  **Create Workspace**: Select a Preset (e.g., "Laravel Quick Start", ".NET Quick Start") or configure manually.
-3.  **Develop**: Connect via VS Code (Web/Desktop), SSH, or JetBrains Gateway.
-
-## 🏗️ Build System
-
-The project uses a custom build script that leverages the DevContainer CLI.
-
-**Prerequisites:**
 - Docker
-- `@devcontainers/cli` (Install via `bun install -g @devcontainers/cli` or `npm`)
+- `@devcontainers/cli`
 
-**Build Command:**
+Build all images:
+
 ```sh
 ./scripts/build.sh
 ```
-This builds the base image and all variants found in `devcontainers/.devcontainer/images/*`.
 
-## 🧩 Adding New Components
+## Extending Hakim
 
-### Add a New Feature
-1. Create a folder in `devcontainers/.devcontainer/features/src/<name>`.
-2. Add `devcontainer-feature.json` and `install.sh`.
-3. (Optional) Wrap an upstream feature using the `features` property in `devcontainer-feature.json`.
+Add a feature:
 
-### Add a New Image Variant
-1. Create `devcontainers/.devcontainer/images/<name>/.devcontainer/devcontainer.json`.
-2. Reference `ghcr.io/shekohex/hakim-base:latest`.
-3. Add features pointing to `../../../features/src/<feature>`.
+1. Create `devcontainers/.devcontainer/features/src/<feature-name>`
+2. Add `devcontainer-feature.json` and `install.sh`
+3. Optionally wrap upstream features via `features` in `devcontainer-feature.json`
+
+Add a new image variant:
+
+1. Create `devcontainers/.devcontainer/images/<variant>/.devcontainer/devcontainer.json`
+2. Base it on `ghcr.io/shekohex/hakim-base:latest`
+3. Reference feature paths from `../../../features/src/<feature>`
 
 ## License
+
 MIT
