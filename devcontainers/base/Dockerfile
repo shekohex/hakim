@@ -31,7 +31,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   printf "deb http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}/ trixie-updates main\n" >> /etc/apt/sources.list && \
   printf "deb http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}/ trixie-security main\n" >> /etc/apt/sources.list && \
   apt-get update && apt-get install -y --no-install-recommends \
-  curl wget jq unzip sudo bash htop locales \
+  curl wget jq unzip sudo bash bash-completion htop locales \
   ca-certificates gnupg lsb-release git lsof \
   build-essential gawk procps openssh-client && \
   sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen

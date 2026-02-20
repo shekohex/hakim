@@ -28,6 +28,7 @@ remove_block() {
 }
 
 remove_block "### hakim-bash-history-start" "### hakim-bash-history-end"
+remove_block "### hakim-bash-completion-start" "### hakim-bash-completion-end"
 remove_block "### hakim-blesh-start" "### hakim-blesh-end"
 
 cat << 'EOF' >> "$bashrc"
@@ -57,6 +58,17 @@ if [[ -z "${__HAKIM_HISTORY_HOOKED:-}" ]]; then
   export __HAKIM_HISTORY_HOOKED=1
 fi
 ### hakim-bash-history-end
+
+### hakim-bash-completion-start
+if [[ $- == *i* ]]; then
+  shopt -s progcomp
+  if [[ -r /usr/share/bash-completion/bash_completion ]]; then
+    source /usr/share/bash-completion/bash_completion
+  elif [[ -r /etc/bash_completion ]]; then
+    source /etc/bash_completion
+  fi
+fi
+### hakim-bash-completion-end
 
 ### hakim-blesh-start
 # ble.sh
