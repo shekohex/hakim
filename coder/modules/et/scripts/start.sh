@@ -123,9 +123,9 @@ ChallengeResponseAuthentication no
 AcceptEnv LANG LC_* LANGUAGE
 UsePAM no
 PermitRootLogin no
-PermitTunnel no
-AllowTcpForwarding no
-GatewayPorts no
+PermitTunnel yes
+AllowTcpForwarding yes
+GatewayPorts clientspecified
 X11Forwarding no
 PrintMotd no
 PrintLastLog no
