@@ -26,9 +26,9 @@ Pre-built DevContainer images for AI-powered development.
 3. (Optional) Paste `auth.json` for OpenCode authentication
 4. (Optional) Provide Git URL to auto-clone
 
-## Optional ET SSH Mode
+## ET SSH Mode
 
-Set `enable_et = true` to run loopback `etserver` (`127.0.0.1:2022`) and internal hardened `sshd` (`127.0.0.1:2244`) inside the workspace.
+`enable_et` is enabled by default and runs loopback `etserver` (`127.0.0.1:2022`) plus internal hardened `sshd` (`127.0.0.1:2244`) inside the workspace.
 
 ## Workspace Presets
 

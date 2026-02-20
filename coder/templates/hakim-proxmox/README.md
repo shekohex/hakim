@@ -17,7 +17,7 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 3. Hakim image entrypoint starts `coder agent` automatically when `CODER_AGENT_URL` and `CODER_AGENT_TOKEN` are present.
 4. Provisioner-side post-create agent bootstrap is applied through `scripts/bootstrap-agent-env.sh` using bash+curl (no python dependency).
 5. Template runs the same module stack used by Docker template (`opencode`, `openchamber`, `openclaw-node`, `code-server`, etc).
-6. Optional ET mode (`enable_et`) starts loopback `etserver:2022` and hardened `sshd:2244` for resilient SSH transport.
+6. ET mode (`enable_et`) is enabled by default and starts loopback `etserver:2022` plus hardened `sshd:2244` for resilient SSH transport.
 7. When `enable_home_disk = true`, Docker daemon data root is set to `/home/coder/.local/share/docker` so pulled images survive CT replacement.
 8. Runtime env updates preserve merged template env (`default_env` + `user_env` + `secret_env`) while injecting `CODER_AGENT_BOOTSTRAP`.
 
@@ -29,9 +29,9 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 - Keep security defaults conservative (`unprivileged = true`, nesting off by default).
 - Remove SSH bootstrap and rely on coder-agent-native containers.
 
-## Optional ET SSH Mode
+## ET SSH Mode
 
-Set `enable_et = true` to run loopback `etserver` (`127.0.0.1:2022`) and internal hardened `sshd` (`127.0.0.1:2244`) inside the workspace.
+`enable_et` is enabled by default and runs loopback `etserver` (`127.0.0.1:2022`) plus internal hardened `sshd` (`127.0.0.1:2244`) inside the workspace.
 
 ## OCI Image Contract
 

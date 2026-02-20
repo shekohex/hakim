@@ -33,11 +33,11 @@ For Proxmox, templates are pre-pulled into `vztmpl` storage. With `enable_home_d
 | `default_env` / `secret_env` | Environment variable injection | `{}` |
 | `preview_port` | Preview app port | `3000` |
 | `setup_script` | Startup shell script | `""` |
-| `enable_et` | Enable ET-based resilient SSH transport | `false` |
+| `enable_et` | Enable ET-based resilient SSH transport | `true` |
 
 ## Resilient SSH (Optional ET Mode)
 
-When `enable_et = true`, workspace side services run on loopback only:
+`enable_et` is enabled by default. Workspace side services run on loopback only:
 
 - `etserver` on `127.0.0.1:2022`
 - `sshd` on `127.0.0.1:2244`

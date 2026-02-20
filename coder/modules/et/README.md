@@ -90,9 +90,12 @@ Run on your laptop/workstation:
 
 ```bash
 mkdir -p ~/.ssh/scripts ~/.ssh/coder-keys
-install -m 0755 /path/to/hakim/scripts/coder-et-proxy.sh ~/.ssh/scripts/coder-et-proxy.sh
+curl -fsSL https://raw.githubusercontent.com/shekohex/hakim/main/scripts/coder-et-proxy.sh -o ~/.ssh/scripts/coder-et-proxy.sh
+chmod 0755 ~/.ssh/scripts/coder-et-proxy.sh
 chmod 700 ~/.ssh/scripts ~/.ssh/coder-keys
 ```
+
+Direct script URL: https://raw.githubusercontent.com/shekohex/hakim/main/scripts/coder-et-proxy.sh
 
 Add to `~/.ssh/config`:
 

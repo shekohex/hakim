@@ -253,7 +253,7 @@ data "coder_parameter" "enable_et" {
   display_name = "Enable EternalTerminal"
   description  = "Run loopback etserver (2022) + hardened sshd (2244) for resilient SSH sessions."
   type         = "bool"
-  default      = false
+  default      = true
   icon         = "/icon/terminal.svg"
   order        = 68
 }
