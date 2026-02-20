@@ -47,13 +47,12 @@ validate_opencode_installation() {
 }
 
 wait_for_server() {
-  local url="http://localhost:${ARG_PORT}/project/current"
-  local max_attempts=30
+  local max_attempts=60
   local attempt=0
 
   printf "Waiting for OpenCode server to be ready...\n"
   while [ $attempt -lt $max_attempts ]; do
-    if curl -s -o /dev/null -w "%{http_code}" "$url" | grep -q "200"; then
+    if opencode_healthcheck; then
       printf "OpenCode server is ready\n"
       return 0
     fi
@@ -63,6 +62,11 @@ wait_for_server() {
 
   printf "WARNING: OpenCode server may not be ready after %d seconds\n" "$max_attempts"
   return 1
+}
+
+opencode_healthcheck() {
+  local url="http://localhost:${ARG_PORT}/global/health"
+  curl -s -o /dev/null -w "%{http_code}" "$url" | grep -q "200"
 }
 
 send_initial_prompt() {
@@ -79,28 +83,126 @@ send_initial_prompt() {
   fi
 }
 
-start_opencode_server() {
-  printf "Starting OpenCode server in directory: %s\n" "$ARG_WORKDIR"
-  cd "$ARG_WORKDIR"
-
-  local serve_args=(serve --port "$ARG_PORT" --hostname "$ARG_HOSTNAME" --print-logs)
+build_serve_args() {
+  OPENCODE_SERVE_ARGS=(serve --port "$ARG_PORT" --hostname "$ARG_HOSTNAME" --print-logs)
 
   if [ -n "$ARG_SESSION_ID" ]; then
-    serve_args+=(--session "$ARG_SESSION_ID")
+    OPENCODE_SERVE_ARGS+=(--session "$ARG_SESSION_ID")
   fi
 
   if [ "$ARG_CONTINUE" = "true" ]; then
-    serve_args+=(--continue)
+    OPENCODE_SERVE_ARGS+=(--continue)
+  fi
+}
+
+acquire_supervisor_lock() {
+  local lock_file="/tmp/opencode-supervisor-${ARG_PORT}.lock"
+
+  if command_exists flock; then
+    exec 9>"$lock_file"
+    if ! flock -n 9; then
+      printf "OpenCode supervisor is already running for port %s\n" "$ARG_PORT"
+      return 1
+    fi
+    return 0
   fi
 
-  printf "Running: opencode %s\n" "${serve_args[*]}"
-  nohup opencode "${serve_args[@]}" > /tmp/opencode-serve.log 2>&1 &
+  local lock_dir="${lock_file}.d"
+  if ! mkdir "$lock_dir" 2> /dev/null; then
+    printf "OpenCode supervisor is already running for port %s\n" "$ARG_PORT"
+    return 1
+  fi
 
-  printf "OpenCode server started on port %s\n" "$ARG_PORT"
-  printf "Logs available at /tmp/opencode-serve.log\n"
+  trap 'rmdir "$lock_dir" 2> /dev/null || true' EXIT
+  return 0
+}
 
-  wait_for_server
-  send_initial_prompt
+run_supervisor() {
+  local prompt_state_file="/tmp/opencode-prompt-sent-${ARG_PORT}"
+  local backoff=1
+  local max_backoff=30
+  local health_failures=0
+  local max_health_failures=3
+
+  if ! acquire_supervisor_lock; then
+    return 0
+  fi
+
+  printf "OpenCode supervisor started for port %s\n" "$ARG_PORT"
+
+  while true; do
+    if opencode_healthcheck; then
+      if [ -n "$ARG_AI_PROMPT" ] && [ ! -f "$prompt_state_file" ]; then
+        send_initial_prompt
+        : > "$prompt_state_file"
+      fi
+      sleep 5
+      continue
+    fi
+
+    if ! cd "$ARG_WORKDIR"; then
+      printf "ERROR: failed to enter workdir %s\n" "$ARG_WORKDIR"
+      sleep "$backoff"
+      backoff=$((backoff * 2))
+      if [ "$backoff" -gt "$max_backoff" ]; then
+        backoff=$max_backoff
+      fi
+      continue
+    fi
+
+    build_serve_args
+    printf "Running: opencode %s\n" "${OPENCODE_SERVE_ARGS[*]}"
+    opencode "${OPENCODE_SERVE_ARGS[@]}" >> /tmp/opencode-serve.log 2>&1 &
+    local opencode_pid=$!
+
+    if wait_for_server; then
+      backoff=1
+      if [ -n "$ARG_AI_PROMPT" ] && [ ! -f "$prompt_state_file" ]; then
+        send_initial_prompt
+        : > "$prompt_state_file"
+      fi
+    fi
+
+    health_failures=0
+    while kill -0 "$opencode_pid" 2> /dev/null; do
+      if opencode_healthcheck; then
+        health_failures=0
+      else
+        health_failures=$((health_failures + 1))
+        if [ "$health_failures" -ge "$max_health_failures" ]; then
+          printf "OpenCode healthcheck failed %s times, restarting\n" "$health_failures"
+          kill "$opencode_pid" 2> /dev/null || true
+          sleep 1
+          kill -9 "$opencode_pid" 2> /dev/null || true
+          break
+        fi
+      fi
+      sleep 5
+    done
+
+    wait "$opencode_pid" 2> /dev/null || true
+
+    printf "OpenCode exited, restarting in %s seconds\n" "$backoff"
+    sleep "$backoff"
+    backoff=$((backoff * 2))
+    if [ "$backoff" -gt "$max_backoff" ]; then
+      backoff=$max_backoff
+    fi
+  done
+}
+
+start_opencode_server() {
+  printf "Starting OpenCode supervisor for directory: %s\n" "$ARG_WORKDIR"
+
+  export ARG_WORKDIR ARG_AI_PROMPT ARG_REPORT_TASKS ARG_SESSION_ID ARG_CONTINUE ARG_PORT ARG_HOSTNAME
+
+  local supervisor_cmd
+  supervisor_cmd="$(declare -f command_exists opencode_healthcheck wait_for_server send_initial_prompt build_serve_args acquire_supervisor_lock run_supervisor); run_supervisor"
+
+  nohup bash -lc "$supervisor_cmd" > /tmp/opencode-supervisor.log 2>&1 &
+  printf "OpenCode supervisor started on port %s\n" "$ARG_PORT"
+  printf "Supervisor logs available at /tmp/opencode-supervisor.log\n"
+  printf "OpenCode logs available at /tmp/opencode-serve.log\n"
 }
 
 validate_opencode_installation
