@@ -20,7 +20,7 @@ RUN export MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GL
   mise use --global bun@${BUN_VERSION}
 
 # VERSION_UPDATE_BEGIN: opencode
-ARG OPENCODE_VERSION=1.2.6
+ARG OPENCODE_VERSION=1.2.8
 # VERSION_UPDATE_END: opencode
 RUN su coder -s /bin/bash -c "HOME=/home/coder NPM_CONFIG_PREFIX=/home/coder/.npm-global MISE_INSTALL_PATH=/usr/local/bin/mise PATH=/usr/local/bin:/usr/local/share/mise/installs/node/${NODE_VERSION}/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin /usr/local/share/mise/installs/node/${NODE_VERSION}/bin/npm install -g opencode-ai@${OPENCODE_VERSION}" && \
   ln -sf /home/coder/.npm-global/bin/opencode /usr/local/bin/opencode
