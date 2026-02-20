@@ -239,7 +239,7 @@ data "coder_parameter" "tmux_config" {
   count        = data.coder_parameter.enable_tmux.value ? 1 : 0
   name         = "tmux_config"
   display_name = "tmux Config"
-  description  = "Optional custom ~/.tmux.conf content."
+  description  = "Optional custom ~/.tmux.conf content. Leave empty to keep template defaults."
   type         = "string"
   form_type    = "textarea"
   default      = trimspace(file("${path.module}/tmux.conf"))
@@ -531,7 +531,8 @@ locals {
   tmux_sessions_raw   = length(data.coder_parameter.tmux_sessions) > 0 ? data.coder_parameter.tmux_sessions[0].value : "default"
   tmux_sessions_clean = [for session in split(",", local.tmux_sessions_raw) : trimspace(session) if trimspace(session) != ""]
   tmux_sessions       = length(local.tmux_sessions_clean) > 0 ? local.tmux_sessions_clean : ["default"]
-  tmux_config         = length(data.coder_parameter.tmux_config) > 0 ? data.coder_parameter.tmux_config[0].value : ""
+  tmux_default_config = trimspace(file("${path.module}/tmux.conf"))
+  tmux_config         = length(data.coder_parameter.tmux_config) > 0 && trimspace(data.coder_parameter.tmux_config[0].value) != "" ? trimspace(data.coder_parameter.tmux_config[0].value) : local.tmux_default_config
 }
 
 # ------------------------------------------------------------------------------
