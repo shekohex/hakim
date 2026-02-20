@@ -9,6 +9,9 @@ fi
 host="$1"
 port="${2:-22}"
 remote_user="${3:-coder}"
+export LANG="${LANG:-en_US.UTF-8}"
+export LANGUAGE="${LANGUAGE:-en_US:en}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
 
 workspace="$host"
 if [[ "$workspace" == coder.* ]]; then
@@ -261,6 +264,9 @@ if ! pid_running "$et_pid_file" || ! wait_for_tcp 127.0.0.1 "$local_proxy_ssh_po
   nohup et -N "${remote_user}@127.0.0.1" \
     -p "${local_et_port}" \
     --ssh-option "Port=${local_workspace_ssh_port}" \
+    --ssh-option "SendEnv=LANG" \
+    --ssh-option "SendEnv=LC_*" \
+    --ssh-option "SendEnv=LANGUAGE" \
     --ssh-option "StrictHostKeyChecking=no" \
     --ssh-option "UserKnownHostsFile=${workspace_state_dir}/known_hosts" \
     --ssh-option "IdentityFile=${local_key_file}" \
@@ -275,6 +281,9 @@ if ! process_matches "$et_pid_file" "${remote_user}@127.0.0.1" || ! process_matc
   nohup et -N "${remote_user}@127.0.0.1" \
     -p "${local_et_port}" \
     --ssh-option "Port=${local_workspace_ssh_port}" \
+    --ssh-option "SendEnv=LANG" \
+    --ssh-option "SendEnv=LC_*" \
+    --ssh-option "SendEnv=LANGUAGE" \
     --ssh-option "StrictHostKeyChecking=no" \
     --ssh-option "UserKnownHostsFile=${workspace_state_dir}/known_hosts" \
     --ssh-option "IdentityFile=${local_key_file}" \

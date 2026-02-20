@@ -120,6 +120,7 @@ AuthenticationMethods publickey
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 ChallengeResponseAuthentication no
+AcceptEnv LANG LC_* LANGUAGE
 UsePAM no
 PermitRootLogin no
 PermitTunnel no
