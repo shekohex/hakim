@@ -46,6 +46,42 @@ Enable `enable_home_disk` to persist `/home/coder`; Docker daemon data is then s
 | **Secret Env** | Masked JSON object for secrets. | `{}` |
 | **Preview Port** | Web app port for the preview button. | `3000` |
 | **Setup Script** | Bash script to run on startup (cloning, installs). | `""` |
+| **Enable EternalTerminal** (`enable_et`) | Runs loopback `etserver` and hardened `sshd` in workspace for resilient SSH transport. | `false` |
+
+## 🔌 Resilient SSH (ET)
+
+When `enable_et = true`, the workspace starts:
+
+- `etserver` on `127.0.0.1:2022`
+- `sshd` on `127.0.0.1:2244`
+
+```mermaid
+flowchart LR
+  A[ssh <workspace>.coder] --> B[ProxyCommand helper]
+  B --> C[coder port-forward]
+  B --> D[local et client]
+  C --> E[workspace etserver 127.0.0.1:2022]
+  D --> E
+  D --> F[workspace sshd 127.0.0.1:2244]
+```
+
+Use the local proxy helper:
+
+```sshconfig
+Host *.coder
+  User coder
+  ProxyCommand /absolute/path/to/hakim/scripts/coder-et-proxy.sh %h %p %r
+```
+
+The helper auto-manages `coder port-forward`, starts ET locally, and registers a per-workspace local public key into workspace `~/.ssh/authorized_keys` via `coder ssh`.
+
+Local machine prerequisites for this flow: `coder` CLI, `et`, and `nc`.
+
+- ET website/docs: https://mistertea.github.io/EternalTerminal/
+- ET GitHub docs/install: https://github.com/MisterTea/EternalTerminal
+- Coder docs: https://coder.com/docs
+
+Detailed architecture/FAQ is in `coder/modules/et/README.md`.
 
 ## 🚀 Usage
 

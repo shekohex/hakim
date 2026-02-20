@@ -180,6 +180,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get install -y --no-install-recommends "${apt_packages[@]}" && \
   rm -rf /var/lib/apt/lists/*
 
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  install -d -m 0755 /etc/apt/keyrings && \
+  curl -fsSL https://github.com/MisterTea/debian-et/raw/master/et.gpg -o /etc/apt/keyrings/et.gpg && \
+  . /etc/os-release && \
+  echo "deb [signed-by=/etc/apt/keyrings/et.gpg] https://mistertea.github.io/debian-et/debian-source/ ${VERSION_CODENAME} main" > /etc/apt/sources.list.d/et.list && \
+  apt-get update && \
+  apt-get install -y --no-install-recommends et openssh-server && \
+  rm -rf /var/lib/apt/lists/*
+
 COPY --from=coder-downloader /downloads/coder /usr/local/bin/coder
 COPY --from=code-server-downloader /downloads/code-server /usr/local/lib/code-server
 COPY --from=git-credential-libsecret-builder /tmp/git-credential-libsecret /usr/local/bin/git-credential-libsecret

@@ -17,6 +17,7 @@ Pre-built DevContainer images for AI-powered development.
 - **MCP Support**: Task reporting via Coder MCP server
 - **Security**: Optional Vault integration, masked secrets
 - **Persistence**: `/home/coder` volume persisted
+- **Resilient SSH (Optional)**: ET transport with loopback `etserver:2022` + internal `sshd:2244`
 
 ## Quick Start
 
@@ -24,6 +25,10 @@ Pre-built DevContainer images for AI-powered development.
 2. Choose environment variant
 3. (Optional) Paste `auth.json` for OpenCode authentication
 4. (Optional) Provide Git URL to auto-clone
+
+## Optional ET SSH Mode
+
+Set `enable_et = true` to run loopback `etserver` (`127.0.0.1:2022`) and internal hardened `sshd` (`127.0.0.1:2244`) inside the workspace.
 
 ## Workspace Presets
 

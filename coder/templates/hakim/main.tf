@@ -248,6 +248,16 @@ data "coder_parameter" "tmux_config" {
   order        = 67
 }
 
+data "coder_parameter" "enable_et" {
+  name         = "enable_et"
+  display_name = "Enable EternalTerminal"
+  description  = "Run loopback etserver (2022) + hardened sshd (2244) for resilient SSH sessions."
+  type         = "bool"
+  default      = false
+  icon         = "/icon/terminal.svg"
+  order        = 68
+}
+
 data "coder_parameter" "opencode_auth" {
   name         = "opencode_auth"
   display_name = "OpenCode Auth JSON"
@@ -731,6 +741,12 @@ module "tmux" {
   agent_id    = coder_agent.main.id
   sessions    = local.tmux_sessions
   tmux_config = local.tmux_config
+}
+
+module "et" {
+  count    = data.coder_parameter.enable_et.value ? data.coder_workspace.me.start_count : 0
+  source   = "github.com/shekohex/hakim//coder/modules/et?ref=main"
+  agent_id = coder_agent.main.id
 }
 
 resource "coder_script" "git_setup" {

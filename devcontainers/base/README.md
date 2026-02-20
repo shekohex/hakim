@@ -7,6 +7,7 @@ This is the foundational image for the Hakim Coder Template system. It is based 
 - **Docker-in-Docker**: Pre-configured for running containers inside the workspace.
 - **Mise**: A polyglot tool version manager, installed globally at `/usr/local/bin/mise`.
 - **Common Tools**: `curl`, `wget`, `git`, `jq`, `unzip`, `sudo`.
+- **Resilient SSH Tooling**: `et` (EternalTerminal) and `openssh-server` are available for optional ET-based transport.
 - **Browser Testing**: Chrome for Testing and matching ChromeDriver are installed for automation.
 - **Coder User**: A non-root user `coder` with passwordless sudo.
 - **Coder-Agent-Native Entrypoint**: `/usr/local/bin/hakim-entrypoint` prepares `coder` home/project dirs and starts `coder agent` automatically when `CODER_AGENT_URL` and `CODER_AGENT_TOKEN` are set.
