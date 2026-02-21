@@ -240,13 +240,18 @@ chmod 600 "$local_key_file"
 chmod 644 "$local_key_pub_file"
 
 if [ "$host" != "$workspace" ]; then
-  ln -sf "$local_key_file" "${host_key_dir}/id_ed25519"
-  ln -sf "$local_key_pub_file" "${host_key_dir}/id_ed25519.pub"
+  if [ -L "${host_key_dir}/id_ed25519" ] || [ -L "${host_key_dir}/id_ed25519.pub" ]; then
+    rm -f "${host_key_dir}/id_ed25519" "${host_key_dir}/id_ed25519.pub"
+  fi
+  if [ ! -f "${host_key_dir}/id_ed25519" ]; then
+    install -m 600 "$local_key_file" "${host_key_dir}/id_ed25519"
+  fi
+  rm -f "${host_key_dir}/id_ed25519.pub"
 fi
 
 marker_prefix_b64="$(printf '%s' "$key_comment_prefix" | base64 | tr -d '\n')"
 pubkey_b64="$(base64 <"$local_key_pub_file" | tr -d '\n')"
-if ! coder ssh "$workspace" -- "set -euo pipefail; umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys; marker_prefix=\$(printf '%s' '${marker_prefix_b64}' | base64 -d); pubkey=\$(printf '%s' '${pubkey_b64}' | base64 -d); tmp=\$(mktemp); awk -v marker=\"\$marker_prefix\" 'index(\$0, marker) == 0 { print \$0 }' ~/.ssh/authorized_keys > \"\$tmp\"; printf '%s\\n' \"\$pubkey\" >> \"\$tmp\"; mv \"\$tmp\" ~/.ssh/authorized_keys" < /dev/null >"$setup_log_file" 2>&1; then
+if ! coder ssh "$workspace" -- "set -euo pipefail; umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys; marker_prefix=\$(printf '%s' '${marker_prefix_b64}' | base64 -d); pubkey=\$(printf '%s' '${pubkey_b64}' | base64 -d); if ! grep -Fqx \"\$pubkey\" ~/.ssh/authorized_keys; then printf '%s\\n' \"\$pubkey\" >> ~/.ssh/authorized_keys; fi" < /dev/null >"$setup_log_file" 2>&1; then
   printf "coder ssh bootstrap failed for workspace %s\n" "$workspace" >&2
   printf "See log: %s\n" "$setup_log_file" >&2
   exit 1
