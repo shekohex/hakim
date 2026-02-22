@@ -212,7 +212,7 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   --mount=type=secret,id=github_token \
   if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi && \
   MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml /usr/local/bin/mise run -C /etc/mise postinstall --yes && \
-  rm -rf /etc/mise/tasks /etc/mise/tools.toml /usr/local/share/mise/cache /usr/local/share/mise/downloads
+  rm -rf /etc/mise/tasks /usr/local/share/mise/cache /usr/local/share/mise/downloads
 
 RUN groupadd -f docker && \
   useradd -m -s /bin/bash coder --groups=docker --user-group --uid=1000 && \

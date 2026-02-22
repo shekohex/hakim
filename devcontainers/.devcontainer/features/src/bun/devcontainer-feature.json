@@ -13,7 +13,7 @@
                 "1.1",
                 "1.0"
             ],
-            "default": "1.3.8",
+            "default": "1.3.9",
             "description": "Select the version of Bun to install."
         }
     },

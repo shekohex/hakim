@@ -21,7 +21,7 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   npm install -g "node-gyp@${NODE_GYP_VERSION}" && \
   rm -rf /tmp/.npm /root/.npm
 
-ARG BUN_VERSION=1.3.5
+ARG BUN_VERSION=1.3.9
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   source /etc/profile.d/mise.sh && \
   mise use --global bun@${BUN_VERSION}
@@ -52,7 +52,6 @@ RUN for bin in node npm npx corepack pnpm yarn bun uv uvx; do \
   fi; \
 done
 
-RUN printf "[settings]\nexperimental = true\n" > /etc/mise/config.toml && \
-  printf "[tools]\nnode = \"%s\"\nbun = \"%s\"\nuv = \"%s\"\n" "${NODE_VERSION}" "${BUN_VERSION}" "${UV_VERSION}" > /etc/mise/tools.toml
+RUN printf "[settings]\nexperimental = true\n" > /etc/mise/config.toml
 
 RUN rm -rf /root/.cache/mise /root/.cache/uv /usr/local/share/mise/cache /usr/local/share/mise/downloads

@@ -33,6 +33,9 @@ while IFS= read -r bin_path; do
                 continue
             fi
             ln -sf "$bin_file" "/usr/local/bin/$name"
+            if [ "$name" = "nvim" ]; then
+                ln -sf "/usr/local/bin/nvim" "/usr/local/bin/neovim"
+            fi
         fi
     done
 done < <("$MISE_BIN" bin-paths)
