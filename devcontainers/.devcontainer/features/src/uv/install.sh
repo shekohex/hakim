@@ -18,3 +18,5 @@ source /etc/profile.d/mise.sh
 uv python install "${PYTHON_VERSION}"
 
 uv python list
+
+rm -rf /root/.cache/uv /root/.cache/mise /usr/local/share/mise/cache /usr/local/share/mise/downloads

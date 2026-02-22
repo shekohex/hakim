@@ -111,8 +111,8 @@ WORKDIR /downloads
 
 RUN CFT_VERSION="${GOOGLE_CHROME_VERSION%%-*}" && \
   CFT_PLATFORM=$(case "${TARGETARCH}" in amd64) echo "linux64" ;; *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; esac) && \
-  wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VERSION}/${CFT_PLATFORM}/chrome-${CFT_PLATFORM}.zip" -O chrome-linux64.zip && \
-  wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VERSION}/${CFT_PLATFORM}/chromedriver-${CFT_PLATFORM}.zip" -O chromedriver-linux64.zip
+  curl -fsSL "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VERSION}/${CFT_PLATFORM}/chrome-${CFT_PLATFORM}.zip" -o chrome-linux64.zip && \
+  curl -fsSL "https://storage.googleapis.com/chrome-for-testing-public/${CFT_VERSION}/${CFT_PLATFORM}/chromedriver-${CFT_PLATFORM}.zip" -o chromedriver-linux64.zip
 
 FROM ${DOCKER_CLI_IMAGE} AS docker-cli
 
@@ -135,7 +135,8 @@ COPY install-mise.sh /tmp/
 RUN MISE_VERSION=${MISE_VERSION} MISE_SHA256_X64=${MISE_SHA256_X64} MISE_SHA256_ARM64=${MISE_SHA256_ARM64} bash /tmp/install-mise.sh && rm /tmp/install-mise.sh
 
 COPY mise.toml /etc/mise/config.toml
-RUN --mount=type=secret,id=github_token \
+RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
+  --mount=type=secret,id=github_token \
   if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi && \
   /usr/local/bin/mise install --yes
 
@@ -165,7 +166,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get update && \
   select_package() { for pkg in "$@"; do if apt-cache show "$pkg" >/dev/null 2>&1; then echo "$pkg"; return 0; fi; done; return 1; } && \
   apt_packages=( \
-    ca-certificates docker.io fonts-liberation libsecret-1-0 xdg-utils \
+    ca-certificates fonts-liberation libsecret-1-0 xdg-utils \
     libc6 libcairo2 libcups2 libdbus-1-3 libdrm2 libexpat1 libfontconfig1 \
     libgbm1 libgcc-s1 libgdk-pixbuf-2.0-0 libnspr4 libnss3 libstdc++6 libu2f-udev \
     libvulkan1 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 \
@@ -207,10 +208,11 @@ COPY mise.toml /etc/mise/tools.toml
 COPY starship.toml /etc/starship.toml
 COPY tasks /etc/mise/tasks
 
-RUN --mount=type=secret,id=github_token \
+RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
+  --mount=type=secret,id=github_token \
   if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi && \
   MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml /usr/local/bin/mise run -C /etc/mise postinstall --yes && \
-  rm -rf /etc/mise/tasks /etc/mise/tools.toml
+  rm -rf /etc/mise/tasks /etc/mise/tools.toml /usr/local/share/mise/cache /usr/local/share/mise/downloads
 
 RUN groupadd -f docker && \
   useradd -m -s /bin/bash coder --groups=docker --user-group --uid=1000 && \

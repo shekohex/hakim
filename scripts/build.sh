@@ -2,7 +2,22 @@
 set -euo pipefail
 
 REGISTRY="${REGISTRY:-ghcr.io/shekohex}"
-TIMESTAMP=$(date +%Y%m%d)
+CACHE_REPO="${CACHE_REPO:-}"
+TIMESTAMP="$(date +%Y%m%d%H%M%S)"
+RUN_REF="${RUN_REF:-$TIMESTAMP}"
+
+CODER_VERSION=""
+CODE_SERVER_VERSION=""
+CHROME_VERSION=""
+FETCH_LATEST=false
+PUSH_IMAGES=false
+
+USE_REGISTRY_CACHE_FROM="${USE_REGISTRY_CACHE_FROM:-false}"
+USE_REGISTRY_CACHE_TO="${USE_REGISTRY_CACHE_TO:-false}"
+
+declare -a BASE_VERSION_ARGS=()
+declare -a BUILT_IMAGE_TAGS=()
+declare -a TEMP_CONFIGS=()
 
 function devcontainer() {
   bunx devcontainer "$@"
@@ -28,6 +43,12 @@ function error() {
 
 function on_exit() {
   local status=$?
+  local file
+  if [ ${#TEMP_CONFIGS[@]} -gt 0 ]; then
+    for file in "${TEMP_CONFIGS[@]}"; do
+      rm -f "$file"
+    done
+  fi
   if [ $status -eq 0 ]; then
     info "Build completed successfully"
   else
@@ -36,16 +57,6 @@ function on_exit() {
 }
 
 trap on_exit EXIT
-
-CACHE_ARGS=""
-BASE_BUILD_CMD="docker build"
-CODER_VERSION_ARG=""
-CODE_VERSION_ARG=""
-CHROME_VERSION_ARG=""
-FETCH_LATEST=false
-PUSH_IMAGES=false
-
-declare -a BUILT_IMAGE_TAGS=()
 
 function fetch_latest_version() {
   local repo="$1"
@@ -66,12 +77,16 @@ Usage: $(basename "$0") [OPTIONS]
 
 Options:
   --registry <registry>          Target image registry/namespace (default: ghcr.io/shekohex)
-  --coder-version <version>     Specify the version of coder CLI to install
-  --code-version <version>      Specify the version of code-server to install
-  --chrome-version <version>    Specify the version of Google Chrome to install
-  --fetch-latest                Fetch and use latest versions for all tools (requires gh CLI)
+  --cache-repo <repo>            Registry cache repo (default: <registry>/hakim-cache)
+  --cache-from-registry          Enable registry cache import
+  --cache-to-registry            Enable registry cache export
+  --no-registry-cache            Disable registry cache import/export
+  --coder-version <version>      Specify the version of coder CLI to install
+  --code-version <version>       Specify the version of code-server to install
+  --chrome-version <version>     Specify the version of Google Chrome to install
+  --fetch-latest                 Fetch and use latest versions for all tools (requires gh CLI)
   --push                         Push built images after local build
-  --help, -h                    Show this help message
+  --help, -h                     Show this help message
 
 If no version is specified, defaults from Dockerfile are used.
 With --fetch-latest, all unspecified versions are resolved to latest.
@@ -85,16 +100,31 @@ while [[ "$#" -gt 0 ]]; do
     REGISTRY="$2"
     shift
     ;;
+  --cache-repo)
+    CACHE_REPO="$2"
+    USE_REGISTRY_CACHE_FROM=true
+    shift
+    ;;
+  --cache-from-registry)
+    USE_REGISTRY_CACHE_FROM=true
+    ;;
+  --cache-to-registry)
+    USE_REGISTRY_CACHE_TO=true
+    ;;
+  --no-registry-cache)
+    USE_REGISTRY_CACHE_FROM=false
+    USE_REGISTRY_CACHE_TO=false
+    ;;
   --coder-version)
-    CODER_VERSION_ARG="--build-arg CODER_VERSION=$2"
+    CODER_VERSION="$2"
     shift
     ;;
   --code-version)
-    CODE_VERSION_ARG="--build-arg CODE_SERVER_VERSION=$2"
+    CODE_SERVER_VERSION="$2"
     shift
     ;;
   --chrome-version)
-    CHROME_VERSION_ARG="--build-arg GOOGLE_CHROME_VERSION=$2"
+    CHROME_VERSION="$2"
     shift
     ;;
   --fetch-latest) FETCH_LATEST=true ;;
@@ -108,21 +138,49 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
+if [ -z "$CACHE_REPO" ]; then
+  CACHE_REPO="$REGISTRY/hakim-cache"
+fi
+
 if [ "$FETCH_LATEST" = true ]; then
   if ! command -v gh &>/dev/null; then
     error "gh CLI is required for --fetch-latest but not found"
     exit 1
   fi
   fetch_all_latest_versions
-  [ -z "$CODER_VERSION_ARG" ] && CODER_VERSION_ARG="--build-arg CODER_VERSION=$LATEST_CODER"
-  [ -z "$CODE_VERSION_ARG" ] && CODE_VERSION_ARG="--build-arg CODE_SERVER_VERSION=$LATEST_CODE_SERVER"
-  [ -z "$CHROME_VERSION_ARG" ] && CHROME_VERSION_ARG="--build-arg GOOGLE_CHROME_VERSION=$LATEST_CHROME"
+  [ -z "$CODER_VERSION" ] && CODER_VERSION="$LATEST_CODER"
+  [ -z "$CODE_SERVER_VERSION" ] && CODE_SERVER_VERSION="$LATEST_CODE_SERVER"
+  [ -z "$CHROME_VERSION" ] && CHROME_VERSION="$LATEST_CHROME"
+fi
+
+if [ -n "$CODER_VERSION" ]; then
+  BASE_VERSION_ARGS+=(--build-arg "CODER_VERSION=$CODER_VERSION")
+fi
+if [ -n "$CODE_SERVER_VERSION" ]; then
+  BASE_VERSION_ARGS+=(--build-arg "CODE_SERVER_VERSION=$CODE_SERVER_VERSION")
+fi
+if [ -n "$CHROME_VERSION" ]; then
+  BASE_VERSION_ARGS+=(--build-arg "GOOGLE_CHROME_VERSION=$CHROME_VERSION")
 fi
 
 if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
-  info "Running in GitHub Actions, enabling caching and pushing..."
-  CACHE_ARGS="--cache-from type=gha --cache-to type=gha,mode=max"
-  BASE_BUILD_CMD="docker buildx build --push $CACHE_ARGS"
+  info "Running in GitHub Actions, enabling registry cache import/export and push output."
+  USE_REGISTRY_CACHE_FROM=true
+  USE_REGISTRY_CACHE_TO=true
+fi
+
+if [ "${GITHUB_ACTIONS:-false}" = "true" ] && [ "$PUSH_IMAGES" = true ]; then
+  warn "Ignoring --push because GitHub Actions already pushes via buildx --push"
+  PUSH_IMAGES=false
+fi
+
+if [ "$PUSH_IMAGES" = true ]; then
+  USE_REGISTRY_CACHE_TO=true
+fi
+
+if ! docker buildx version >/dev/null 2>&1; then
+  error "docker buildx is required"
+  exit 1
 fi
 
 if [ -z "${GITHUB_TOKEN:-}" ]; then
@@ -142,19 +200,39 @@ else
   info "GITHUB_TOKEN is already set."
 fi
 
-if [ -n "${GITHUB_TOKEN:-}" ]; then
-  BASE_BUILD_CMD="$BASE_BUILD_CMD --secret id=github_token,env=GITHUB_TOKEN"
+declare -a BUILD_OUTPUT_ARGS=("--load")
+if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+  BUILD_OUTPUT_ARGS=("--push")
 fi
 
-if [ "${GITHUB_ACTIONS:-false}" = "true" ] && [ "$PUSH_IMAGES" = true ]; then
-  warn "Ignoring --push because GitHub Actions already pushes via buildx --push"
-  PUSH_IMAGES=false
+declare -a SECRET_ARGS=()
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  SECRET_ARGS+=(--secret "id=github_token,env=GITHUB_TOKEN")
 fi
+
+function populate_cache_args() {
+  local scope="$1"
+  local -n args_ref="$2"
+  args_ref=()
+
+  if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+    args_ref+=(--cache-from "type=gha,scope=${scope}")
+    args_ref+=(--cache-to "type=gha,mode=max,scope=${scope}")
+  fi
+
+  if [ "$USE_REGISTRY_CACHE_FROM" = "true" ]; then
+    args_ref+=(--cache-from "type=registry,ref=${CACHE_REPO}:${scope}")
+  fi
+
+  if [ "$USE_REGISTRY_CACHE_TO" = "true" ]; then
+    args_ref+=(--cache-to "type=registry,ref=${CACHE_REPO}:${scope},mode=max,ignore-error=true")
+  fi
+}
 
 function add_image_tags() {
   local image_name="$1"
   BUILT_IMAGE_TAGS+=("$REGISTRY/$image_name:latest")
-  BUILT_IMAGE_TAGS+=("$REGISTRY/$image_name:$TIMESTAMP")
+  BUILT_IMAGE_TAGS+=("$REGISTRY/$image_name:$RUN_REF")
 }
 
 function push_built_images() {
@@ -166,31 +244,60 @@ function push_built_images() {
   done
 }
 
+BASE_IMAGE_REF="$REGISTRY/hakim-base:$RUN_REF"
+TOOLING_IMAGE_REF="$REGISTRY/hakim-tooling:$RUN_REF"
+
+info "Using run ref: $RUN_REF"
+info "Using cache repo: $CACHE_REPO"
+info "Registry cache import: $USE_REGISTRY_CACHE_FROM"
+info "Registry cache export: $USE_REGISTRY_CACHE_TO"
+
+populate_cache_args "base" BASE_CACHE_ARGS
 info "Building Base Image..."
-# shellcheck disable=SC2086
-$BASE_BUILD_CMD $CODER_VERSION_ARG $CODE_VERSION_ARG $CHROME_VERSION_ARG -t "$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-base:$TIMESTAMP" devcontainers/base
+docker buildx build \
+  "${BUILD_OUTPUT_ARGS[@]}" \
+  "${SECRET_ARGS[@]}" \
+  "${BASE_CACHE_ARGS[@]}" \
+  "${BASE_VERSION_ARGS[@]}" \
+  -t "$REGISTRY/hakim-base:latest" \
+  -t "$BASE_IMAGE_REF" \
+  devcontainers/base
 add_image_tags "hakim-base"
 
+populate_cache_args "tooling" TOOLING_CACHE_ARGS
 info "Building Tooling Image..."
-# shellcheck disable=SC2086
-$BASE_BUILD_CMD --build-arg BASE_IMAGE="$REGISTRY/hakim-base:latest" -t "$REGISTRY/hakim-tooling:latest" -t "$REGISTRY/hakim-tooling:$TIMESTAMP" devcontainers/tooling
+docker buildx build \
+  "${BUILD_OUTPUT_ARGS[@]}" \
+  "${SECRET_ARGS[@]}" \
+  "${TOOLING_CACHE_ARGS[@]}" \
+  --build-arg "BASE_IMAGE=$BASE_IMAGE_REF" \
+  -t "$REGISTRY/hakim-tooling:latest" \
+  -t "$TOOLING_IMAGE_REF" \
+  devcontainers/tooling
 add_image_tags "hakim-tooling"
 
 for variant in devcontainers/.devcontainer/images/*; do
   variant_name=$(basename "$variant")
   info "Building Variant: $variant_name..."
 
-  tmp_config="$variant/.devcontainer/.tmp-devcontainer.$$.$variant_name.json"
-  jq --arg image "$REGISTRY/hakim-tooling:latest" '.image = $image' "$variant/.devcontainer/devcontainer.json" > "$tmp_config"
+  tmp_config=$(mktemp "${variant}/.devcontainer/.tmp-devcontainer.${variant_name}.XXXXXX.json")
+  TEMP_CONFIGS+=("$tmp_config")
 
-  devcontainer build $CACHE_ARGS \
+  jq --arg image "$TOOLING_IMAGE_REF" '.image = $image' "$variant/.devcontainer/devcontainer.json" > "$tmp_config"
+
+  populate_cache_args "variant-${variant_name}" VARIANT_CACHE_ARGS
+  if [ "$USE_REGISTRY_CACHE_FROM" = "true" ]; then
+    VARIANT_CACHE_ARGS+=(--cache-from "$REGISTRY/hakim-${variant_name}:latest")
+  fi
+
+  devcontainer build \
+    "${VARIANT_CACHE_ARGS[@]}" \
     --workspace-folder devcontainers \
     --config "$tmp_config" \
     --image-name "$REGISTRY/hakim-$variant_name:latest" \
-    --image-name "$REGISTRY/hakim-$variant_name:$TIMESTAMP" .
+    --image-name "$REGISTRY/hakim-$variant_name:$RUN_REF" .
 
   rm -f "$tmp_config"
-
   add_image_tags "hakim-$variant_name"
 done
 

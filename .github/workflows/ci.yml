@@ -74,8 +74,13 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/hakim-base:latest
             ghcr.io/${{ github.repository_owner }}/hakim-base:${{ github.run_id }}
-          cache-from: type=gha,scope=base
-          cache-to: type=gha,mode=max,scope=base
+          cache-from: |
+            type=gha,scope=base
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:base
+            ghcr.io/${{ github.repository_owner }}/hakim-base:latest
+          cache-to: |
+            type=gha,mode=max,scope=base
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:base,mode=max
           secrets: |
             github_token=${{ secrets.GITHUB_TOKEN }}
 
@@ -106,8 +111,13 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/hakim-tooling:latest
             ghcr.io/${{ github.repository_owner }}/hakim-tooling:${{ github.run_id }}
-          cache-from: type=gha,scope=tooling
-          cache-to: type=gha,mode=max,scope=tooling
+          cache-from: |
+            type=gha,scope=tooling
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:tooling
+            ghcr.io/${{ github.repository_owner }}/hakim-tooling:latest
+          cache-to: |
+            type=gha,mode=max,scope=tooling
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:tooling,mode=max
           secrets: |
             github_token=${{ secrets.GITHUB_TOKEN }}
 
@@ -132,14 +142,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prepare ${{ matrix.variant }} config
+        id: prepare
+        run: |
+          tmp_config="devcontainers/.devcontainer/images/${{ matrix.variant }}/.devcontainer/.ci.devcontainer.${{ github.run_id }}.json"
+          jq --arg image "ghcr.io/${{ github.repository_owner }}/hakim-tooling:${{ github.run_id }}" '.image = $image' "devcontainers/.devcontainer/images/${{ matrix.variant }}/.devcontainer/devcontainer.json" > "$tmp_config"
+          echo "config_file=$tmp_config" >> "$GITHUB_OUTPUT"
+
       - name: Build ${{ matrix.variant }} devcontainer
         uses: devcontainers/ci@v0.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           subFolder: devcontainers
-          configFile: devcontainers/.devcontainer/images/${{ matrix.variant }}/.devcontainer/devcontainer.json
+          configFile: ${{ steps.prepare.outputs.config_file }}
           imageName: ghcr.io/${{ github.repository_owner }}/hakim-${{ matrix.variant }}
-          cacheFrom: type=gha,scope=${{ matrix.variant }}
-          cacheTo: type=gha,mode=max,scope=${{ matrix.variant }}
+          imageTag: latest,${{ github.run_id }}
+          cacheFrom: |
+            type=gha,scope=${{ matrix.variant }}
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:variant-${{ matrix.variant }}
+            ghcr.io/${{ github.repository_owner }}/hakim-${{ matrix.variant }}:latest
+          cacheTo: |
+            type=gha,mode=max,scope=${{ matrix.variant }}
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:variant-${{ matrix.variant }},mode=max
           push: always

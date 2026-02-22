@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 PACKAGE_NAME="@openchamber/web"
 VERSION=${VERSION:-"1.6.2"}
@@ -54,5 +54,7 @@ GLOBAL_BIN_DIR="${USER_HOME}/.bun/bin"
 if [ -n "${GLOBAL_BIN_DIR}" ] && [ -f "${GLOBAL_BIN_DIR}/openchamber" ]; then
   ln -sf "${GLOBAL_BIN_DIR}/openchamber" /usr/local/bin/openchamber
 fi
+
+rm -rf "${USER_HOME}/.bun/install/cache"
 
 openchamber --version

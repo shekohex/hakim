@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 VERSION=${VERSION:-"17"}
 
@@ -7,7 +8,7 @@ echo "Installing PostgreSQL client tools (version: ${VERSION})..."
 
 if [ "$VERSION" = "latest" ]; then
     echo "Installing latest PostgreSQL client from distro repository..."
-    apt-get update
+    apt-get update && \
     apt-get install -y --no-install-recommends postgresql-client
 else
     echo "Installing PostgreSQL ${VERSION} client from PGDG repository..."
@@ -15,6 +16,7 @@ else
     DISTRO=$(lsb_release -cs 2>/dev/null || echo "trixie")
     ARCH=$(dpkg --print-architecture)
     
+    apt-get update
     apt-get install -y --no-install-recommends curl ca-certificates gnupg lsb-release
     
     echo "Adding PostgreSQL GPG key..."
