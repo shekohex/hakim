@@ -238,7 +238,7 @@ jobs:
       - name: Restore devcontainer user data cache
         uses: actions/cache@v4
         with:
-          path: .devcontainer-userdata/${{ matrix.variant }}
+          path: ${{ runner.temp }}/devcontainer-userdata/${{ matrix.variant }}
           key: ${{ runner.os }}-devcontainer-userdata-${{ matrix.variant }}-${{ hashFiles('devcontainers/.devcontainer/features/**', 'devcontainers/.devcontainer/images/**/.devcontainer/devcontainer.json') }}
           restore-keys: |
             ${{ runner.os }}-devcontainer-userdata-${{ matrix.variant }}-
@@ -268,4 +268,4 @@ jobs:
             type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:variant-${{ matrix.variant }},mode=max
           push: always
           skipContainerUserIdUpdate: true
-          userDataFolder: .devcontainer-userdata/${{ matrix.variant }}
+          userDataFolder: ${{ runner.temp }}/devcontainer-userdata/${{ matrix.variant }}
