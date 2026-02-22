@@ -4,6 +4,13 @@
     "version": "1.0.0",
     "description": "Configures Neovim with LazyVim starter template.",
     "installsAfter": [
-        "ghcr.io/devcontainers/features/common-utils"
+        "ghcr.io/devcontainers/features/common-utils",
+        "ghcr.io/devcontainers/features/php",
+        "../../../features/laravel",
+        "../../../features/src/dotnet",
+        "../../../features/src/rust",
+        "../../../features/src/elixir",
+        "../../../features/src/phoenix",
+        "../../../features/src/postgresql-tools"
     ]
 }

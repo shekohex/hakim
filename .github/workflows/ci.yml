@@ -22,6 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       variants: ${{ steps.find.outputs.variants }}
+      build_base: ${{ steps.find.outputs.build_base }}
+      build_tooling: ${{ steps.find.outputs.build_tooling }}
+      base_tag: ${{ steps.find.outputs.base_tag }}
+      tooling_tag: ${{ steps.find.outputs.tooling_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,6 +40,14 @@ jobs:
           mapfile -t all_variants < <(ls -d devcontainers/.devcontainer/images/*/ 2>/dev/null | xargs -n1 basename | sort)
           declare -A selected_variants=()
           build_all=false
+          base_changed=false
+          tooling_changed=false
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            build_all=true
+            base_changed=true
+            tooling_changed=true
+          fi
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             base_sha="${{ github.event.pull_request.base.sha }}"
@@ -53,7 +65,16 @@ jobs:
 
           for file in "${changed_files[@]}"; do
             case "${file}" in
-              devcontainers/base/*|devcontainers/tooling/*|.github/workflows/ci.yml)
+              devcontainers/base/*)
+                build_all=true
+                base_changed=true
+                tooling_changed=true
+                ;;
+              devcontainers/tooling/*)
+                build_all=true
+                tooling_changed=true
+                ;;
+              .github/workflows/ci.yml)
                 build_all=true
                 ;;
               devcontainers/.devcontainer/images/*)
@@ -95,11 +116,29 @@ jobs:
             variants="$(printf '%s\n' "${!selected_variants[@]}" | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')"
           fi
 
+          if [ "${base_changed}" = "true" ]; then
+            base_tag="${{ github.run_id }}"
+          else
+            base_tag="latest"
+          fi
+
+          if [ "${tooling_changed}" = "true" ]; then
+            tooling_tag="${{ github.run_id }}"
+          else
+            tooling_tag="latest"
+          fi
+
           echo "variants=${variants}" >> "${GITHUB_OUTPUT}"
+          echo "build_base=${base_changed}" >> "${GITHUB_OUTPUT}"
+          echo "build_tooling=${tooling_changed}" >> "${GITHUB_OUTPUT}"
+          echo "base_tag=${base_tag}" >> "${GITHUB_OUTPUT}"
+          echo "tooling_tag=${tooling_tag}" >> "${GITHUB_OUTPUT}"
           echo "Selected variants: ${variants}"
 
   build-base:
+    needs: discover
     runs-on: ubuntu-latest
+    if: needs.discover.outputs.build_base == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -134,7 +173,8 @@ jobs:
 
   build-tooling:
     runs-on: ubuntu-latest
-    needs: build-base
+    needs: [discover, build-base]
+    if: needs.discover.outputs.build_tooling == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -155,7 +195,7 @@ jobs:
           context: devcontainers/tooling
           push: true
           build-args: |
-            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/hakim-base:${{ github.run_id }}
+            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/hakim-base:${{ needs.discover.outputs.base_tag }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/hakim-tooling:latest
             ghcr.io/${{ github.repository_owner }}/hakim-tooling:${{ github.run_id }}
@@ -171,7 +211,12 @@ jobs:
 
   build-variants:
     runs-on: ubuntu-latest
-    needs: [discover, build-tooling]
+    needs: [discover, build-base, build-tooling]
+    if: |
+      always() &&
+      needs.discover.result == 'success' &&
+      (needs.build-base.result == 'success' || needs.build-base.result == 'skipped') &&
+      (needs.build-tooling.result == 'success' || needs.build-tooling.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
@@ -190,11 +235,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Restore devcontainer user data cache
+        uses: actions/cache@v4
+        with:
+          path: .devcontainer-userdata/${{ matrix.variant }}
+          key: ${{ runner.os }}-devcontainer-userdata-${{ matrix.variant }}-${{ hashFiles('devcontainers/.devcontainer/features/**', 'devcontainers/.devcontainer/images/**/.devcontainer/devcontainer.json') }}
+          restore-keys: |
+            ${{ runner.os }}-devcontainer-userdata-${{ matrix.variant }}-
+
       - name: Prepare ${{ matrix.variant }} config
         id: prepare
         run: |
           tmp_config="devcontainers/.devcontainer/images/${{ matrix.variant }}/.devcontainer/.ci.devcontainer.${{ github.run_id }}.json"
-          jq --arg image "ghcr.io/${{ github.repository_owner }}/hakim-tooling:${{ github.run_id }}" '.image = $image' "devcontainers/.devcontainer/images/${{ matrix.variant }}/.devcontainer/devcontainer.json" > "$tmp_config"
+          jq --arg image "ghcr.io/${{ github.repository_owner }}/hakim-tooling:${{ needs.discover.outputs.tooling_tag }}" '.image = $image' "devcontainers/.devcontainer/images/${{ matrix.variant }}/.devcontainer/devcontainer.json" > "$tmp_config"
           echo "config_file=$tmp_config" >> "$GITHUB_OUTPUT"
 
       - name: Build ${{ matrix.variant }} devcontainer
@@ -215,3 +268,4 @@ jobs:
             type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:variant-${{ matrix.variant }},mode=max
           push: always
           skipContainerUserIdUpdate: true
+          userDataFolder: .devcontainer-userdata/${{ matrix.variant }}

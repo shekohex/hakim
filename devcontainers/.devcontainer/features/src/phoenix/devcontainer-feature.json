@@ -21,13 +21,6 @@
             "description": "Install phx_new into the runtime user home during image build."
         }
     },
-    "dependsOn": {
-        "../../../features/src/elixir": {
-            "erlangVersion": "28.3.1",
-            "elixirVersion": "1.19.5",
-            "seedUserHome": false
-        }
-    },
     "installsAfter": [
         "ghcr.io/devcontainers/features/common-utils",
         "../../../features/src/elixir"
