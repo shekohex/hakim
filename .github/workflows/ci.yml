@@ -25,13 +25,78 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Find variants
         id: find
         run: |
-          variants=$(ls -d devcontainers/.devcontainer/images/*/ 2>/dev/null | xargs -n1 basename | jq -R -s -c 'split("\n") | map(select(length > 0))')
-          echo "variants=$variants" >> $GITHUB_OUTPUT
-          echo "Found variants: $variants"
+          set -euo pipefail
+
+          mapfile -t all_variants < <(ls -d devcontainers/.devcontainer/images/*/ 2>/dev/null | xargs -n1 basename | sort)
+          declare -A selected_variants=()
+          build_all=false
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+          fi
+
+          if [ -z "${base_sha}" ] || [ "${base_sha}" = "0000000000000000000000000000000000000000" ]; then
+            mapfile -t changed_files < <(git ls-files)
+          else
+            mapfile -t changed_files < <(git diff --name-only "${base_sha}" "${head_sha}")
+          fi
+
+          for file in "${changed_files[@]}"; do
+            case "${file}" in
+              devcontainers/base/*|devcontainers/tooling/*|.github/workflows/ci.yml)
+                build_all=true
+                ;;
+              devcontainers/.devcontainer/images/*)
+                variant="$(echo "${file}" | cut -d/ -f4)"
+                if [ -n "${variant}" ]; then
+                  selected_variants["${variant}"]=1
+                fi
+                ;;
+              devcontainers/.devcontainer/features/src/*)
+                feature="$(echo "${file}" | cut -d/ -f5)"
+                if [ -z "${feature}" ]; then
+                  continue
+                fi
+                for cfg in devcontainers/.devcontainer/images/*/.devcontainer/devcontainer.json; do
+                  variant="$(basename "$(dirname "$(dirname "${cfg}")")")"
+                  if jq -e --arg feature "${feature}" '(.features // {} | keys | any(.; test("/" + $feature + "(:|$)")))' "${cfg}" >/dev/null; then
+                    selected_variants["${variant}"]=1
+                  fi
+                done
+                ;;
+              devcontainers/.devcontainer/features/*)
+                feature="$(echo "${file}" | cut -d/ -f4)"
+                if [ -z "${feature}" ]; then
+                  continue
+                fi
+                for cfg in devcontainers/.devcontainer/images/*/.devcontainer/devcontainer.json; do
+                  variant="$(basename "$(dirname "$(dirname "${cfg}")")")"
+                  if jq -e --arg feature "${feature}" '(.features // {} | keys | any(.; test("/" + $feature + "(:|$)")))' "${cfg}" >/dev/null; then
+                    selected_variants["${variant}"]=1
+                  fi
+                done
+                ;;
+            esac
+          done
+
+          if [ "${build_all}" = "true" ] || [ "${#selected_variants[@]}" -eq 0 ]; then
+            variants="$(printf '%s\n' "${all_variants[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')"
+          else
+            variants="$(printf '%s\n' "${!selected_variants[@]}" | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')"
+          fi
+
+          echo "variants=${variants}" >> "${GITHUB_OUTPUT}"
+          echo "Selected variants: ${variants}"
 
   build-base:
     runs-on: ubuntu-latest
