@@ -1,3 +1,15 @@
 #!/bin/bash
 #MISE description="Setup Starship"
-echo 'eval "$(/usr/local/bin/starship init bash)"' >> /etc/bash.bashrc
+#MISE depends=["setup-blesh"]
+set -euo pipefail
+
+bashrc="/etc/bash.bashrc"
+line='eval "$(/usr/local/bin/starship init bash)"'
+
+tmp_file="$(mktemp)"
+awk -v line="$line" '$0 != line { print }' "$bashrc" >"$tmp_file"
+chown --reference="$bashrc" "$tmp_file" 2>/dev/null || true
+chmod --reference="$bashrc" "$tmp_file" 2>/dev/null || chmod 644 "$tmp_file"
+mv "$tmp_file" "$bashrc"
+
+printf '%s\n' "$line" >> "$bashrc"

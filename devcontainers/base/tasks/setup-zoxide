@@ -1,5 +1,6 @@
 #!/bin/bash
 #MISE description="Setup Zoxide"
+#MISE depends=["setup-starship", "setup-direnv", "setup-atuin", "setup-blesh"]
 set -euo pipefail
 
 bashrc="/etc/bash.bashrc"
