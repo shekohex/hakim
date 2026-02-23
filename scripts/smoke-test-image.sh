@@ -108,6 +108,15 @@ function read_arg() {
   echo "${line#*=}"
 }
 
+function normalize_dotnet_spec() {
+  local spec="$1"
+  if [[ "$spec" =~ ^([0-9]+\.[0-9]+)-preview$ ]]; then
+    echo "${BASH_REMATCH[1]}"
+    return
+  fi
+  echo "$spec"
+}
+
 function check_coder_runtime() {
   docker_root 'id coder >/dev/null'
   docker_coder 'test -w "$HOME"; mkdir -p "$HOME/.cache/hakim-smoke"; touch "$HOME/.cache/hakim-smoke/ok"'
@@ -284,8 +293,10 @@ function check_elixir() {
 function check_dotnet() {
   local expected_dotnet
   local expected_additional
-  local dotnet_sdks
-  local additional_major
+  local expected_dotnet_normalized
+  local dotnet_version
+  local spec
+  local spec_normalized
 
   expected_dotnet="$(jq -r 'first(.features | to_entries[] | select(.key | test("/dotnet(:|$)")) | .value.version) // empty' "$CONFIG_FILE")"
   expected_additional="$(jq -r 'first(.features | to_entries[] | select(.key | test("/dotnet(:|$)")) | .value.additionalVersions) // empty' "$CONFIG_FILE")"
@@ -294,14 +305,23 @@ function check_dotnet() {
 
   docker_coder 'dotnet --info >/dev/null'
 
-  dotnet_sdks="$(docker_coder 'dotnet --list-sdks')"
   if [[ -n "$expected_dotnet" ]]; then
-    assert_contains "$dotnet_sdks" "${expected_dotnet}." "dotnet sdk version"
+    expected_dotnet_normalized="$(normalize_dotnet_spec "$expected_dotnet")"
+    dotnet_version="$(docker_coder 'dotnet --version')"
+    assert_contains "$dotnet_version" "${expected_dotnet_normalized}." "dotnet sdk version"
+    docker_coder "mise where dotnet@${expected_dotnet_normalized} >/dev/null"
   fi
 
-  if [[ -n "$expected_additional" ]]; then
-    additional_major="${expected_additional%%-*}"
-    assert_contains "$dotnet_sdks" "${additional_major}." "additional dotnet sdk version"
+  if [[ -n "$expected_additional" && "$expected_additional" != "none" ]]; then
+    IFS=',' read -ra additional_specs <<< "$expected_additional"
+    for raw in "${additional_specs[@]}"; do
+      spec="$(echo "$raw" | xargs)"
+      if [[ -z "$spec" || "$spec" == "none" ]]; then
+        continue
+      fi
+      spec_normalized="$(normalize_dotnet_spec "$spec")"
+      docker_coder "mise where dotnet@${spec_normalized} >/dev/null"
+    done
   fi
 
   docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; dotnet new console -n smoke_dotnet >/dev/null; cd smoke_dotnet; dotnet build --nologo >/dev/null'
