@@ -166,7 +166,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get update && \
   select_package() { for pkg in "$@"; do if apt-cache show "$pkg" >/dev/null 2>&1; then echo "$pkg"; return 0; fi; done; return 1; } && \
   apt_packages=( \
-    ca-certificates fonts-liberation libsecret-1-0 xdg-utils \
+    ca-certificates docker.io fonts-liberation libsecret-1-0 xdg-utils \
     libc6 libcairo2 libcups2 libdbus-1-3 libdrm2 libexpat1 libfontconfig1 \
     libgbm1 libgcc-s1 libgdk-pixbuf-2.0-0 libnspr4 libnss3 libstdc++6 libu2f-udev \
     libvulkan1 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 \
