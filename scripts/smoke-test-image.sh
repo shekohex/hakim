@@ -197,7 +197,7 @@ function check_rust() {
   local expected_rust
   local rust_version
 
-  expected_rust="$(jq -r 'first(.features | to_entries[] | select(.key | test("/rust$")) | .value.version) // empty' "$CONFIG_FILE")"
+  expected_rust="$(jq -r 'first(.features | to_entries[] | select(.key | test("/rust(:|$)")) | .value.version) // empty' "$CONFIG_FILE")"
 
   check_variant_common
 
@@ -287,8 +287,8 @@ function check_dotnet() {
   local dotnet_sdks
   local additional_major
 
-  expected_dotnet="$(jq -r 'first(.features | to_entries[] | select(.key | test("/dotnet$")) | .value.version) // empty' "$CONFIG_FILE")"
-  expected_additional="$(jq -r 'first(.features | to_entries[] | select(.key | test("/dotnet$")) | .value.additionalVersions) // empty' "$CONFIG_FILE")"
+  expected_dotnet="$(jq -r 'first(.features | to_entries[] | select(.key | test("/dotnet(:|$)")) | .value.version) // empty' "$CONFIG_FILE")"
+  expected_additional="$(jq -r 'first(.features | to_entries[] | select(.key | test("/dotnet(:|$)")) | .value.additionalVersions) // empty' "$CONFIG_FILE")"
 
   check_variant_common
 

@@ -7,7 +7,7 @@
     }
   },
   "features": {
-    "../../../features/src/rust": {
+    "ghcr.io/devcontainers/features/rust:1": {
       "version": "1.93.0",
       "profile": "minimal"
     },
