@@ -190,12 +190,28 @@ if ! docker buildx version >/dev/null 2>&1; then
 fi
 
 function current_buildx_builder() {
-  docker buildx ls 2>/dev/null | awk '/\*/ {print $1; exit}'
+  docker buildx ls 2>/dev/null | awk 'NR>1 && $1 ~ /\*/ {name=$1; gsub(/\*/, "", name); print name; exit}'
 }
 
 function buildx_builder_driver() {
   local builder="$1"
-  docker buildx inspect "$builder" 2>/dev/null | awk -F': ' '/Driver:/ {print $2; exit}'
+  local inspect_output
+
+  if [ -z "$builder" ]; then
+    echo ""
+    return 0
+  fi
+
+  if ! inspect_output="$(docker buildx inspect "$builder" 2>/dev/null)"; then
+    echo ""
+    return 0
+  fi
+
+  awk -F': ' '/Driver:/ {print $2; exit}' <<< "$inspect_output"
+}
+
+function list_buildx_builders() {
+  docker buildx ls 2>/dev/null | awk 'NR>1 && $1 !~ /^\\_/ && $1 != "" {name=$1; gsub(/\*/, "", name); if (name != "NAME/NODE") print name}'
 }
 
 function ensure_cache_export_builder() {
@@ -231,7 +247,10 @@ function ensure_cache_export_builder() {
   fi
 
   if [ -n "$selected" ] && [ "$driver" = "docker" ]; then
-    for candidate in $(docker buildx ls 2>/dev/null | awk 'NR>1 && $1 !~ /^\\/ && $1 != "" {print $1}'); do
+    for candidate in $(list_buildx_builders); do
+      if [ "$candidate" = "$selected" ]; then
+        continue
+      fi
       candidate_driver="$(buildx_builder_driver "$candidate")"
       if [ "$candidate_driver" = "docker-container" ]; then
         docker buildx use "$candidate" >/dev/null
@@ -244,6 +263,14 @@ function ensure_cache_export_builder() {
   fi
 
   created_builder="hakim-builder"
+  if [ "$(buildx_builder_driver "$created_builder")" = "docker-container" ]; then
+    docker buildx use "$created_builder" >/dev/null
+    export BUILDX_BUILDER="$created_builder"
+    info "Using buildx builder '$created_builder' (driver=docker-container)"
+    docker buildx inspect "$created_builder" --bootstrap >/dev/null
+    return
+  fi
+
   if docker buildx inspect "$created_builder" >/dev/null 2>&1; then
     created_builder="hakim-builder-$RUN_REF"
   fi
