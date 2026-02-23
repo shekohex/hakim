@@ -36,6 +36,6 @@ mise use --global "${tools[@]}"
 
 rm -rf /root/.cache/mise
 
-source /etc/profile.d/mise.sh
-dotnet --info >/dev/null
-dotnet --list-sdks
+for tool in "${tools[@]}"; do
+    mise where "$tool" >/dev/null
+done
