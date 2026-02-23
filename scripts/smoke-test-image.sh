@@ -140,7 +140,7 @@ function check_base() {
   coder_version="$(docker_root 'coder --version')"
   assert_contains "$coder_version" "$coder_expected" "coder version"
 
-  code_server_version="$(docker_root 'code-server --version | head -n1')"
+  code_server_version="$(docker_root 'code-server --version | awk '\''/^[0-9]+\.[0-9]+\.[0-9]+/{print; exit}'\''')"
   assert_contains "$code_server_version" "$code_server_expected" "code-server version"
 
   chrome_version="$(docker_root 'google-chrome-stable --version')"
