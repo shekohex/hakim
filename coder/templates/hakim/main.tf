@@ -603,15 +603,11 @@ EOF
     mkdir -p "$HOME/.local/share/hakim"
     if [ -d "$lazyvim_seed_src" ] && [ ! -e "$HOME/.config/nvim/lua/config/lazy.lua" ] && [ ! -f "$lazyvim_seed_lock" ]; then
       rm -rf "$HOME/.config/nvim"
-      mkdir -p "$HOME/.config/nvim"
-      cp -a --no-preserve=ownership "$lazyvim_seed_src"/. "$HOME/.config/nvim/"
+      cp -rT "$lazyvim_seed_src" "$HOME/.config/nvim"
       touch "$lazyvim_seed_lock"
     fi
     if [ -e "$HOME/.config/nvim/lua/config/lazy.lua" ] && [ ! -f "$lazyvim_seed_lock" ]; then
       touch "$lazyvim_seed_lock"
-    fi
-    if [ -d "$HOME/.config/nvim" ] && [ "$(stat -c %u "$HOME/.config/nvim")" != "$(id -u)" ]; then
-      sudo chown -R "$(id -u):$(id -g)" "$HOME/.config/nvim"
     fi
     if command -v timeout >/dev/null 2>&1; then
       timeout 60 nvim --headless "+checkhealth" +qa >"$nvim_health_log" 2>&1 || true
