@@ -1,15 +1,27 @@
 {
-    "name": "Dotnet (Wrapper)",
+    "name": "Dotnet (via Mise)",
     "id": "dotnet",
     "version": "1.0.0",
-    "description": "Installs Dotnet using official feature.",
-    "features": {
-        "ghcr.io/devcontainers/features/dotnet:2": {
-            "version": "9.0",
-            "additionalVersions": "10.0-preview"
+    "description": "Installs .NET SDK versions using Mise.",
+    "options": {
+        "version": {
+            "type": "string",
+            "proposals": [
+                "latest",
+                "9.0",
+                "8.0"
+            ],
+            "default": "9.0",
+            "description": "Select the primary .NET SDK version."
+        },
+        "additionalVersions": {
+            "type": "string",
+            "default": "10.0-preview",
+            "description": "Comma-separated additional .NET SDK versions."
         }
     },
     "installsAfter": [
-        "ghcr.io/devcontainers/features/common-utils"
+        "ghcr.io/devcontainers/features/common-utils",
+        "../../mise"
     ]
 }

@@ -1,15 +1,33 @@
 {
-    "name": "Rust (Wrapper)",
+    "name": "Rust (via Mise)",
     "id": "rust",
     "version": "1.0.0",
-    "description": "Installs Rust using official feature.",
-    "features": {
-        "ghcr.io/devcontainers/features/rust:1": {
-            "version": "1.93.0",
-            "profile": "minimal"
+    "description": "Installs Rust toolchain using Mise.",
+    "options": {
+        "version": {
+            "type": "string",
+            "proposals": [
+                "latest",
+                "1.93.0",
+                "1.92.0",
+                "1.91.0"
+            ],
+            "default": "1.93.0",
+            "description": "Select the Rust version to install."
+        },
+        "profile": {
+            "type": "string",
+            "proposals": [
+                "minimal",
+                "default",
+                "complete"
+            ],
+            "default": "minimal",
+            "description": "Select the rustup profile to use during installation."
         }
     },
     "installsAfter": [
-        "ghcr.io/devcontainers/features/common-utils"
+        "ghcr.io/devcontainers/features/common-utils",
+        "../../mise"
     ]
 }

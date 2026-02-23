@@ -1,4 +1,21 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-echo "Rust wrapper installed (upstream feature handles installation)"
+VERSION=${VERSION:-"1.93.0"}
+PROFILE=${PROFILE:-"minimal"}
+
+export MISE_YES=1
+export MISE_DATA_DIR=/usr/local/share/mise
+export RUSTUP_INIT_ARGS="--profile ${PROFILE}"
+
+if [ -f /etc/profile.d/mise.sh ]; then
+    source /etc/profile.d/mise.sh
+fi
+
+mise use --global "rust@${VERSION}"
+
+rm -rf /root/.cache/mise
+
+source /etc/profile.d/mise.sh
+rustc --version
+cargo --version
