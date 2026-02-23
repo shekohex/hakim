@@ -150,11 +150,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push base image
+      - name: Build base image
         uses: docker/build-push-action@v6
         with:
           context: devcontainers/base
-          push: true
+          load: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/hakim-base:latest
             ghcr.io/${{ github.repository_owner }}/hakim-base:${{ github.run_id }}
@@ -167,6 +167,17 @@ jobs:
             type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:base,mode=max
           secrets: |
             github_token=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke test base image
+        run: |
+          bash scripts/smoke-test-image.sh \
+            --target base \
+            --image ghcr.io/${{ github.repository_owner }}/hakim-base:${{ github.run_id }}
+
+      - name: Push base image
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/hakim-base:latest
+          docker push ghcr.io/${{ github.repository_owner }}/hakim-base:${{ github.run_id }}
 
   build-tooling:
     runs-on: ubuntu-latest
@@ -186,11 +197,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push tooling image
+      - name: Build tooling image
         uses: docker/build-push-action@v6
         with:
           context: devcontainers/tooling
-          push: true
+          load: true
           build-args: |
             BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/hakim-base:${{ needs.discover.outputs.base_tag }}
           tags: |
@@ -205,6 +216,17 @@ jobs:
             type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:tooling,mode=max
           secrets: |
             github_token=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke test tooling image
+        run: |
+          bash scripts/smoke-test-image.sh \
+            --target tooling \
+            --image ghcr.io/${{ github.repository_owner }}/hakim-tooling:${{ github.run_id }}
+
+      - name: Push tooling image
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/hakim-tooling:latest
+          docker push ghcr.io/${{ github.repository_owner }}/hakim-tooling:${{ github.run_id }}
 
   build-variants:
     runs-on: ubuntu-latest
@@ -263,6 +285,23 @@ jobs:
           cacheTo: |
             type=gha,mode=max,scope=${{ matrix.variant }}
             type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:variant-${{ matrix.variant }},mode=max
-          push: always
+          push: never
           skipContainerUserIdUpdate: true
           userDataFolder: ${{ runner.temp }}/devcontainer-userdata/${{ matrix.variant }}
+
+      - name: Smoke test ${{ matrix.variant }} image
+        run: |
+          bash scripts/smoke-test-image.sh \
+            --target variant \
+            --variant ${{ matrix.variant }} \
+            --config devcontainers/.devcontainer/images/${{ matrix.variant }}/.devcontainer/devcontainer.json \
+            --image ghcr.io/${{ github.repository_owner }}/hakim-${{ matrix.variant }}:${{ github.run_id }}
+
+      - name: Push ${{ matrix.variant }} image
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/hakim-${{ matrix.variant }}:latest
+          docker push ghcr.io/${{ github.repository_owner }}/hakim-${{ matrix.variant }}:${{ github.run_id }}
+
+      - name: Cleanup temporary config
+        if: always()
+        run: rm -f "${{ steps.prepare.outputs.config_file }}"
