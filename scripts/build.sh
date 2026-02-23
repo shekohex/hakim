@@ -5,6 +5,7 @@ REGISTRY="${REGISTRY:-ghcr.io/shekohex}"
 CACHE_REPO="${CACHE_REPO:-}"
 TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 RUN_REF="${RUN_REF:-$TIMESTAMP}"
+BUILDX_BUILDER="${BUILDX_BUILDER:-}"
 
 CODER_VERSION=""
 CODE_SERVER_VERSION=""
@@ -86,6 +87,7 @@ Options:
   --chrome-version <version>     Specify the version of Google Chrome to install
   --fetch-latest                 Fetch and use latest versions for all tools (requires gh CLI)
   --push                         Push built images after local build
+  --builder <name>               Use a specific docker buildx builder
   --help, -h                     Show this help message
 
 If no version is specified, defaults from Dockerfile are used.
@@ -129,6 +131,10 @@ while [[ "$#" -gt 0 ]]; do
     ;;
   --fetch-latest) FETCH_LATEST=true ;;
   --push) PUSH_IMAGES=true ;;
+  --builder)
+    BUILDX_BUILDER="$2"
+    shift
+    ;;
   --help | -h) usage ;;
   *)
     echo "Unknown parameter passed: $1"
@@ -183,6 +189,72 @@ if ! docker buildx version >/dev/null 2>&1; then
   exit 1
 fi
 
+function current_buildx_builder() {
+  docker buildx ls 2>/dev/null | awk '/\*/ {print $1; exit}'
+}
+
+function buildx_builder_driver() {
+  local builder="$1"
+  docker buildx inspect "$builder" 2>/dev/null | awk -F': ' '/Driver:/ {print $2; exit}'
+}
+
+function ensure_cache_export_builder() {
+  local selected
+  local driver
+  local candidate
+  local candidate_driver
+  local created_builder
+
+  if [ "$USE_REGISTRY_CACHE_TO" != "true" ]; then
+    if [ -n "$BUILDX_BUILDER" ]; then
+      export BUILDX_BUILDER
+    fi
+    return
+  fi
+
+  selected="$BUILDX_BUILDER"
+  if [ -z "$selected" ]; then
+    selected="$(current_buildx_builder)"
+  fi
+
+  if [ -n "$selected" ]; then
+    driver="$(buildx_builder_driver "$selected")"
+  else
+    driver=""
+  fi
+
+  if [ "$driver" = "docker-container" ]; then
+    export BUILDX_BUILDER="$selected"
+    info "Using buildx builder '$selected' (driver=$driver)"
+    docker buildx inspect "$selected" --bootstrap >/dev/null
+    return
+  fi
+
+  if [ -n "$selected" ] && [ "$driver" = "docker" ]; then
+    for candidate in $(docker buildx ls 2>/dev/null | awk 'NR>1 && $1 !~ /^\\/ && $1 != "" {print $1}'); do
+      candidate_driver="$(buildx_builder_driver "$candidate")"
+      if [ "$candidate_driver" = "docker-container" ]; then
+        docker buildx use "$candidate" >/dev/null
+        export BUILDX_BUILDER="$candidate"
+        info "Switched buildx builder from '$selected' (docker) to '$candidate' (docker-container) for cache export"
+        docker buildx inspect "$candidate" --bootstrap >/dev/null
+        return
+      fi
+    done
+  fi
+
+  created_builder="hakim-builder"
+  if docker buildx inspect "$created_builder" >/dev/null 2>&1; then
+    created_builder="hakim-builder-$RUN_REF"
+  fi
+
+  info "Creating buildx builder '$created_builder' with docker-container driver for cache export"
+  docker buildx create --name "$created_builder" --driver docker-container --use >/dev/null
+  export BUILDX_BUILDER="$created_builder"
+  docker buildx inspect "$created_builder" --bootstrap >/dev/null
+  info "Using buildx builder '$created_builder' (driver=docker-container)"
+}
+
 if [ -z "${GITHUB_TOKEN:-}" ]; then
   if command -v gh &>/dev/null; then
     info "Attempting to fetch GITHUB_TOKEN from gh CLI..."
@@ -198,6 +270,13 @@ if [ -z "${GITHUB_TOKEN:-}" ]; then
   fi
 else
   info "GITHUB_TOKEN is already set."
+fi
+
+ensure_cache_export_builder
+
+declare -a BUILDX_ARGS=()
+if [ -n "${BUILDX_BUILDER:-}" ]; then
+  BUILDX_ARGS=(--builder "$BUILDX_BUILDER")
 fi
 
 declare -a BUILD_OUTPUT_ARGS=("--load")
@@ -255,6 +334,7 @@ info "Registry cache export: $USE_REGISTRY_CACHE_TO"
 populate_cache_args "base" BASE_CACHE_ARGS
 info "Building Base Image..."
 docker buildx build \
+  "${BUILDX_ARGS[@]}" \
   "${BUILD_OUTPUT_ARGS[@]}" \
   "${SECRET_ARGS[@]}" \
   "${BASE_CACHE_ARGS[@]}" \
@@ -267,6 +347,7 @@ add_image_tags "hakim-base"
 populate_cache_args "tooling" TOOLING_CACHE_ARGS
 info "Building Tooling Image..."
 docker buildx build \
+  "${BUILDX_ARGS[@]}" \
   "${BUILD_OUTPUT_ARGS[@]}" \
   "${SECRET_ARGS[@]}" \
   "${TOOLING_CACHE_ARGS[@]}" \
