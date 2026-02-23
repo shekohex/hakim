@@ -11,7 +11,6 @@ export MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 export PATH="$HOME/.bun/bin:$PATH"
-export PATH="$PATH:$HOME/.opencode/bin"
 
 command_exists() {
   command -v "$1" > /dev/null 2>&1
@@ -31,6 +30,44 @@ wait_for_command() {
 
   while [ "$elapsed" -lt "$timeout" ]; do
     if command_exists "$cmd"; then
+      return 0
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+
+  return 1
+}
+
+resolve_opencode_binary() {
+  local candidate
+  for candidate in \
+    "$HOME/.bun/bin/opencode" \
+    "/usr/local/bin/opencode" \
+    "/usr/bin/opencode"; do
+    if [ -x "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  if command_exists opencode; then
+    command -v opencode
+    return 0
+  fi
+
+  return 1
+}
+
+wait_for_opencode_binary() {
+  local timeout="$1"
+  local elapsed=0
+  local opencode_bin
+
+  while [ "$elapsed" -lt "$timeout" ]; do
+    opencode_bin="$(resolve_opencode_binary 2> /dev/null || true)"
+    if [ -n "$opencode_bin" ] && [ -x "$opencode_bin" ]; then
+      printf '%s\n' "$opencode_bin"
       return 0
     fi
     sleep 2
@@ -71,10 +108,13 @@ if [ "$ARG_REUSE_OPENCODE" = "true" ]; then
   export OPENCODE_PORT=$ARG_OPENCODE_PORT
 fi
 
-if ! wait_for_command opencode "$ARG_STARTUP_TIMEOUT"; then
+OPENCODE_BIN="$(wait_for_opencode_binary "$ARG_STARTUP_TIMEOUT" || true)"
+if [ -z "$OPENCODE_BIN" ]; then
   echo "ERROR: OpenCode command did not become available in time"
   exit 1
 fi
+export OPENCODE_BINARY="$OPENCODE_BIN"
+export PATH="$(dirname "$OPENCODE_BIN"):$PATH"
 
 cd "$ARG_WORKDIR"
 
