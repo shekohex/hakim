@@ -218,6 +218,7 @@ function current_buildx_builder() {
 function buildx_builder_driver() {
   local builder="$1"
   local inspect_output
+  local raw_driver
 
   if [ -z "$builder" ]; then
     echo ""
@@ -229,7 +230,9 @@ function buildx_builder_driver() {
     return 0
   fi
 
-  awk -F': ' '/Driver:/ {print $2; exit}' <<< "$inspect_output"
+  raw_driver="$(awk -F':' '/^Driver:/ {print $2; exit}' <<< "$inspect_output")"
+  raw_driver="$(echo "$raw_driver" | xargs)"
+  echo "$raw_driver"
 }
 
 function list_buildx_builders() {
