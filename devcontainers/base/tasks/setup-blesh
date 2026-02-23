@@ -72,7 +72,6 @@ fi
 
 ### hakim-blesh-start
 # ble.sh
-[[ $- == *i* ]] && source -- /usr/local/share/blesh/ble.sh --attach=none
-[[ ! ${BLE_VERSION-} ]] || ble-attach
+[[ $- == *i* ]] && source -- /usr/local/share/blesh/ble.sh --attach=prompt
 ### hakim-blesh-end
 EOF
