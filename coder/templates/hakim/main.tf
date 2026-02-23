@@ -557,20 +557,49 @@ resource "coder_agent" "main" {
     #!/bin/bash
     set -e
     
-    # Ensure user mise config exists
     mkdir -p ~/.config/mise
+    mkdir -p ~/.config
+    mkdir -p ~/.local/bin
     touch ~/.config/mise/config.toml
 
-    # Ensure project directory exists
     mkdir -p ~/project
 
-    # Prepare user home with default files on first start
     if [ ! -f ~/.init_done ]; then
-      cp -rT /etc/skel ~
+      cp -rT /etc/skel ~ || true
       touch ~/.init_done
     fi
 
-    # Enable access to Docker socket
+    sed -i '/^export PATH="\$HOME\/\.local\/bin:\$PATH"$/d' ~/.bashrc ~/.profile 2>/dev/null || true
+    sed -i '/^alias vim=nvim$/d' ~/.bashrc 2>/dev/null || true
+
+    if ! grep -Fq 'if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then' ~/.bashrc; then
+      cat >> ~/.bashrc <<'EOF'
+if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+EOF
+    fi
+
+    printf '\nalias vim=nvim\n' >> ~/.bashrc
+
+    cat > ~/.local/bin/oca <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+exec opencode attach http://localhost:4096 --dir . "$@"
+
+# vim: set ft=sh
+EOF
+    chmod +x ~/.local/bin/oca
+
+    if [ -x /usr/local/bin/nvim ] && command -v git >/dev/null 2>&1 && [ ! -e ~/.config/nvim/lua/config/lazy.lua ]; then
+      rm -rf ~/.config/nvim
+      if git clone --depth 1 https://github.com/LazyVim/starter.git ~/.config/nvim; then
+        rm -rf ~/.config/nvim/.git
+      fi
+    fi
+
     if [ -e /var/run/docker.sock ]; then
       echo "Granting access to Docker socket..."
       sudo chmod 666 /var/run/docker.sock
