@@ -197,8 +197,7 @@ function check_tooling() {
 
 function check_variant_common() {
   check_coder_runtime
-  docker_coder 'test -f "$HOME/.config/nvim/lua/config/lazy.lua"'
-  docker_coder 'test "$(stat -c %U "$HOME/.config/nvim")" = "coder"'
+  docker_root 'test -f /opt/hakim/lazyvim/nvim/lua/config/lazy.lua'
   docker_coder 'nvim --version | head -n1'
 }
 

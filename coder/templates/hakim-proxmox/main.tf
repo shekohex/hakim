@@ -866,6 +866,10 @@ fi
 EOF
     fi
 
+    if ! grep -Fq 'export PATH="$HOME/.local/bin:$PATH"' ~/.profile; then
+      printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> ~/.profile
+    fi
+
     printf '\nalias vim=nvim\n' >> ~/.bashrc
 
     cat > ~/.local/bin/oca <<'EOF'
@@ -879,11 +883,16 @@ exec opencode attach http://localhost:4096 --dir . "$@"
 EOF
     chmod +x ~/.local/bin/oca
 
-    if [ -x /usr/local/bin/nvim ] && command -v git >/dev/null 2>&1 && [ ! -e ~/.config/nvim/lua/config/lazy.lua ]; then
-      rm -rf ~/.config/nvim
-      if git clone --depth 1 https://github.com/LazyVim/starter.git ~/.config/nvim; then
-        rm -rf ~/.config/nvim/.git
-      fi
+    lazyvim_seed_src="/opt/hakim/lazyvim/nvim"
+    lazyvim_seed_lock="$HOME/.local/share/hakim/lazyvim.seeded"
+    mkdir -p "$HOME/.local/share/hakim"
+    if [ -d "$lazyvim_seed_src" ] && [ ! -e "$HOME/.config/nvim/lua/config/lazy.lua" ] && [ ! -f "$lazyvim_seed_lock" ]; then
+      rm -rf "$HOME/.config/nvim"
+      cp -a "$lazyvim_seed_src" "$HOME/.config/nvim"
+      touch "$lazyvim_seed_lock"
+    fi
+    if [ -e "$HOME/.config/nvim/lua/config/lazy.lua" ] && [ ! -f "$lazyvim_seed_lock" ]; then
+      touch "$lazyvim_seed_lock"
     fi
   EOT
 
