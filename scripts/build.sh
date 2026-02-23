@@ -144,9 +144,28 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
+if [[ "$REGISTRY" =~ ^https?:// ]]; then
+  warn "Registry should not include scheme. Stripping it from '$REGISTRY'."
+  REGISTRY="${REGISTRY#http://}"
+  REGISTRY="${REGISTRY#https://}"
+fi
+REGISTRY="${REGISTRY%/}"
+
+if [ -z "$REGISTRY" ]; then
+  error "Registry cannot be empty"
+  exit 1
+fi
+
 if [ -z "$CACHE_REPO" ]; then
   CACHE_REPO="$REGISTRY/hakim-cache"
 fi
+
+if [[ "$CACHE_REPO" =~ ^https?:// ]]; then
+  warn "Cache repo should not include scheme. Stripping it from '$CACHE_REPO'."
+  CACHE_REPO="${CACHE_REPO#http://}"
+  CACHE_REPO="${CACHE_REPO#https://}"
+fi
+CACHE_REPO="${CACHE_REPO%/}"
 
 if [ "$FETCH_LATEST" = true ]; then
   if ! command -v gh &>/dev/null; then
@@ -178,10 +197,6 @@ fi
 if [ "${GITHUB_ACTIONS:-false}" = "true" ] && [ "$PUSH_IMAGES" = true ]; then
   warn "Ignoring --push because GitHub Actions already pushes via buildx --push"
   PUSH_IMAGES=false
-fi
-
-if [ "$PUSH_IMAGES" = true ]; then
-  USE_REGISTRY_CACHE_TO=true
 fi
 
 if ! docker buildx version >/dev/null 2>&1; then
