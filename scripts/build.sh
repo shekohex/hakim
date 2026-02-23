@@ -6,12 +6,14 @@ CACHE_REPO="${CACHE_REPO:-}"
 TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 RUN_REF="${RUN_REF:-$TIMESTAMP}"
 BUILDX_BUILDER="${BUILDX_BUILDER:-}"
+REGISTRY_HTTP="${REGISTRY_HTTP:-false}"
 
 CODER_VERSION=""
 CODE_SERVER_VERSION=""
 CHROME_VERSION=""
 FETCH_LATEST=false
 PUSH_IMAGES=false
+DIRECT_PUSH=false
 
 USE_REGISTRY_CACHE_FROM="${USE_REGISTRY_CACHE_FROM:-false}"
 USE_REGISTRY_CACHE_TO="${USE_REGISTRY_CACHE_TO:-false}"
@@ -88,6 +90,7 @@ Options:
   --fetch-latest                 Fetch and use latest versions for all tools (requires gh CLI)
   --push                         Push built images after local build
   --builder <name>               Use a specific docker buildx builder
+  --registry-http                Configure auto-created builder for HTTP/insecure registry
   --help, -h                     Show this help message
 
 If no version is specified, defaults from Dockerfile are used.
@@ -135,6 +138,7 @@ while [[ "$#" -gt 0 ]]; do
     BUILDX_BUILDER="$2"
     shift
     ;;
+  --registry-http) REGISTRY_HTTP=true ;;
   --help | -h) usage ;;
   *)
     echo "Unknown parameter passed: $1"
@@ -156,6 +160,8 @@ if [ -z "$REGISTRY" ]; then
   exit 1
 fi
 
+REGISTRY_HOST="${REGISTRY%%/*}"
+
 if [ -z "$CACHE_REPO" ]; then
   CACHE_REPO="$REGISTRY/hakim-cache"
 fi
@@ -166,6 +172,7 @@ if [[ "$CACHE_REPO" =~ ^https?:// ]]; then
   CACHE_REPO="${CACHE_REPO#https://}"
 fi
 CACHE_REPO="${CACHE_REPO%/}"
+CACHE_REPO_HOST="${CACHE_REPO%%/*}"
 
 if [ "$FETCH_LATEST" = true ]; then
   if ! command -v gh &>/dev/null; then
@@ -229,17 +236,59 @@ function list_buildx_builders() {
   docker buildx ls 2>/dev/null | awk 'NR>1 && $1 !~ /^\\_/ && $1 != "" {name=$1; gsub(/\*/, "", name); if (name != "NAME/NODE") print name}'
 }
 
+function write_buildkit_http_registry_config() {
+  local config_file="$1"
+
+  {
+    echo "[registry.\"$REGISTRY_HOST\"]"
+    echo "  http = true"
+    echo "  insecure = true"
+    if [ "$CACHE_REPO_HOST" != "$REGISTRY_HOST" ]; then
+      echo
+      echo "[registry.\"$CACHE_REPO_HOST\"]"
+      echo "  http = true"
+      echo "  insecure = true"
+    fi
+  } > "$config_file"
+}
+
 function ensure_cache_export_builder() {
   local selected
   local driver
   local candidate
   local candidate_driver
   local created_builder
+  local buildkitd_config_file
 
   if [ "$USE_REGISTRY_CACHE_TO" != "true" ]; then
     if [ -n "$BUILDX_BUILDER" ]; then
       export BUILDX_BUILDER
     fi
+    return
+  fi
+
+  if [ "$REGISTRY_HTTP" = "true" ] && [ -z "$BUILDX_BUILDER" ]; then
+    created_builder="hakim-builder-http"
+    if [ "$(buildx_builder_driver "$created_builder")" = "docker-container" ]; then
+      docker buildx use "$created_builder" >/dev/null
+      export BUILDX_BUILDER="$created_builder"
+      info "Using buildx builder '$created_builder' (driver=docker-container)"
+      docker buildx inspect "$created_builder" --bootstrap >/dev/null
+      return
+    fi
+
+    if docker buildx inspect "$created_builder" >/dev/null 2>&1; then
+      created_builder="hakim-builder-http-$RUN_REF"
+    fi
+
+    buildkitd_config_file="$(mktemp "/tmp/hakim-buildkitd.${RUN_REF}.XXXXXX.toml")"
+    TEMP_CONFIGS+=("$buildkitd_config_file")
+    write_buildkit_http_registry_config "$buildkitd_config_file"
+    info "Creating buildx builder '$created_builder' with docker-container driver for HTTP registry access"
+    docker buildx create --name "$created_builder" --driver docker-container --buildkitd-config "$buildkitd_config_file" --use >/dev/null
+    export BUILDX_BUILDER="$created_builder"
+    docker buildx inspect "$created_builder" --bootstrap >/dev/null
+    info "Using buildx builder '$created_builder' (driver=docker-container)"
     return
   fi
 
@@ -321,8 +370,16 @@ if [ -n "${BUILDX_BUILDER:-}" ]; then
   BUILDX_ARGS=(--builder "$BUILDX_BUILDER")
 fi
 
-declare -a BUILD_OUTPUT_ARGS=("--load")
+ACTIVE_BUILDX_DRIVER="$(buildx_builder_driver "${BUILDX_BUILDER:-$(current_buildx_builder)}")"
 if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+  DIRECT_PUSH=true
+elif [ "$PUSH_IMAGES" = true ] && [ "$ACTIVE_BUILDX_DRIVER" = "docker-container" ]; then
+  DIRECT_PUSH=true
+  info "Using direct registry push during build because builder driver is docker-container"
+fi
+
+declare -a BUILD_OUTPUT_ARGS=("--load")
+if [ "$DIRECT_PUSH" = "true" ]; then
   BUILD_OUTPUT_ARGS=("--push")
 fi
 
@@ -372,6 +429,8 @@ info "Using run ref: $RUN_REF"
 info "Using cache repo: $CACHE_REPO"
 info "Registry cache import: $USE_REGISTRY_CACHE_FROM"
 info "Registry cache export: $USE_REGISTRY_CACHE_TO"
+info "Buildx driver: ${ACTIVE_BUILDX_DRIVER:-unknown}"
+info "Direct build push: $DIRECT_PUSH"
 
 populate_cache_args "base" BASE_CACHE_ARGS
 info "Building Base Image..."
@@ -413,8 +472,14 @@ for variant in devcontainers/.devcontainer/images/*; do
     VARIANT_CACHE_ARGS+=(--cache-from "$REGISTRY/hakim-${variant_name}:latest")
   fi
 
+  declare -a DEVCONTAINER_OUTPUT_ARGS=()
+  if [ "$DIRECT_PUSH" = "true" ]; then
+    DEVCONTAINER_OUTPUT_ARGS+=(--push true)
+  fi
+
   devcontainer build \
     "${VARIANT_CACHE_ARGS[@]}" \
+    "${DEVCONTAINER_OUTPUT_ARGS[@]}" \
     --workspace-folder devcontainers \
     --config "$tmp_config" \
     --image-name "$REGISTRY/hakim-$variant_name:latest" \
@@ -424,7 +489,7 @@ for variant in devcontainers/.devcontainer/images/*; do
   add_image_tags "hakim-$variant_name"
 done
 
-if [ "$PUSH_IMAGES" = true ]; then
+if [ "$PUSH_IMAGES" = true ] && [ "$DIRECT_PUSH" != "true" ]; then
   push_built_images
 fi
 
