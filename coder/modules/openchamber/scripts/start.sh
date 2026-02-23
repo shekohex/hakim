@@ -11,6 +11,7 @@ export MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 export PATH="$HOME/.bun/bin:$PATH"
+export PATH="$PATH:$HOME/.opencode/bin"
 
 command_exists() {
   command -v "$1" > /dev/null 2>&1
@@ -68,11 +69,11 @@ if [ "$ARG_REUSE_OPENCODE" = "true" ]; then
   echo "OpenChamber configured to reuse external OpenCode server on port $ARG_OPENCODE_PORT"
   export OPENCODE_SKIP_START=true
   export OPENCODE_PORT=$ARG_OPENCODE_PORT
-else
-  if ! wait_for_command opencode "$ARG_STARTUP_TIMEOUT"; then
-    echo "ERROR: OpenCode command did not become available in time"
-    exit 1
-  fi
+fi
+
+if ! wait_for_command opencode "$ARG_STARTUP_TIMEOUT"; then
+  echo "ERROR: OpenCode command did not become available in time"
+  exit 1
 fi
 
 cd "$ARG_WORKDIR"
