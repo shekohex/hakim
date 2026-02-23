@@ -18,13 +18,22 @@ fi
 
 mise use --global "rust@${VERSION}"
 
+cat << 'EOF' > /etc/profile.d/rustup.sh
+export CARGO_HOME=/usr/local/cargo
+export RUSTUP_HOME=/usr/local/rustup
+if [[ ":$PATH:" != *":/usr/local/cargo/bin:"* ]]; then
+    export PATH="/usr/local/cargo/bin:$PATH"
+fi
+EOF
+chmod +x /etc/profile.d/rustup.sh
+
 for bin in rustc cargo rustup rustfmt cargo-fmt cargo-clippy clippy-driver; do
     if [ -x "$CARGO_HOME/bin/$bin" ]; then
         ln -sf "$CARGO_HOME/bin/$bin" "/usr/local/bin/$bin"
     fi
 done
 
-chmod -R a+rX "$CARGO_HOME" "$RUSTUP_HOME"
+chmod -R a+rwX "$CARGO_HOME" "$RUSTUP_HOME"
 
 rm -rf /root/.cache/mise
 

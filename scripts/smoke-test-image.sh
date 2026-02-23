@@ -208,7 +208,7 @@ function check_rust() {
 
   docker_coder 'cargo --version'
   docker_coder 'rustup --version'
-  docker_coder 'test -w "$HOME/.cargo"; test -w "$HOME/.rustup"'
+  docker_coder 'cargo_home="${CARGO_HOME:-$HOME/.cargo}"; rustup_home="${RUSTUP_HOME:-$HOME/.rustup}"; test -w "$cargo_home"; test -w "$rustup_home"'
   docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; cargo new --vcs none smoke_rust >/dev/null; cd smoke_rust; cargo check --quiet'
 }
 
