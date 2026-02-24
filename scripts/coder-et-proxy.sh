@@ -35,6 +35,9 @@ port_forward_pid_file="${workspace_state_dir}/port-forward.pid"
 et_log_file="${workspace_state_dir}/et.log"
 et_pid_file="${workspace_state_dir}/et.pid"
 setup_log_file="${workspace_state_dir}/setup.log"
+xfer_log_file="${workspace_state_dir}/xferd.log"
+xfer_pid_file="${workspace_state_dir}/xferd.pid"
+xfer_token_file="${workspace_state_dir}/xferd.token"
 local_key_file="${workspace_key_dir}/id_ed25519"
 local_key_pub_file="${local_key_file}.pub"
 
@@ -211,6 +214,7 @@ require_command et
 require_command nc
 require_command ssh-keygen
 require_command base64
+require_command python3
 
 mkdir -p "$workspace_state_dir"
 mkdir -p "$keys_root" "$workspace_key_dir"
@@ -227,6 +231,7 @@ offset="$((hash % 2000))"
 local_et_port="$((42000 + offset))"
 local_workspace_ssh_port="$((44000 + offset))"
 local_proxy_ssh_port="$((46000 + offset))"
+local_xfer_port="$((48000 + offset))"
 
 key_rotated="0"
 key_comment_prefix="hakim-et:${workspace}:"
@@ -251,7 +256,31 @@ fi
 
 marker_prefix_b64="$(printf '%s' "$key_comment_prefix" | base64 | tr -d '\n')"
 pubkey_b64="$(base64 <"$local_key_pub_file" | tr -d '\n')"
-if ! coder ssh "$workspace" -- "set -euo pipefail; umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys; marker_prefix=\$(printf '%s' '${marker_prefix_b64}' | base64 -d); pubkey=\$(printf '%s' '${pubkey_b64}' | base64 -d); if ! grep -Fqx \"\$pubkey\" ~/.ssh/authorized_keys; then printf '%s\\n' \"\$pubkey\" >> ~/.ssh/authorized_keys; fi" < /dev/null >"$setup_log_file" 2>&1; then
+
+if [ ! -f "$xfer_token_file" ]; then
+  python3 -c 'import secrets; print(secrets.token_urlsafe(32))' >"$xfer_token_file"
+  chmod 600 "$xfer_token_file"
+fi
+xfer_token="$(cat "$xfer_token_file" 2>/dev/null || true)"
+if [ -z "$xfer_token" ]; then
+  printf "failed to generate xfer token\n" >&2
+  exit 1
+fi
+
+if ! pid_running "$xfer_pid_file" || ! wait_for_tcp 127.0.0.1 "$local_xfer_port" 1; then
+  stop_pid_file "$xfer_pid_file"
+  helper="${CODER_ET_XFER_HELPER:-$(dirname "$0")/hakim-xferd.py}"
+  if [ ! -f "$helper" ]; then
+    helper="$(dirname "$0")/../scripts/hakim-xferd.py"
+  fi
+  nohup python3 "$helper" --port "$local_xfer_port" --token "$xfer_token" < /dev/null >"$xfer_log_file" 2>&1 &
+  echo "$!" >"$xfer_pid_file"
+fi
+
+remote_xfer_config_json="{\"url\":\"http://127.0.0.1:${local_xfer_port}\",\"token\":\"${xfer_token}\",\"port\":${local_xfer_port}}"
+remote_xfer_config_b64="$(printf '%s' "$remote_xfer_config_json" | base64 | tr -d '\n')"
+
+if ! coder ssh "$workspace" -- "set -euo pipefail; umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys; marker_prefix=\$(printf '%s' '${marker_prefix_b64}' | base64 -d); pubkey=\$(printf '%s' '${pubkey_b64}' | base64 -d); if ! grep -Fqx \"\$pubkey\" ~/.ssh/authorized_keys; then printf '%s\\n' \"\$pubkey\" >> ~/.ssh/authorized_keys; fi; mkdir -p ~/.config/opencode; cfg=\$(printf '%s' '${remote_xfer_config_b64}' | base64 -d); printf '%s' \"\$cfg\" > ~/.config/opencode/hakim-host-attachments.json" < /dev/null >"$setup_log_file" 2>&1; then
   printf "coder ssh bootstrap failed for workspace %s\n" "$workspace" >&2
   printf "See log: %s\n" "$setup_log_file" >&2
   exit 1
@@ -327,6 +356,7 @@ if ! pid_running "$et_pid_file" || ! wait_for_tcp 127.0.0.1 "$local_proxy_ssh_po
     --ssh-option "SendEnv=LANG" \
     --ssh-option "SendEnv=LC_*" \
     --ssh-option "SendEnv=LANGUAGE" \
+    --ssh-option "RemoteForward=127.0.0.1:${local_xfer_port} 127.0.0.1:${local_xfer_port}" \
     --ssh-option "StrictHostKeyChecking=no" \
     --ssh-option "UserKnownHostsFile=${workspace_state_dir}/known_hosts" \
     --ssh-option "IdentityFile=${local_key_file}" \
@@ -344,6 +374,7 @@ if ! process_matches "$et_pid_file" "${remote_user}@127.0.0.1" || ! process_matc
     --ssh-option "SendEnv=LANG" \
     --ssh-option "SendEnv=LC_*" \
     --ssh-option "SendEnv=LANGUAGE" \
+    --ssh-option "RemoteForward=127.0.0.1:${local_xfer_port} 127.0.0.1:${local_xfer_port}" \
     --ssh-option "StrictHostKeyChecking=no" \
     --ssh-option "UserKnownHostsFile=${workspace_state_dir}/known_hosts" \
     --ssh-option "IdentityFile=${local_key_file}" \
