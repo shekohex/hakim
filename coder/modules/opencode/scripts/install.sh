@@ -154,9 +154,12 @@ install_opencode() {
 setup_opencode_config() {
   local opencode_config_file="$HOME/.config/opencode/opencode.jsonc"
   local auth_json_file="$HOME/.local/share/opencode/auth.json"
+  local plugin_dir="$HOME/.config/opencode/plugins"
+  local plugin_file="$plugin_dir/hakim-host-attachments.ts"
 
   mkdir -p "$(dirname "$auth_json_file")"
   mkdir -p "$(dirname "$opencode_config_file")"
+  mkdir -p "$plugin_dir"
 
   setup_opencode_auth "$auth_json_file"
 
@@ -167,6 +170,199 @@ setup_opencode_config() {
       echo "Writing to the config file"
       echo "$ARG_OPENCODE_CONFIG" > "$opencode_config_file"
     fi
+  fi
+
+  if [ ! -f "$plugin_file" ]; then
+    cat >"$plugin_file" <<'EOF'
+import type { Plugin } from "@opencode-ai/plugin"
+import fs from "node:fs"
+import os from "node:os"
+import path from "node:path"
+
+type XferConfig = {
+  url: string
+  token?: string
+  port?: number
+}
+
+function readConfig(): XferConfig | undefined {
+  const file = path.join(os.homedir(), ".config", "opencode", "hakim-host-attachments.json")
+  try {
+    const raw = fs.readFileSync(file, "utf8")
+    const cfg = JSON.parse(raw)
+    if (!cfg || typeof cfg !== "object") return undefined
+    if (typeof cfg.url !== "string" || cfg.url.length === 0) return undefined
+    if ("token" in cfg && typeof cfg.token !== "string") return undefined
+    return cfg as XferConfig
+  } catch {
+    return undefined
+  }
+}
+
+function unescapeToken(token: string) {
+  return token.replace(/\\([\\\s"'])/g, "$1")
+}
+
+function stripQuotes(token: string) {
+  if (token.length >= 2) {
+    const a = token[0]
+    const b = token[token.length - 1]
+    if ((a === "\"" && b === "\"") || (a === "'" && b === "'")) return token.slice(1, -1)
+  }
+  return token
+}
+
+function tokenize(input: string): { token: string; start: number; end: number }[] {
+  const out: { token: string; start: number; end: number }[] = []
+  let i = 0
+  while (i < input.length) {
+    while (i < input.length && /\s/.test(input[i]!)) i++
+    if (i >= input.length) break
+    const start = i
+    let quote: "\"" | "'" | null = null
+    let tok = ""
+    while (i < input.length) {
+      const ch = input[i]!
+      if (!quote && /\s/.test(ch)) break
+      if (!quote && (ch === "\"" || ch === "'")) {
+        quote = ch
+        tok += ch
+        i++
+        continue
+      }
+      if (quote && ch === quote) {
+        quote = null
+        tok += ch
+        i++
+        continue
+      }
+      if (ch === "\\" && i + 1 < input.length) {
+        tok += ch + input[i + 1]!
+        i += 2
+        continue
+      }
+      tok += ch
+      i++
+    }
+    const end = i
+    out.push({ token: tok, start, end })
+  }
+  return out
+}
+
+function looksLikeHostPath(p: string) {
+  if (p.startsWith("/Users/") || p.startsWith("/Volumes/")) return true
+  if (/^[A-Za-z]:\\/.test(p) || p.startsWith("\\\\")) return true
+  if (p.startsWith("/mnt/") && /\/mnt\/[a-z]\//i.test(p)) return true
+  return false
+}
+
+function isAllowedImage(p: string) {
+  return /\.(png|jpe?g|webp|gif)$/i.test(p)
+}
+
+function fileUriToPath(uri: string) {
+  if (!uri.startsWith("file://")) return uri
+  try {
+    return decodeURIComponent(uri.replace(/^file:\/\//, ""))
+  } catch {
+    return uri
+  }
+}
+
+export const HakimHostAttachments: Plugin = async () => {
+  return {
+    "chat.message": async (_input, output) => {
+      const cfg = readConfig()
+      if (!cfg) return
+
+      const attachments: { mime: string; filename: string; url: string }[] = []
+      const replaced = new Map<string, string>()
+      const parts = output.parts
+
+      for (const part of parts) {
+        if (part.type !== "text") continue
+        if (part.synthetic || part.ignored) continue
+
+        const text = part.text
+        const tokens = tokenize(text)
+        let nextText = text
+        let delta = 0
+
+        for (const t of tokens) {
+          const originalToken = t.token
+          if (!originalToken) continue
+
+          let candidate = stripQuotes(originalToken)
+          candidate = fileUriToPath(candidate)
+          candidate = unescapeToken(candidate)
+
+          if (!looksLikeHostPath(candidate)) continue
+          if (!isAllowedImage(candidate)) continue
+          if (replaced.has(originalToken)) continue
+
+          try {
+            if (fs.existsSync(candidate)) continue
+          } catch {
+          }
+
+          const headers: Record<string, string> = { "Content-Type": "application/json" }
+          if (cfg.token) headers.Authorization = `Bearer ${cfg.token}`
+
+          let resp: Response
+          try {
+            resp = await fetch(`${cfg.url.replace(/\/$/, "")}/v1/read`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ path: candidate }),
+            })
+          } catch {
+            continue
+          }
+          if (!resp.ok) continue
+
+          let data: any
+          try {
+            data = await resp.json()
+          } catch {
+            continue
+          }
+          if (!data || typeof data !== "object") continue
+          if (typeof data.data_base64 !== "string" || typeof data.mime !== "string") continue
+
+          const filename = typeof data.filename === "string" && data.filename ? data.filename : path.basename(candidate)
+          attachments.push({
+            mime: data.mime,
+            filename,
+            url: `data:${data.mime};base64,${data.data_base64}`,
+          })
+
+          const marker = `[attached image: ${filename}]`
+          const start = t.start + delta
+          const end = t.end + delta
+          nextText = nextText.slice(0, start) + marker + nextText.slice(end)
+          delta += marker.length - (end - start)
+          replaced.set(originalToken, marker)
+        }
+
+        if (nextText !== text) {
+          part.text = nextText
+        }
+      }
+
+      if (attachments.length === 0) return
+      for (const a of attachments) {
+        output.parts.push({
+          type: "file",
+          mime: a.mime,
+          filename: a.filename,
+          url: a.url,
+        })
+      }
+    },
+  }
+}
+EOF
   fi
 
   if [ "$ARG_REPORT_TASKS" = "true" ]; then
