@@ -18,7 +18,13 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   source /etc/profile.d/mise.sh && \
   mise use --global node@${NODE_VERSION} && \
   export NPM_CONFIG_CACHE=/tmp/.npm && \
-  npm install -g "node-gyp@${NODE_GYP_VERSION}" && \
+  success=0 && \
+  for attempt in 1 2 3 4 5; do \
+    if npm install -g "node-gyp@${NODE_GYP_VERSION}"; then success=1; break; fi; \
+    npm cache clean --force >/dev/null 2>&1 || true; \
+    sleep "$((attempt * 2))"; \
+  done && \
+  [ "$success" -eq 1 ] && \
   rm -rf /tmp/.npm /root/.npm
 
 ARG BUN_VERSION=1.3.9
@@ -27,7 +33,7 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   mise use --global bun@${BUN_VERSION}
 
 # VERSION_UPDATE_BEGIN: opencode
-ARG OPENCODE_VERSION=1.2.13
+ARG OPENCODE_VERSION=1.2.14
 # VERSION_UPDATE_END: opencode
 RUN --mount=type=cache,target=/home/coder/.npm,uid=1000,gid=1000,sharing=locked \
   su coder -s /bin/bash -c "HOME=/home/coder NPM_CONFIG_PREFIX=/home/coder/.npm-global NPM_CONFIG_CACHE=/home/coder/.npm MISE_INSTALL_PATH=/usr/local/bin/mise PATH=/usr/local/bin:/usr/local/share/mise/installs/node/${NODE_VERSION}/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin /usr/local/share/mise/installs/node/${NODE_VERSION}/bin/npm install -g opencode-ai@${OPENCODE_VERSION}" && \
