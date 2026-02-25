@@ -27,7 +27,7 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   mise use --global bun@${BUN_VERSION}
 
 # VERSION_UPDATE_BEGIN: opencode
-ARG OPENCODE_VERSION=1.2.10
+ARG OPENCODE_VERSION=1.2.11
 # VERSION_UPDATE_END: opencode
 RUN --mount=type=cache,target=/home/coder/.npm,uid=1000,gid=1000,sharing=locked \
   su coder -s /bin/bash -c "HOME=/home/coder NPM_CONFIG_PREFIX=/home/coder/.npm-global NPM_CONFIG_CACHE=/home/coder/.npm MISE_INSTALL_PATH=/usr/local/bin/mise PATH=/usr/local/bin:/usr/local/share/mise/installs/node/${NODE_VERSION}/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin /usr/local/share/mise/installs/node/${NODE_VERSION}/bin/npm install -g opencode-ai@${OPENCODE_VERSION}" && \
