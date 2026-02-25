@@ -182,7 +182,11 @@ jobs:
   build-tooling:
     runs-on: ubuntu-latest
     needs: [discover, build-base]
-    if: needs.discover.outputs.build_tooling == 'true'
+    if: |
+      always() &&
+      needs.discover.result == 'success' &&
+      needs.discover.outputs.build_tooling == 'true' &&
+      (needs.build-base.result == 'success' || needs.build-base.result == 'skipped')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -234,8 +238,14 @@ jobs:
     if: |
       always() &&
       needs.discover.result == 'success' &&
-      (needs.build-base.result == 'success' || needs.build-base.result == 'skipped') &&
-      (needs.build-tooling.result == 'success' || needs.build-tooling.result == 'skipped')
+      (
+        (needs.discover.outputs.build_base == 'true' && needs.build-base.result == 'success') ||
+        (needs.discover.outputs.build_base != 'true' && needs.build-base.result == 'skipped')
+      ) &&
+      (
+        (needs.discover.outputs.build_tooling == 'true' && needs.build-tooling.result == 'success') ||
+        (needs.discover.outputs.build_tooling != 'true' && needs.build-tooling.result == 'skipped')
+      )
     strategy:
       fail-fast: false
       matrix:
