@@ -98,7 +98,20 @@ RUN ARCH=$(case ${TARGETARCH} in amd64) echo "x86_64" ;; arm64) echo "aarch64" ;
   curl -fsSL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-${ARCH}" -o docker-compose
 
 # =============================================================================
-# Stage 2e: Download Chrome for Testing (version-isolated)
+# Stage 2e: Download docker-buildx (version-isolated)
+# =============================================================================
+FROM base-system AS docker-buildx-downloader
+
+ARG TARGETARCH=amd64
+ARG DOCKER_BUILDX_VERSION=0.29.1
+
+WORKDIR /downloads
+
+RUN ARCH=$(case ${TARGETARCH} in amd64) echo "amd64" ;; arm64) echo "arm64" ;; *) echo "${TARGETARCH}" ;; esac) && \
+  curl -fsSL "https://github.com/docker/buildx/releases/download/v${DOCKER_BUILDX_VERSION}/buildx-v${DOCKER_BUILDX_VERSION}.linux-${ARCH}" -o docker-buildx
+
+# =============================================================================
+# Stage 2f: Download Chrome for Testing (version-isolated)
 # =============================================================================
 FROM base-system AS chrome-for-testing-downloader
 
@@ -150,6 +163,7 @@ ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/loca
 
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/
 COPY --from=docker-compose-downloader /downloads/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
+COPY --from=docker-buildx-downloader /downloads/docker-buildx /usr/local/lib/docker/cli-plugins/docker-buildx
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -196,7 +210,9 @@ COPY --from=code-server-downloader /downloads/code-server /usr/local/lib/code-se
 COPY --from=git-credential-libsecret-builder /tmp/git-credential-libsecret /usr/local/bin/git-credential-libsecret
 RUN chmod +x /usr/local/bin/coder /usr/local/bin/git-credential-libsecret && \
   chmod +x /usr/local/lib/docker/cli-plugins/docker-compose && \
+  chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx && \
   ln -s /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose && \
+  ln -s /usr/local/lib/docker/cli-plugins/docker-buildx /usr/local/bin/docker-buildx && \
   ln -s /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server
 
 COPY --from=mise-installer /usr/local/bin/mise /usr/local/bin/mise

@@ -149,6 +149,7 @@ function check_base() {
   docker_root 'chromedriver --version'
   docker_root 'docker --version'
   docker_root 'docker compose version'
+  docker_root 'docker buildx version'
   docker_root 'mise --version'
   docker_root 'nvim --version | head -n1'
   docker_root 'rg --version | head -n1'
