@@ -239,6 +239,29 @@ function list_buildx_builders() {
   docker buildx ls 2>/dev/null | awk 'NR>1 && $1 !~ /^\\_/ && $1 != "" {name=$1; gsub(/\*/, "", name); if (name != "NAME/NODE") print name}'
 }
 
+function use_existing_prefixed_builder() {
+  local prefix="$1"
+  local candidate
+  local candidate_driver
+
+  for candidate in $(list_buildx_builders); do
+    case "$candidate" in
+    "$prefix"-[0-9]*)
+      candidate_driver="$(buildx_builder_driver "$candidate")"
+      if [ "$candidate_driver" = "docker-container" ]; then
+        docker buildx use "$candidate" >/dev/null
+        export BUILDX_BUILDER="$candidate"
+        info "Using buildx builder '$candidate' (driver=$candidate_driver)"
+        docker buildx inspect "$candidate" --bootstrap >/dev/null
+        return 0
+      fi
+      ;;
+    esac
+  done
+
+  return 1
+}
+
 function write_buildkit_http_registry_config() {
   local config_file="$1"
 
@@ -281,6 +304,9 @@ function ensure_cache_export_builder() {
     fi
 
     if docker buildx inspect "$created_builder" >/dev/null 2>&1; then
+      if use_existing_prefixed_builder "$created_builder"; then
+        return
+      fi
       created_builder="hakim-builder-http-$RUN_REF"
     fi
 
@@ -339,6 +365,9 @@ function ensure_cache_export_builder() {
   fi
 
   if docker buildx inspect "$created_builder" >/dev/null 2>&1; then
+    if use_existing_prefixed_builder "$created_builder"; then
+      return
+    fi
     created_builder="hakim-builder-$RUN_REF"
   fi
 
