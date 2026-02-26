@@ -750,6 +750,7 @@ data "coder_parameter" "enable_docker_data_offload" {
   description  = "Persist Docker data root at /home/coder/.local/share/docker using a deterministic host bind mount under /tank."
   type         = "bool"
   default      = false
+  mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/package.svg"
   order        = 61
 }
