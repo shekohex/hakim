@@ -130,6 +130,20 @@ upsert_mount_point() {
     --data-urlencode "${mp_key}=${source},mp=${mount_path},backup=${backup_flag}" >/dev/null
 }
 
+remove_mount_point_by_path() {
+  local mount_path="$1"
+  local config_body mp_key
+
+  config_body="$(api_call GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config")"
+  mp_key="$(find_mp_key_by_path "${config_body}" "${mount_path}")"
+  if [[ -z "${mp_key}" ]]; then
+    return 0
+  fi
+
+  session_api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
+    --data-urlencode "delete=${mp_key}" >/dev/null
+}
+
 session_auth() {
   if [[ -n "${PVE_AUTH_COOKIE}" && -n "${PVE_CSRF_TOKEN}" ]]; then
     return 0
@@ -309,6 +323,8 @@ fi
 
 if [[ -n "${PVE_DOCKER_SOURCE}" ]]; then
   upsert_mount_point "${PVE_DOCKER_SOURCE}" "/home/coder/.local/share/docker" "0"
+elif [[ -n "${PVE_USERNAME}" && -n "${PVE_PASSWORD}" ]]; then
+  remove_mount_point_by_path "/home/coder/.local/share/docker"
 fi
 
 start_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/start")"

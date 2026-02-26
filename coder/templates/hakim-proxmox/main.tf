@@ -856,8 +856,8 @@ locals {
   use_existing_docker_volume   = local.docker_volume_id != ""
   docker_bind_mount_enabled    = local.docker_data_offload_enabled && !local.use_existing_docker_volume
   docker_bind_path             = "/tank/hakim-docker/${local.home_owner_slug}/${local.home_workspace_slug}"
-  docker_mount_source          = local.use_existing_docker_volume ? local.docker_volume_id : local.docker_bind_path
-  docker_mount_is_bind         = startswith(local.docker_mount_source, "/")
+  docker_mount_source          = local.docker_data_offload_enabled ? (local.use_existing_docker_volume ? local.docker_volume_id : local.docker_bind_path) : ""
+  docker_mount_is_bind         = local.docker_data_offload_enabled && startswith(local.docker_mount_source, "/")
   docker_requires_root_session = local.docker_data_offload_enabled && local.docker_mount_is_bind
 
   requires_root_session   = local.home_requires_root_session || local.docker_requires_root_session

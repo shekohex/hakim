@@ -27,5 +27,6 @@ while IFS= read -r line; do
   fi
 
   install -d -m 0777 "${source_path}"
+  chown 100000:100000 "${source_path}"
   chmod 0777 "${source_path}"
 done < <(sed -n '/^mp[0-9]\+: /p' "${config_file}")
