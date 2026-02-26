@@ -15,9 +15,9 @@ terraform {
 
 provider "proxmox" {
   endpoint  = data.coder_parameter.proxmox_endpoint.value
-  api_token = local.home_requires_root_session ? null : data.coder_parameter.proxmox_api_token.value
-  username  = local.home_requires_root_session ? trimspace(data.coder_parameter.proxmox_username.value) : null
-  password  = local.home_requires_root_session ? data.coder_parameter.proxmox_password.value : null
+  api_token = local.requires_root_session ? null : data.coder_parameter.proxmox_api_token.value
+  username  = local.requires_root_session ? trimspace(data.coder_parameter.proxmox_username.value) : null
+  password  = local.requires_root_session ? data.coder_parameter.proxmox_password.value : null
   insecure  = data.coder_parameter.proxmox_insecure.value
 }
 
@@ -733,15 +733,37 @@ data "coder_parameter" "proxmox_home_volume_id" {
 }
 
 data "coder_parameter" "proxmox_home_bind_hook_script_id" {
-  count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
+  count        = (data.coder_parameter.enable_home_disk.value || data.coder_parameter.enable_docker_data_offload.value) ? 1 : 0
   name         = "proxmox_home_bind_hook_script_id"
   display_name = "Home Bind Hook Script ID"
-  description  = "Proxmox hookscript volume id used to auto-create bind path, e.g. local:snippets/hakim-home-bind-hook.sh"
+  description  = "Proxmox hookscript volume id used to auto-create bind paths, e.g. local:snippets/hakim-home-bind-hook.sh"
   type         = "string"
   default      = "local:snippets/hakim-home-bind-hook.sh"
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/file-code.svg"
   order        = 60
+}
+
+data "coder_parameter" "enable_docker_data_offload" {
+  name         = "enable_docker_data_offload"
+  display_name = "Enable Docker Data Offload"
+  description  = "Persist Docker data root at /home/coder/.local/share/docker using a deterministic host bind mount under /tank."
+  type         = "bool"
+  default      = false
+  icon         = "https://esm.sh/lucide-static@latest/icons/package.svg"
+  order        = 61
+}
+
+data "coder_parameter" "proxmox_docker_volume_id" {
+  count        = data.coder_parameter.enable_docker_data_offload.value ? 1 : 0
+  name         = "proxmox_docker_volume_id"
+  display_name = "Existing Docker Mount Source"
+  description  = "Optional existing mount source for Docker data root (volume id or absolute bind path). Empty uses /tank/hakim-docker/<owner>/<workspace>."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
+  order        = 62
 }
 
 data "coder_parameter" "workspace_rebuild_generation" {
@@ -752,7 +774,7 @@ data "coder_parameter" "workspace_rebuild_generation" {
   default      = 1
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/refresh-cw.svg"
-  order        = 61
+  order        = 63
 }
 
 data "coder_parameter" "enable_nesting" {
@@ -803,7 +825,7 @@ locals {
     START_DOCKER_DAEMON   = "1"
     DOCKER_STORAGE_DRIVER = "vfs"
   }
-  docker_data_root_env = data.coder_parameter.enable_home_disk.value ? {
+  docker_data_root_env = (data.coder_parameter.enable_home_disk.value || data.coder_parameter.enable_docker_data_offload.value) ? {
     DOCKER_DATA_ROOT = "/home/coder/.local/share/docker"
   } : {}
   combined_env = merge(local.default_env, local.docker_data_root_env, local.user_env, local.secret_env)
@@ -827,6 +849,18 @@ locals {
   home_mount_source          = local.use_existing_home_volume ? local.home_volume_id : local.home_bind_path
   home_mount_is_bind         = startswith(local.home_mount_source, "/")
   home_requires_root_session = local.home_disk_enabled && local.home_mount_is_bind
+
+  docker_data_offload_enabled  = data.coder_parameter.enable_docker_data_offload.value
+  docker_volume_id             = length(data.coder_parameter.proxmox_docker_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_docker_volume_id[0].value) : ""
+  use_existing_docker_volume   = local.docker_volume_id != ""
+  docker_bind_mount_enabled    = local.docker_data_offload_enabled && !local.use_existing_docker_volume
+  docker_bind_path             = "/tank/hakim-docker/${local.home_owner_slug}/${local.home_workspace_slug}"
+  docker_mount_source          = local.use_existing_docker_volume ? local.docker_volume_id : local.docker_bind_path
+  docker_mount_is_bind         = startswith(local.docker_mount_source, "/")
+  docker_requires_root_session = local.docker_data_offload_enabled && local.docker_mount_is_bind
+
+  requires_root_session   = local.home_requires_root_session || local.docker_requires_root_session
+  bind_mount_hook_enabled = local.home_bind_mount_enabled || local.docker_bind_mount_enabled
 
   project_dir         = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script    = file("${path.module}/scripts/setup-git.sh")
@@ -959,7 +993,7 @@ resource "terraform_data" "workspace_rebuild_generation" {
 }
 
 resource "proxmox_virtual_environment_container" "workspace" {
-  hook_script_file_id   = local.home_bind_mount_enabled ? data.coder_parameter.proxmox_home_bind_hook_script_id[0].value : null
+  hook_script_file_id   = local.bind_mount_hook_enabled ? data.coder_parameter.proxmox_home_bind_hook_script_id[0].value : null
   node_name             = data.coder_parameter.proxmox_node_name.value
   vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
   pool_id               = trimspace(data.coder_parameter.proxmox_pool_id.value) != "" ? data.coder_parameter.proxmox_pool_id.value : null
@@ -973,12 +1007,12 @@ resource "proxmox_virtual_environment_container" "workspace" {
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
     precondition {
-      condition     = !local.home_requires_root_session || (trimspace(data.coder_parameter.proxmox_username.value) == "root@pam" && trimspace(data.coder_parameter.proxmox_password.value) != "")
-      error_message = "Bind-mounted /home/coder requires root@pam session auth. Set proxmox_username=root@pam and provide proxmox_password."
+      condition     = !local.requires_root_session || (trimspace(data.coder_parameter.proxmox_username.value) == "root@pam" && trimspace(data.coder_parameter.proxmox_password.value) != "")
+      error_message = "Bind-mounted home/docker paths require root@pam session auth. Set proxmox_username=root@pam and provide proxmox_password."
     }
 
     precondition {
-      condition     = !local.home_bind_mount_enabled || trimspace(data.coder_parameter.proxmox_home_bind_hook_script_id[0].value) != ""
+      condition     = !local.bind_mount_hook_enabled || trimspace(data.coder_parameter.proxmox_home_bind_hook_script_id[0].value) != ""
       error_message = "Set proxmox_home_bind_hook_script_id to a valid Proxmox hookscript volume id when using auto bind persistence."
     }
 
@@ -1010,6 +1044,17 @@ resource "proxmox_virtual_environment_container" "workspace" {
       volume = local.home_mount_source
       size   = null
       backup = local.home_mount_is_bind ? false : true
+    }
+  }
+
+  dynamic "mount_point" {
+    for_each = local.docker_data_offload_enabled && !local.docker_mount_is_bind ? [1] : []
+
+    content {
+      path   = "/home/coder/.local/share/docker"
+      volume = local.docker_mount_source
+      size   = null
+      backup = local.docker_mount_is_bind ? false : true
     }
   }
 
@@ -1057,6 +1102,7 @@ resource "terraform_data" "workspace_agent_env" {
     agent_token_sha = sha256(coder_agent.main.token)
     env_sha         = sha256(jsonencode(local.combined_env))
     home_source     = local.home_mount_is_bind ? local.home_mount_source : ""
+    docker_source   = local.docker_mount_is_bind ? local.docker_mount_source : ""
   }
 
   provisioner "local-exec" {
@@ -1067,12 +1113,13 @@ resource "terraform_data" "workspace_agent_env" {
       PVE_NODE_NAME      = data.coder_parameter.proxmox_node_name.value
       PVE_VM_ID          = tostring(proxmox_virtual_environment_container.workspace.vm_id)
       PVE_API_TOKEN      = data.coder_parameter.proxmox_api_token.value
-      PVE_USERNAME       = local.home_mount_is_bind ? data.coder_parameter.proxmox_username.value : ""
-      PVE_PASSWORD       = local.home_mount_is_bind ? data.coder_parameter.proxmox_password.value : ""
+      PVE_USERNAME       = local.requires_root_session ? data.coder_parameter.proxmox_username.value : ""
+      PVE_PASSWORD       = local.requires_root_session ? data.coder_parameter.proxmox_password.value : ""
       PVE_INSECURE       = tostring(data.coder_parameter.proxmox_insecure.value)
       CT_AGENT_BOOTSTRAP = local.container_agent_bootstrap
       CT_RUNTIME_ENV_B64 = local.container_runtime_env_b64
       PVE_HOME_SOURCE    = local.home_mount_is_bind ? local.home_mount_source : ""
+      PVE_DOCKER_SOURCE  = local.docker_mount_is_bind ? local.docker_mount_source : ""
     }
   }
 

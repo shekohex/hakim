@@ -18,6 +18,7 @@ PVE_INSECURE="${PVE_INSECURE:-true}"
 CT_AGENT_BOOTSTRAP="${CT_AGENT_BOOTSTRAP}"
 CT_RUNTIME_ENV_B64="${CT_RUNTIME_ENV_B64:-}"
 PVE_HOME_SOURCE="${PVE_HOME_SOURCE:-}"
+PVE_DOCKER_SOURCE="${PVE_DOCKER_SOURCE:-}"
 
 AUTH_HEADER="Authorization: PVEAPIToken=${PVE_API_TOKEN}"
 PVE_AUTH_COOKIE=""
@@ -82,6 +83,51 @@ json_exitstatus_value() {
 json_field_value() {
   local key="$1"
   sed -n "s/.*\"${key}\":\"\([^\"]*\)\".*/\1/p"
+}
+
+escape_sed_basic_regex() {
+  printf '%s' "$1" | sed 's/[.[\*^$()+?{}|]/\\&/g; s/\//\\\//g'
+}
+
+find_mp_key_by_path() {
+  local config_body="$1"
+  local mount_path="$2"
+  local mount_path_escaped
+  mount_path_escaped="$(escape_sed_basic_regex "${mount_path}")"
+
+  printf '%s' "${config_body}" | sed -n "s/.*\"\(mp[0-9]\+\)\":\"[^\"]*mp=${mount_path_escaped}\(,\|\"\).*/\1/p" | sed -n '1p'
+}
+
+next_free_mp_key() {
+  local config_body="$1"
+  local i key
+
+  for i in $(seq 0 255); do
+    key="mp${i}"
+    if [[ "${config_body}" != *"\"${key}\":"* ]]; then
+      printf '%s' "${key}"
+      return 0
+    fi
+  done
+
+  printf 'failed to find free mount point key\n' >&2
+  return 1
+}
+
+upsert_mount_point() {
+  local source="$1"
+  local mount_path="$2"
+  local backup_flag="$3"
+  local config_body mp_key
+
+  config_body="$(api_call GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config")"
+  mp_key="$(find_mp_key_by_path "${config_body}" "${mount_path}")"
+  if [[ -z "${mp_key}" ]]; then
+    mp_key="$(next_free_mp_key "${config_body}")"
+  fi
+
+  session_api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
+    --data-urlencode "${mp_key}=${source},mp=${mount_path},backup=${backup_flag}" >/dev/null
 }
 
 session_auth() {
@@ -258,8 +304,11 @@ else
 fi
 
 if [[ -n "${PVE_HOME_SOURCE}" ]]; then
-  session_api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
-    --data-urlencode "mp0=${PVE_HOME_SOURCE},mp=/home/coder,backup=0" >/dev/null
+  upsert_mount_point "${PVE_HOME_SOURCE}" "/home/coder" "0"
+fi
+
+if [[ -n "${PVE_DOCKER_SOURCE}" ]]; then
+  upsert_mount_point "${PVE_DOCKER_SOURCE}" "/home/coder/.local/share/docker" "0"
 fi
 
 start_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/start")"

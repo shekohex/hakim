@@ -13,17 +13,19 @@ if [[ ! -f "${config_file}" ]]; then
   exit 0
 fi
 
-line="$(sed -n '/^mp[0-9]\+: .*mp=\/home\/coder\(,\|$\)/{p;q;}' "${config_file}")"
-if [[ -z "${line}" ]]; then
-  exit 0
-fi
+while IFS= read -r line; do
+  source_spec="${line#*: }"
+  source_path="${source_spec%%,*}"
+  mount_path="$(printf '%s' "${source_spec}" | sed -n 's/.*mp=\([^,]*\).*/\1/p')"
 
-source_spec="${line#*: }"
-source_path="${source_spec%%,*}"
+  if [[ "${source_path}" != /* ]]; then
+    continue
+  fi
 
-if [[ "${source_path}" != /* ]]; then
-  exit 0
-fi
+  if [[ "${mount_path}" != "/home/coder" && "${mount_path}" != "/home/coder/.local/share/docker" ]]; then
+    continue
+  fi
 
-install -d -m 0777 "${source_path}"
-chmod 0777 "${source_path}"
+  install -d -m 0777 "${source_path}"
+  chmod 0777 "${source_path}"
+done < <(sed -n '/^mp[0-9]\+: /p' "${config_file}")
