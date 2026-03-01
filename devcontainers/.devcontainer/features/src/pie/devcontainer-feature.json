@@ -1,0 +1,35 @@
+{
+    "name": "PIE (PHP Installer for Extensions)",
+    "id": "pie",
+    "version": "1.0.0",
+    "description": "Installs PIE and optional PHP extensions.",
+    "options": {
+        "version": {
+            "type": "string",
+            "proposals": [
+                "latest",
+                "1.3.8"
+            ],
+            "default": "latest",
+            "description": "PIE version to install. Use latest or a release tag."
+        },
+        "verifyAttestation": {
+            "type": "boolean",
+            "default": false,
+            "description": "Verify PIE release attestation with gh CLI before install."
+        },
+        "installPrereqs": {
+            "type": "boolean",
+            "default": true,
+            "description": "Install build prerequisites for PIE extension compilation."
+        },
+        "extensions": {
+            "type": "array",
+            "default": [],
+            "description": "Extensions to install. Supports PIE package names (e.g. phpredis/phpredis) and bundled names: pcntl, sockets."
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/php"
+    ]
+}
