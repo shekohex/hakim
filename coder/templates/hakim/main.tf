@@ -58,6 +58,12 @@ data "coder_parameter" "image_variant" {
     icon        = "/icon/rust.svg"
   }
   option {
+    name        = "Android"
+    description = "Android SDK, Java 17, NDK r29, and modern build tooling."
+    value       = "android"
+    icon        = "/icon/android.svg"
+  }
+  option {
     name        = "Elixir + Phoenix"
     description = "Elixir, Phoenix, Node.js, Bun, PostgreSQL client tools."
     value       = "elixir"
@@ -698,6 +704,7 @@ module "openchamber" {
     "dotnet",
     "js",
     "rust",
+    "android",
     "elixir"
   ], data.coder_parameter.image_variant.value) ? 1 : 0
   source                = "github.com/shekohex/hakim//coder/modules/openchamber?ref=main"
@@ -716,7 +723,7 @@ module "openclaw_node" {
   count = (
     data.coder_workspace.me.start_count > 0 &&
     data.coder_parameter.enable_openclaw_node.value &&
-    contains(["php", "dotnet", "js", "rust", "elixir"], data.coder_parameter.image_variant.value) &&
+    contains(["php", "dotnet", "js", "rust", "android", "elixir"], data.coder_parameter.image_variant.value) &&
     length(data.coder_parameter.openclaw_bridge_host) > 0 &&
     trimspace(data.coder_parameter.openclaw_bridge_host[0].value) != ""
   ) ? 1 : 0
@@ -889,6 +896,17 @@ data "coder_workspace_preset" "rust_quick" {
     "image_variant" = "rust"
     "git_url"       = ""
     "system_prompt" = "You are working on a Rust project. Use cargo."
+  }
+}
+
+data "coder_workspace_preset" "android_quick" {
+  name        = "Android Quick Start"
+  description = "Android SDK + NDK + Java environment"
+  icon        = "/icon/android.svg"
+  parameters = {
+    "image_variant" = "android"
+    "git_url"       = ""
+    "system_prompt" = "You are working on a modern Android app. Use Gradle, adb, and Android SDK/NDK tooling."
   }
 }
 

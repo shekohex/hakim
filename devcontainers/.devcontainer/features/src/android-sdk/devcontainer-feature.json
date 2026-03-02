@@ -1,0 +1,62 @@
+{
+    "name": "Android SDK",
+    "id": "android-sdk",
+    "version": "1.0.0",
+    "description": "Installs Android command-line tools and configurable SDK packages.",
+    "options": {
+        "sdkRoot": {
+            "type": "string",
+            "default": "/usr/local/share/android-sdk",
+            "description": "Android SDK root path."
+        },
+        "cmdlineToolsVersion": {
+            "type": "string",
+            "default": "14742923",
+            "description": "Android command-line tools package version number."
+        },
+        "cmdlineToolsSha1": {
+            "type": "string",
+            "default": "48833c34b761c10cb20bcd16582129395d121b27",
+            "description": "Expected SHA1 checksum of the command-line tools archive."
+        },
+        "buildToolsVersion": {
+            "type": "string",
+            "default": "36.1.0",
+            "description": "Android Build-Tools version to install."
+        },
+        "platforms": {
+            "type": "string",
+            "default": "android-36,android-35",
+            "description": "Comma-separated platform IDs, e.g. android-36,android-35."
+        },
+        "includeSources": {
+            "type": "boolean",
+            "default": true,
+            "description": "Install SDK sources for each selected platform."
+        },
+        "installEmulator": {
+            "type": "boolean",
+            "default": false,
+            "description": "Install Android Emulator package."
+        },
+        "systemImage": {
+            "type": "string",
+            "default": "system-images;android-36;google_apis;x86_64",
+            "description": "System image package to install when emulator is enabled."
+        },
+        "extraPackages": {
+            "type": "string",
+            "default": "",
+            "description": "Additional sdkmanager package IDs (comma-separated)."
+        },
+        "acceptLicenses": {
+            "type": "boolean",
+            "default": true,
+            "description": "Accept Android SDK licenses automatically."
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils",
+        "../java"
+    ]
+}

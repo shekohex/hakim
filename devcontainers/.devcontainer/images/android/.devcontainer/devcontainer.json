@@ -1,0 +1,44 @@
+{
+  "name": "Hakim Android",
+  "image": "ghcr.io/shekohex/hakim-tooling:latest",
+  "build": {
+    "args": {
+      "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}"
+    }
+  },
+  "features": {
+    "../../../features/src/java": {
+      "version": "17"
+    },
+    "../../../features/src/android-sdk": {
+      "sdkRoot": "/usr/local/share/android-sdk",
+      "cmdlineToolsVersion": "14742923",
+      "cmdlineToolsSha1": "48833c34b761c10cb20bcd16582129395d121b27",
+      "buildToolsVersion": "36.1.0",
+      "platforms": "android-36,android-35",
+      "includeSources": true,
+      "installEmulator": false,
+      "systemImage": "system-images;android-36;google_apis;x86_64",
+      "extraPackages": "",
+      "acceptLicenses": true
+    },
+    "../../../features/src/android-ndk": {
+      "sdkRoot": "/usr/local/share/android-sdk",
+      "version": "29.0.14206865",
+      "cmakeVersion": "4.1.2",
+      "additionalCmakeVersions": "3.22.1",
+      "extraPackages": ""
+    },
+    "../../../features/src/lazyvim": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-gradle",
+        "Kotlin.kotlin"
+      ]
+    }
+  },
+  "remoteUser": "coder"
+}

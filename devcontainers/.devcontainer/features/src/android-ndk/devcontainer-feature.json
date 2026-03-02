@@ -1,0 +1,41 @@
+{
+    "name": "Android NDK",
+    "id": "android-ndk",
+    "version": "1.0.0",
+    "description": "Installs Android NDK and CMake side-by-side packages.",
+    "options": {
+        "sdkRoot": {
+            "type": "string",
+            "default": "/usr/local/share/android-sdk",
+            "description": "Android SDK root path."
+        },
+        "version": {
+            "type": "string",
+            "proposals": [
+                "29.0.14206865",
+                "27.3.13750724"
+            ],
+            "default": "29.0.14206865",
+            "description": "Android NDK side-by-side version."
+        },
+        "cmakeVersion": {
+            "type": "string",
+            "default": "4.1.2",
+            "description": "Primary CMake package version to install."
+        },
+        "additionalCmakeVersions": {
+            "type": "string",
+            "default": "3.22.1",
+            "description": "Additional CMake versions (comma-separated)."
+        },
+        "extraPackages": {
+            "type": "string",
+            "default": "",
+            "description": "Additional sdkmanager package IDs (comma-separated)."
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils",
+        "../android-sdk"
+    ]
+}
