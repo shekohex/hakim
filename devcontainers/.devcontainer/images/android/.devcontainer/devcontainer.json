@@ -17,7 +17,7 @@
       "buildToolsVersion": "36.1.0",
       "platforms": "android-36,android-35",
       "includeSources": true,
-      "installEmulator": false,
+      "installEmulator": true,
       "systemImage": "system-images;android-36;google_apis;x86_64",
       "extraPackages": "",
       "acceptLicenses": true

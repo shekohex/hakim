@@ -1,0 +1,227 @@
+#!/bin/bash
+set -euo pipefail
+
+SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/share/android-sdk}"
+EMULATOR_BIN="${ANDROID_EMULATOR_BIN:-${SDK_ROOT}/emulator/emulator}"
+AVDMANAGER_BIN="${ANDROID_AVDMANAGER_BIN:-${SDK_ROOT}/cmdline-tools/latest/bin/avdmanager}"
+ADB_BIN="${ANDROID_ADB_BIN:-${SDK_ROOT}/platform-tools/adb}"
+SYSTEM_IMAGE="${ANDROID_EMULATOR_SYSTEM_IMAGE:-system-images;android-36;google_apis;x86_64}"
+DEVICE_PROFILE="${ANDROID_EMULATOR_DEVICE:-pixel_7}"
+DEFAULT_NAME="${ANDROID_EMULATOR_NAME:-hakim-api36}"
+DEFAULT_PORT="${ANDROID_EMULATOR_PORT:-5554}"
+STATE_DIR="${ANDROID_EMULATOR_STATE_DIR:-${XDG_STATE_HOME:-${HOME}/.local/state}/android-emulator}"
+START_TIMEOUT="${ANDROID_EMULATOR_START_TIMEOUT:-300}"
+ACCEL_OVERRIDE="${ANDROID_EMULATOR_ACCEL:-auto}"
+
+mkdir -p "${STATE_DIR}"
+
+command_name="${1:-status}"
+avd_name="${2:-${DEFAULT_NAME}}"
+port="${3:-${DEFAULT_PORT}}"
+
+if ! [[ "${port}" =~ ^[0-9]+$ ]]; then
+    echo "Port must be numeric" >&2
+    exit 1
+fi
+
+pid_file="${STATE_DIR}/${avd_name}.pid"
+log_file="${STATE_DIR}/${avd_name}.log"
+serial="emulator-${port}"
+adb_port="$((port + 1))"
+
+require_bins() {
+    local missing=0
+    for bin in "${EMULATOR_BIN}" "${AVDMANAGER_BIN}" "${ADB_BIN}"; do
+        if [ ! -x "${bin}" ]; then
+            echo "Missing required binary: ${bin}" >&2
+            missing=1
+        fi
+    done
+    if [ "${missing}" -ne 0 ]; then
+        exit 1
+    fi
+}
+
+is_running() {
+    if [ ! -f "${pid_file}" ]; then
+        return 1
+    fi
+    local pid
+    pid="$(cat "${pid_file}")"
+    if [ -z "${pid}" ]; then
+        return 1
+    fi
+    kill -0 "${pid}" >/dev/null 2>&1
+}
+
+ensure_avd() {
+    if [ -d "${HOME}/.android/avd/${avd_name}.avd" ]; then
+        return 0
+    fi
+
+    if [ "${ANDROID_EMULATOR_AUTO_INSTALL_IMAGE:-false}" = "true" ]; then
+        "${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${SDK_ROOT}" "${SYSTEM_IMAGE}"
+    fi
+
+    if ! printf 'no\n' | "${AVDMANAGER_BIN}" create avd --force --name "${avd_name}" --package "${SYSTEM_IMAGE}" --device "${DEVICE_PROFILE}" >/dev/null; then
+        echo "Failed to create AVD ${avd_name}. Ensure ${SYSTEM_IMAGE} is installed." >&2
+        exit 1
+    fi
+}
+
+wait_for_boot() {
+    local start
+    start="$(date +%s)"
+
+    "${ADB_BIN}" -s "${serial}" wait-for-device >/dev/null 2>&1 || true
+
+    while true; do
+        local boot_state
+        boot_state="$("${ADB_BIN}" -s "${serial}" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+        if [ "${boot_state}" = "1" ]; then
+            return 0
+        fi
+
+        if [ "$(( $(date +%s) - start ))" -ge "${START_TIMEOUT}" ]; then
+            echo "Timed out waiting for ${serial} to boot" >&2
+            return 1
+        fi
+        sleep 2
+    done
+}
+
+start_emulator() {
+    require_bins
+
+    if is_running; then
+        echo "${avd_name} already running"
+        return 0
+    fi
+
+    ensure_avd
+
+    local accel_mode
+    accel_mode="off"
+    case "${ACCEL_OVERRIDE}" in
+    on|off)
+        accel_mode="${ACCEL_OVERRIDE}"
+        ;;
+    auto)
+        if [ -c /dev/kvm ] && [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
+            accel_mode="on"
+        fi
+        ;;
+    *)
+        echo "Invalid ANDROID_EMULATOR_ACCEL=${ACCEL_OVERRIDE}; expected auto|on|off" >&2
+        exit 1
+        ;;
+    esac
+
+    local gpu_mode
+    gpu_mode="${ANDROID_EMULATOR_GPU:-swiftshader_indirect}"
+
+    : > "${log_file}"
+    nohup "${EMULATOR_BIN}" "@${avd_name}" -no-window -no-audio -no-boot-anim -gpu "${gpu_mode}" -accel "${accel_mode}" -netfast -ports "${port},${adb_port}" ${ANDROID_EMULATOR_EXTRA_ARGS:-} >> "${log_file}" 2>&1 < /dev/null &
+    echo "$!" > "${pid_file}"
+
+    if [ "${ANDROID_EMULATOR_WAIT_FOR_BOOT:-true}" = "true" ]; then
+        wait_for_boot
+    fi
+
+    echo "Started ${avd_name} (${serial}) accel=${accel_mode} log=${log_file}"
+}
+
+stop_emulator() {
+    local exited=0
+
+    "${ADB_BIN}" -s "${serial}" emu kill >/dev/null 2>&1 || true
+
+    if is_running; then
+        local pid
+        pid="$(cat "${pid_file}")"
+        kill "${pid}" >/dev/null 2>&1 || true
+        for _ in $(seq 1 15); do
+            if ! kill -0 "${pid}" >/dev/null 2>&1; then
+                exited=1
+                break
+            fi
+            sleep 1
+        done
+        if [ "${exited}" -eq 0 ]; then
+            kill -9 "${pid}" >/dev/null 2>&1 || true
+        fi
+        rm -f "${pid_file}"
+    fi
+
+    echo "Stopped ${avd_name}"
+}
+
+status_emulator() {
+    local state
+    state="stopped"
+    if is_running; then
+        state="running"
+    fi
+
+    local boot_state
+    boot_state="$("${ADB_BIN}" -s "${serial}" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+
+    echo "name=${avd_name} serial=${serial} state=${state} boot=${boot_state:-unknown} log=${log_file}"
+}
+
+list_emulators() {
+    "${AVDMANAGER_BIN}" list avd
+}
+
+create_emulator() {
+    require_bins
+    ensure_avd
+    echo "Created ${avd_name}"
+}
+
+logs_emulator() {
+    touch "${log_file}"
+    tail -n "${ANDROID_EMULATOR_LOG_LINES:-200}" -f "${log_file}"
+}
+
+delete_emulator() {
+    stop_emulator >/dev/null 2>&1 || true
+    rm -rf "${HOME}/.android/avd/${avd_name}.avd"
+    rm -f "${HOME}/.android/avd/${avd_name}.ini" "${pid_file}"
+    echo "Deleted ${avd_name}"
+}
+
+case "${command_name}" in
+start)
+    start_emulator
+    ;;
+stop)
+    stop_emulator
+    ;;
+restart)
+    stop_emulator
+    start_emulator
+    ;;
+status)
+    status_emulator
+    ;;
+wait)
+    wait_for_boot
+    ;;
+logs)
+    logs_emulator
+    ;;
+create)
+    create_emulator
+    ;;
+delete)
+    delete_emulator
+    ;;
+list)
+    list_emulators
+    ;;
+*)
+    echo "Usage: android-emulator-manager [start|stop|restart|status|wait|logs|create|delete|list] [avd_name] [port]" >&2
+    exit 1
+    ;;
+esac

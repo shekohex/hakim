@@ -352,6 +352,64 @@ function check_js() {
   docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; node -e "console.log(\"ok\")" | rg "^ok$" >/dev/null'
 }
 
+function check_android() {
+  local sdk_root
+  local expected_build_tools
+  local expected_platforms
+  local expected_system_image
+  local expected_ndk
+  local expected_install_emulator
+  local platform_package
+  local platform_id
+  local system_image_path
+
+  sdk_root="$(jq -r 'first(.features | to_entries[] | select(.key | test("/android-sdk$")) | .value.sdkRoot) // "/usr/local/share/android-sdk"' "$CONFIG_FILE")"
+  expected_build_tools="$(jq -r 'first(.features | to_entries[] | select(.key | test("/android-sdk$")) | .value.buildToolsVersion) // empty' "$CONFIG_FILE")"
+  expected_platforms="$(jq -r 'first(.features | to_entries[] | select(.key | test("/android-sdk$")) | .value.platforms) // empty' "$CONFIG_FILE")"
+  expected_system_image="$(jq -r 'first(.features | to_entries[] | select(.key | test("/android-sdk$")) | .value.systemImage) // empty' "$CONFIG_FILE")"
+  expected_install_emulator="$(jq -r 'first(.features | to_entries[] | select(.key | test("/android-sdk$")) | .value.installEmulator) // false' "$CONFIG_FILE")"
+  expected_ndk="$(jq -r 'first(.features | to_entries[] | select(.key | test("/android-ndk$")) | .value.version) // empty' "$CONFIG_FILE")"
+
+  check_variant_common
+
+  docker_coder 'java -version >/dev/null'
+  docker_coder 'javac -version >/dev/null'
+  docker_coder 'sdkmanager --version'
+  docker_coder 'adb version'
+  docker_coder 'avdmanager list target >/dev/null'
+
+  if [[ -n "$expected_build_tools" ]]; then
+    docker_root "test -d '${sdk_root}/build-tools/${expected_build_tools}'"
+  fi
+
+  if [[ -n "$expected_platforms" ]]; then
+    IFS=',' read -ra platform_specs <<< "$expected_platforms"
+    for raw in "${platform_specs[@]}"; do
+      platform_package="$(echo "$raw" | xargs)"
+      [[ -z "$platform_package" ]] && continue
+      platform_id="$platform_package"
+      if [[ "$platform_id" == platforms\;* ]]; then
+        platform_id="${platform_id#platforms;}"
+      fi
+      docker_root "test -d '${sdk_root}/platforms/${platform_id}'"
+    done
+  fi
+
+  if [[ -n "$expected_ndk" ]]; then
+    docker_root "test -x '${sdk_root}/ndk/${expected_ndk}/ndk-build'"
+  fi
+
+  if [[ "$expected_install_emulator" == "true" ]]; then
+    docker_root "test -x '${sdk_root}/emulator/emulator'"
+    docker_root 'command -v android-emulator-manager >/dev/null'
+    docker_coder 'android-emulator-manager status >/dev/null'
+    if [[ -n "$expected_system_image" ]]; then
+      system_image_path="${expected_system_image//;/\/}"
+      docker_root "test -d '${sdk_root}/${system_image_path}'"
+    fi
+  fi
+}
+
 log "Starting smoke checks for $IMAGE"
 
 case "$TARGET" in
@@ -377,6 +435,9 @@ case "$TARGET" in
         ;;
       js)
         check_js
+        ;;
+      android)
+        check_android
         ;;
       *)
         echo "Unsupported variant: $VARIANT" >&2

@@ -33,7 +33,46 @@ if [ "${_REMOTE_USER}" = "root" ]; then
 fi
 
 apt-get update
-apt-get install -y --no-install-recommends curl unzip ca-certificates
+
+packages_to_install=(curl unzip ca-certificates)
+if is_true "$INSTALL_EMULATOR"; then
+    emulator_runtime_candidates=(
+        libnss3
+        libx11-6
+        libx11-xcb1
+        libxcb1
+        libxcomposite1
+        libxcursor1
+        libxi6
+        libxrender1
+        libxtst6
+        libxrandr2
+        libxdamage1
+        libxfixes3
+        libxkbcommon0
+        libxshmfence1
+        libdrm2
+        libgbm1
+        libgl1
+        libpulse0
+        libdbus-1-3
+        libgtk-3-0
+    )
+
+    for pkg in "${emulator_runtime_candidates[@]}"; do
+        if apt-cache show "$pkg" >/dev/null 2>&1; then
+            packages_to_install+=("$pkg")
+        fi
+    done
+
+    if apt-cache show libasound2 >/dev/null 2>&1; then
+        packages_to_install+=("libasound2")
+    elif apt-cache show libasound2t64 >/dev/null 2>&1; then
+        packages_to_install+=("libasound2t64")
+    fi
+fi
+
+apt-get install -y --no-install-recommends "${packages_to_install[@]}"
 rm -rf /var/lib/apt/lists/*
 
 install -d "${SDK_ROOT}" "${SDK_ROOT}/cmdline-tools"
@@ -111,6 +150,11 @@ if [ -x "${SDK_ROOT}/platform-tools/adb" ]; then
 fi
 if [ -x "${SDK_ROOT}/emulator/emulator" ]; then
     ln -sf "${SDK_ROOT}/emulator/emulator" /usr/local/bin/android-emulator
+    ln -sf "${SDK_ROOT}/emulator/emulator" /usr/local/bin/emulator
+fi
+
+if [ -f "./android-emulator-manager" ]; then
+    install -m 0755 "./android-emulator-manager" /usr/local/bin/android-emulator-manager
 fi
 
 cat <<EOF > /etc/profile.d/android-sdk.sh
