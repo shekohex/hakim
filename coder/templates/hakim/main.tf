@@ -61,7 +61,7 @@ data "coder_parameter" "image_variant" {
     name        = "Android"
     description = "Android SDK, Java 17, NDK r29, and modern build tooling."
     value       = "android"
-    icon        = "/icon/android.svg"
+    icon        = "https://cdn.simpleicons.org/android?viewbox=auto"
   }
   option {
     name        = "Elixir + Phoenix"
@@ -902,7 +902,7 @@ data "coder_workspace_preset" "rust_quick" {
 data "coder_workspace_preset" "android_quick" {
   name        = "Android Quick Start"
   description = "Android SDK + NDK + Java environment"
-  icon        = "/icon/android.svg"
+  icon        = "https://cdn.simpleicons.org/android?viewbox=auto"
   parameters = {
     "image_variant" = "android"
     "git_url"       = ""
