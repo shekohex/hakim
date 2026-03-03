@@ -15,10 +15,22 @@ PVE_API_TOKEN="${PVE_API_TOKEN}"
 PVE_USERNAME="${PVE_USERNAME:-}"
 PVE_PASSWORD="${PVE_PASSWORD:-}"
 PVE_INSECURE="${PVE_INSECURE:-true}"
-CT_AGENT_BOOTSTRAP="${CT_AGENT_BOOTSTRAP}"
+CT_AGENT_BOOTSTRAP="${CT_AGENT_BOOTSTRAP:-}"
 CT_RUNTIME_ENV_B64="${CT_RUNTIME_ENV_B64:-}"
+CT_RUNTIME_ENV_SHA="${CT_RUNTIME_ENV_SHA:-}"
 PVE_HOME_SOURCE="${PVE_HOME_SOURCE:-}"
 PVE_DOCKER_SOURCE="${PVE_DOCKER_SOURCE:-}"
+TASK_TIMEOUT_SEC="${TASK_TIMEOUT_SEC:-180}"
+
+if [[ -z "${CT_AGENT_BOOTSTRAP}" ]]; then
+  printf 'CT_AGENT_BOOTSTRAP is required\n' >&2
+  exit 1
+fi
+
+if [[ ! "${TASK_TIMEOUT_SEC}" =~ ^[0-9]+$ || "${TASK_TIMEOUT_SEC}" -lt 1 ]]; then
+  printf 'TASK_TIMEOUT_SEC must be a positive integer\n' >&2
+  exit 1
+fi
 
 AUTH_HEADER="Authorization: PVEAPIToken=${PVE_API_TOKEN}"
 PVE_AUTH_COOKIE=""
@@ -114,34 +126,49 @@ next_free_mp_key() {
   return 1
 }
 
-upsert_mount_point() {
-  local source="$1"
-  local mount_path="$2"
-  local backup_flag="$3"
-  local config_body mp_key
-
-  config_body="$(api_call GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config")"
-  mp_key="$(find_mp_key_by_path "${config_body}" "${mount_path}")"
-  if [[ -z "${mp_key}" ]]; then
-    mp_key="$(next_free_mp_key "${config_body}")"
-  fi
-
-  session_api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
-    --data-urlencode "${mp_key}=${source},mp=${mount_path},backup=${backup_flag}" >/dev/null
+config_value_for_key() {
+  local config_body="$1"
+  local key="$2"
+  printf '%s' "${config_body}" | sed -n "s/.*\"${key}\":\"\([^\"]*\)\".*/\1/p" | sed -n '1p'
 }
 
-remove_mount_point_by_path() {
-  local mount_path="$1"
-  local config_body mp_key
+mount_point_exists() {
+  local config_body="$1"
+  local mount_path="$2"
+  local mp_key
 
-  config_body="$(api_call GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config")"
+  mp_key="$(find_mp_key_by_path "${config_body}" "${mount_path}")"
+  [[ -n "${mp_key}" ]]
+}
+
+mount_point_matches() {
+  local config_body="$1"
+  local source="$2"
+  local mount_path="$3"
+  local backup_flag="$4"
+  local mp_key entry current_source current_backup
+
   mp_key="$(find_mp_key_by_path "${config_body}" "${mount_path}")"
   if [[ -z "${mp_key}" ]]; then
-    return 0
+    return 1
   fi
 
-  session_api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
-    --data-urlencode "delete=${mp_key}" >/dev/null
+  entry="$(config_value_for_key "${config_body}" "${mp_key}")"
+  if [[ -z "${entry}" ]]; then
+    return 1
+  fi
+
+  current_source="${entry%%,*}"
+  if [[ "${current_source}" != "${source}" ]]; then
+    return 1
+  fi
+
+  current_backup="$(printf '%s' "${entry}" | sed -n 's/.*backup=\([^,\"]*\).*/\1/p')"
+  if [[ -n "${current_backup}" && "${current_backup}" != "${backup_flag}" ]]; then
+    return 1
+  fi
+
+  return 0
 }
 
 session_auth() {
@@ -269,11 +296,27 @@ build_runtime_env_file() {
   fi
 
   append_runtime_env_pair "CODER_AGENT_BOOTSTRAP" "${CT_AGENT_BOOTSTRAP}"
+
+  if [[ -n "${CT_RUNTIME_ENV_SHA}" ]]; then
+    append_runtime_env_pair "CODER_RUNTIME_ENV_SHA" "${CT_RUNTIME_ENV_SHA}"
+  fi
+}
+
+env_signature_is_current() {
+  local config_body="$1"
+  local env_blob
+
+  if [[ -z "${CT_RUNTIME_ENV_SHA}" ]]; then
+    return 1
+  fi
+
+  env_blob="$(printf '%s' "${config_body}" | sed -n 's/.*"env":"\([^"]*\)".*/\1/p' | sed -n '1p')"
+  [[ "${env_blob}" == *"CODER_RUNTIME_ENV_SHA=${CT_RUNTIME_ENV_SHA}"* ]]
 }
 
 wait_task() {
   local upid="$1"
-  local deadline=$(( $(date +%s) + 300 ))
+  local deadline=$(( $(date +%s) + TASK_TIMEOUT_SEC ))
 
   while [[ "$(date +%s)" -lt "${deadline}" ]]; do
     local payload status exitstatus
@@ -296,49 +339,139 @@ wait_task() {
   return 1
 }
 
-build_runtime_env_file "${CT_RUNTIME_ENV_B64}"
+upsert_mount_point() {
+  local source="$1"
+  local mount_path="$2"
+  local backup_flag="$3"
+  local config_body mp_key
 
-api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
-  --data-urlencode "env@${RUNTIME_ENV_FILE}" >/dev/null
-
-stop_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/stop")"
-stop_status="$(printf '%s' "${stop_result}" | sed -n '1p')"
-stop_body="$(printf '%s' "${stop_result}" | sed -n '2,$p')"
-
-if [[ "${stop_status}" -ge 400 ]]; then
-  if [[ "${stop_body}" != *"not running"* ]]; then
-    printf 'HTTP POST %s failed: %s\n' "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/stop" "${stop_body}" >&2
-    exit 1
+  config_body="$(api_call GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config")"
+  mp_key="$(find_mp_key_by_path "${config_body}" "${mount_path}")"
+  if [[ -z "${mp_key}" ]]; then
+    mp_key="$(next_free_mp_key "${config_body}")"
   fi
-else
+
+  session_api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
+    --data-urlencode "${mp_key}=${source},mp=${mount_path},backup=${backup_flag}" >/dev/null
+}
+
+remove_mount_point_by_path() {
+  local mount_path="$1"
+  local config_body mp_key
+
+  config_body="$(api_call GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config")"
+  mp_key="$(find_mp_key_by_path "${config_body}" "${mount_path}")"
+  if [[ -z "${mp_key}" ]]; then
+    return 0
+  fi
+
+  session_api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
+    --data-urlencode "delete=${mp_key}" >/dev/null
+}
+
+container_is_running() {
+  local status_body
+  status_body="$(api_call GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/current")"
+  [[ "$(printf '%s' "${status_body}" | json_status_value)" == "running" ]]
+}
+
+stop_container() {
+  local stop_result stop_status stop_body stop_upid
+  stop_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/stop")"
+  stop_status="$(printf '%s' "${stop_result}" | sed -n '1p')"
+  stop_body="$(printf '%s' "${stop_result}" | sed -n '2,$p')"
+
+  if [[ "${stop_status}" -ge 400 ]]; then
+    if [[ "${stop_body}" != *"not running"* ]]; then
+      printf 'HTTP POST %s failed: %s\n' "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/stop" "${stop_body}" >&2
+      return 1
+    fi
+    return 0
+  fi
+
   stop_upid="$(printf '%s' "${stop_body}" | json_data_value)"
   if [[ -n "${stop_upid}" ]]; then
     wait_task "${stop_upid}"
   fi
-fi
+}
 
-if [[ -n "${PVE_HOME_SOURCE}" ]]; then
-  upsert_mount_point "${PVE_HOME_SOURCE}" "/home/coder" "0"
-fi
+start_container() {
+  local start_result start_status start_body start_upid
+  start_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/start")"
+  start_status="$(printf '%s' "${start_result}" | sed -n '1p')"
+  start_body="$(printf '%s' "${start_result}" | sed -n '2,$p')"
 
-if [[ -n "${PVE_DOCKER_SOURCE}" ]]; then
-  upsert_mount_point "${PVE_DOCKER_SOURCE}" "/home/coder/.local/share/docker" "0"
-elif [[ -n "${PVE_USERNAME}" && -n "${PVE_PASSWORD}" ]]; then
-  remove_mount_point_by_path "/home/coder/.local/share/docker"
-fi
-
-start_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/start")"
-start_status="$(printf '%s' "${start_result}" | sed -n '1p')"
-start_body="$(printf '%s' "${start_result}" | sed -n '2,$p')"
-
-if [[ "${start_status}" -ge 400 ]]; then
-  if [[ "${start_body}" != *"already running"* ]]; then
-    printf 'HTTP POST %s failed: %s\n' "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/start" "${start_body}" >&2
-    exit 1
+  if [[ "${start_status}" -ge 400 ]]; then
+    if [[ "${start_body}" != *"already running"* ]]; then
+      printf 'HTTP POST %s failed: %s\n' "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/start" "${start_body}" >&2
+      return 1
+    fi
+    return 0
   fi
-else
+
   start_upid="$(printf '%s' "${start_body}" | json_data_value)"
   if [[ -n "${start_upid}" ]]; then
     wait_task "${start_upid}"
   fi
+}
+
+config_body="$(api_call GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config")"
+
+needs_env_update=false
+if ! env_signature_is_current "${config_body}"; then
+  needs_env_update=true
 fi
+
+needs_home_upsert=false
+if [[ -n "${PVE_HOME_SOURCE}" ]]; then
+  if ! mount_point_matches "${config_body}" "${PVE_HOME_SOURCE}" "/home/coder" "0"; then
+    needs_home_upsert=true
+  fi
+fi
+
+needs_docker_upsert=false
+if [[ -n "${PVE_DOCKER_SOURCE}" ]]; then
+  if ! mount_point_matches "${config_body}" "${PVE_DOCKER_SOURCE}" "/home/coder/.local/share/docker" "0"; then
+    needs_docker_upsert=true
+  fi
+fi
+
+needs_docker_remove=false
+if [[ -z "${PVE_DOCKER_SOURCE}" && -n "${PVE_USERNAME}" && -n "${PVE_PASSWORD}" ]]; then
+  if mount_point_exists "${config_body}" "/home/coder/.local/share/docker"; then
+    needs_docker_remove=true
+  fi
+fi
+
+if [[ "${needs_env_update}" != "true" && "${needs_home_upsert}" != "true" && "${needs_docker_upsert}" != "true" && "${needs_docker_remove}" != "true" ]]; then
+  exit 0
+fi
+
+if [[ "${needs_env_update}" == "true" ]]; then
+  build_runtime_env_file "${CT_RUNTIME_ENV_B64}"
+  api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
+    --data-urlencode "env@${RUNTIME_ENV_FILE}" >/dev/null
+fi
+
+was_running=false
+if container_is_running; then
+  was_running=true
+fi
+
+if [[ "${was_running}" == "true" ]]; then
+  stop_container
+fi
+
+if [[ "${needs_home_upsert}" == "true" ]]; then
+  upsert_mount_point "${PVE_HOME_SOURCE}" "/home/coder" "0"
+fi
+
+if [[ "${needs_docker_upsert}" == "true" ]]; then
+  upsert_mount_point "${PVE_DOCKER_SOURCE}" "/home/coder/.local/share/docker" "0"
+fi
+
+if [[ "${needs_docker_remove}" == "true" ]]; then
+  remove_mount_point_by_path "/home/coder/.local/share/docker"
+fi
+
+start_container

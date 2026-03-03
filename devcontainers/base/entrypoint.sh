@@ -16,6 +16,9 @@ export LANG="${LANG:-C.UTF-8}"
 export LANGUAGE="${LANGUAGE:-C.UTF-8}"
 export LC_ALL="${LC_ALL:-C.UTF-8}"
 
+DOCKER_DAEMON_PID=""
+AGENT_PID=""
+
 if id -u "${CODER_USER}" >/dev/null 2>&1; then
   CODER_UID="$(id -u "${CODER_USER}")"
   CODER_GID="$(id -g "${CODER_USER}")"
@@ -88,6 +91,7 @@ if [[ "${START_DOCKER_DAEMON:-1}" == "1" || "${START_DOCKER_DAEMON:-}" == "true"
       --exec-root="${DOCKER_EXEC_ROOT:-/var/run/docker}" \
       --storage-driver="${DOCKER_STORAGE_DRIVER:-vfs}" \
       >"${docker_log_file}" 2>&1 &
+    DOCKER_DAEMON_PID="$!"
 
     for _ in $(seq 1 30); do
       if docker info >/dev/null 2>&1; then
@@ -97,6 +101,55 @@ if [[ "${START_DOCKER_DAEMON:-1}" == "1" || "${START_DOCKER_DAEMON:-}" == "true"
     done
   fi
 fi
+
+stop_docker_daemon() {
+  if [[ -z "${DOCKER_DAEMON_PID}" ]]; then
+    return 0
+  fi
+
+  if ! kill -0 "${DOCKER_DAEMON_PID}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  kill -TERM "${DOCKER_DAEMON_PID}" >/dev/null 2>&1 || true
+
+  for _ in $(seq 1 20); do
+    if ! kill -0 "${DOCKER_DAEMON_PID}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  kill -KILL "${DOCKER_DAEMON_PID}" >/dev/null 2>&1 || true
+}
+
+stop_agent() {
+  if [[ -z "${AGENT_PID}" ]]; then
+    return 0
+  fi
+
+  if ! kill -0 "${AGENT_PID}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  pkill -TERM -P "${AGENT_PID}" >/dev/null 2>&1 || true
+  kill -TERM "${AGENT_PID}" >/dev/null 2>&1 || true
+
+  for _ in $(seq 1 30); do
+    if ! kill -0 "${AGENT_PID}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  pkill -KILL -P "${AGENT_PID}" >/dev/null 2>&1 || true
+  kill -KILL "${AGENT_PID}" >/dev/null 2>&1 || true
+}
+
+shutdown_services() {
+  stop_agent
+  stop_docker_daemon
+}
 
 if [[ -n "${CODER_AGENT_BOOTSTRAP:-}" && ( -z "${CODER_AGENT_URL:-}" || -z "${CODER_AGENT_TOKEN:-}" ) ]]; then
   bootstrap_data="$(printf '%s' "${CODER_AGENT_BOOTSTRAP}" | base64 -d 2>/dev/null || true)"
@@ -115,7 +168,22 @@ if [[ -n "${CODER_AGENT_URL:-}" && -n "${CODER_AGENT_TOKEN:-}" ]]; then
   export USER="${CODER_USER}"
   export LOGNAME="${CODER_USER}"
   export CODER_PROJECT_DIR="${PROJECT_DIR}"
-  exec su -s /bin/bash "${CODER_USER}" -c 'cd "$CODER_PROJECT_DIR" && exec coder agent'
+
+  su -s /bin/bash "${CODER_USER}" -c 'cd "$CODER_PROJECT_DIR" && exec coder agent' &
+  AGENT_PID="$!"
+
+  trap 'shutdown_services; exit 0' TERM INT HUP
+
+  set +e
+  wait "${AGENT_PID}"
+  agent_exit_code=$?
+  set -e
+
+  AGENT_PID=""
+  trap - TERM INT HUP
+  stop_docker_daemon
+
+  exit "${agent_exit_code}"
 fi
 
 if [[ "$#" -gt 0 ]]; then

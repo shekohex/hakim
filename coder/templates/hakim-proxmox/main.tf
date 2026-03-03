@@ -842,9 +842,13 @@ locals {
     "${data.coder_parameter.proxmox_template_datastore_id.value}:vztmpl/hakim-${data.coder_parameter.image_variant.value}_${local.selected_template_tag}.tar"
   )
 
-  container_environment_variables = local.combined_env
-  container_agent_bootstrap       = base64encode("${data.coder_workspace.me.access_url}|${coder_agent.main.token}")
-  container_runtime_env_b64       = join(",", [for key in sort(keys(local.combined_env)) : "${key}=${base64encode(tostring(local.combined_env[key]))}"])
+  container_agent_bootstrap = base64encode("${data.coder_workspace.me.access_url}|${coder_agent.main.token}")
+  container_runtime_env_sha = sha256("${sha256(jsonencode(local.combined_env))}:${local.container_agent_bootstrap}")
+  container_environment_variables = merge(local.combined_env, {
+    CODER_AGENT_BOOTSTRAP = local.container_agent_bootstrap
+    CODER_RUNTIME_ENV_SHA = local.container_runtime_env_sha
+  })
+  container_runtime_env_b64 = join(",", [for key in sort(keys(local.combined_env)) : "${key}=${base64encode(tostring(local.combined_env[key]))}"])
 
   home_disk_enabled          = data.coder_parameter.enable_home_disk.value
   home_volume_id             = length(data.coder_parameter.proxmox_home_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_home_volume_id[0].value) : ""
@@ -1011,6 +1015,8 @@ resource "proxmox_virtual_environment_container" "workspace" {
   tags                  = ["coder", "hakim", data.coder_parameter.image_variant.value, data.coder_parameter.egress_mode.value, "template-${local.selected_template_tag}"]
   environment_variables = local.container_environment_variables
   lifecycle {
+    ignore_changes = [environment_variables]
+
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
     precondition {
@@ -1105,9 +1111,8 @@ resource "terraform_data" "workspace_agent_env" {
     vm_id           = tostring(proxmox_virtual_environment_container.workspace.vm_id)
     endpoint        = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
     insecure        = tostring(data.coder_parameter.proxmox_insecure.value)
-    agent_url       = data.coder_workspace.me.access_url
     agent_token_sha = sha256(coder_agent.main.token)
-    env_sha         = sha256(jsonencode(local.combined_env))
+    env_sha         = local.container_runtime_env_sha
     home_source     = local.home_mount_is_bind ? local.home_mount_source : ""
     docker_source   = local.docker_mount_is_bind ? local.docker_mount_source : ""
   }
@@ -1125,6 +1130,7 @@ resource "terraform_data" "workspace_agent_env" {
       PVE_INSECURE       = tostring(data.coder_parameter.proxmox_insecure.value)
       CT_AGENT_BOOTSTRAP = local.container_agent_bootstrap
       CT_RUNTIME_ENV_B64 = local.container_runtime_env_b64
+      CT_RUNTIME_ENV_SHA = local.container_runtime_env_sha
       PVE_HOME_SOURCE    = local.home_mount_is_bind ? local.home_mount_source : ""
       PVE_DOCKER_SOURCE  = local.docker_mount_is_bind ? local.docker_mount_source : ""
     }
