@@ -2,6 +2,8 @@
 set -euo pipefail
 
 REGISTRY="${REGISTRY:-ghcr.io/shekohex}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VARIANTS_DIR="$ROOT_DIR/devcontainers/.devcontainer/images"
 PULLED=0
 FAILED=0
 
@@ -105,10 +107,13 @@ info "Pulling base images..."
 pull_image "$REGISTRY/hakim-base:latest" "base:latest"
 
 info "Pulling variant images..."
-for variant_dir in devcontainers/.devcontainer/images/*; do
+shopt -s nullglob
+for variant_dir in "$VARIANTS_DIR"/*; do
+  [ -d "$variant_dir" ] || continue
   variant=$(basename "$variant_dir")
   pull_image "$REGISTRY/hakim-$variant:latest" "$variant:latest"
 done
+shopt -u nullglob
 
 dangling=$(dangling_images)
 if [ -n "$dangling" ]; then

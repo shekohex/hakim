@@ -3,7 +3,7 @@ set -euo pipefail
 
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly DEFAULT_STATE_FILE="/var/lib/vz/template/cache/.hakim-oci-digests.tsv"
-readonly DEFAULT_VARIANTS=(base php dotnet js rust elixir)
+readonly DEFAULT_VARIANTS=(base php dotnet js rust android elixir)
 readonly DEFAULT_REGISTRY_NAMESPACE="ghcr.io/shekohex"
 
 NODE_NAME="${NODE_NAME:-$(hostname -s)}"
@@ -76,10 +76,10 @@ Options:
 Examples:
   pull-oci-templates.sh
   pull-oci-templates.sh --variant js --tag latest
-  pull-oci-templates.sh --variants base,elixir --tag v2026.02.14
+  pull-oci-templates.sh --variants base,android,elixir --tag v2026.02.14
   pull-oci-templates.sh --image ghcr.io/shekohex/hakim-js:latest
   pull-oci-templates.sh --check-remote-digest --use-gh-auth-token
-  pull-oci-templates.sh --registry 192.168.1.105:5000/hakim --variants base,js
+  pull-oci-templates.sh --registry 192.168.1.105:5000/hakim --variants base,js,android
 EOF
 }
 
@@ -123,7 +123,7 @@ build_variant_reference() {
   base)
     printf '%s/hakim-base:%s' "${REGISTRY_NAMESPACE}" "${TEMPLATE_TAG}"
     ;;
-  php | dotnet | js | rust | elixir)
+  php | dotnet | js | rust | android | elixir)
     printf '%s/hakim-%s:%s' "${REGISTRY_NAMESPACE}" "${variant}" "${TEMPLATE_TAG}"
     ;;
   *)
