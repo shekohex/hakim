@@ -127,7 +127,7 @@ data "coder_parameter" "opencode_auth" {
   default      = "{}"
   mutable      = true
   styling      = jsonencode({ mask_input = true })
-  icon         = "/icon/opencode.svg"
+  icon         = "https://opencode.ai/favicon.svg"
   order        = 4
 }
 
@@ -139,7 +139,7 @@ data "coder_parameter" "opencode_config" {
   form_type    = "textarea"
   default      = "{}"
   mutable      = true
-  icon         = "/icon/opencode.svg"
+  icon         = "https://opencode.ai/favicon.svg"
   order        = 5
 }
 
@@ -162,7 +162,7 @@ data "coder_parameter" "openchamber_reuse_opencode" {
   type         = "bool"
   default      = true
   mutable      = true
-  icon         = "https://opencode.ai/favicon-96x96-v3.png"
+  icon         = "https://opencode.ai/favicon.svg"
   order        = 7
 }
 
@@ -173,7 +173,7 @@ data "coder_parameter" "openchamber_opencode_port" {
   type         = "number"
   default      = 4096
   mutable      = true
-  icon         = "https://opencode.ai/favicon-96x96-v3.png"
+  icon         = "https://opencode.ai/favicon.svg"
   order        = 8
 }
 

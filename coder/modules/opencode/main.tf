@@ -33,7 +33,7 @@ variable "group" {
 variable "icon" {
   type        = string
   description = "The icon to use for the app."
-  default     = "/icon/opencode.svg"
+  default     = "https://opencode.ai/favicon.svg"
 }
 
 variable "workdir" {
@@ -99,7 +99,7 @@ variable "opencode_version" {
   type        = string
   description = "The version of OpenCode to install."
   # VERSION_UPDATE_BEGIN: opencode
-  default     = "1.2.20"
+  default = "1.2.20"
   # VERSION_UPDATE_END: opencode
 }
 
