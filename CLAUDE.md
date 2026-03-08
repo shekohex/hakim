@@ -52,6 +52,14 @@ Run the build script to build the base image and all variants (`php`, `dotnet`, 
 - **Terraform**: Use snake_case. Run `terraform fmt`.
 - **Shell**: Use `#!/bin/bash` with `set -e`. Prefer `mise` for installs.
 - **Commits**: Conventional Commits (`feat`, `fix`, `docs`, `chore`).
+- **Coder modules**: When a template references a module that lives in this repo, use the GitHub module source instead of a relative path.
+
+```tf
+module "ssh-keys" {
+  source   = "github.com/shekohex/hakim//coder/modules/ssh-keys?ref=main"
+  agent_id = coder_agent.main.id
+}
+```
 
 ## Troubleshooting
 - **Build Fails**: Check `scripts/build.sh` logic. Ensure correct relative paths in `devcontainer.json`.

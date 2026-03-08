@@ -461,6 +461,16 @@ data "coder_parameter" "enable_git_commit_signing" {
   order        = 63
 }
 
+data "coder_parameter" "enable_ssh_keys" {
+  name         = "enable_ssh_keys"
+  display_name = "Enable SSH Keys"
+  description  = "Install the Coder SSH key as ~/.ssh/id_ed25519 for outbound SSH."
+  type         = "bool"
+  default      = false
+  icon         = "/icon/terminal.svg"
+  order        = 64
+}
+
 data "coder_parameter" "enable_zed" {
   name         = "enable_zed"
   display_name = "Enable Zed"
@@ -468,7 +478,7 @@ data "coder_parameter" "enable_zed" {
   type         = "bool"
   default      = true
   icon         = "/icon/zed.svg"
-  order        = 64
+  order        = 65
 }
 
 data "coder_parameter" "enable_tmux" {
@@ -478,7 +488,7 @@ data "coder_parameter" "enable_tmux" {
   type         = "bool"
   default      = true
   icon         = "/icon/terminal.svg"
-  order        = 65
+  order        = 66
 }
 
 data "coder_parameter" "tmux_sessions" {
@@ -490,7 +500,7 @@ data "coder_parameter" "tmux_sessions" {
   default      = "default"
   mutable      = true
   icon         = "/icon/terminal.svg"
-  order        = 66
+  order        = 67
 }
 
 data "coder_parameter" "tmux_config" {
@@ -503,7 +513,7 @@ data "coder_parameter" "tmux_config" {
   default      = trimspace(file("${path.module}/tmux.conf"))
   mutable      = true
   icon         = "/icon/terminal.svg"
-  order        = 67
+  order        = 68
 }
 
 data "coder_parameter" "enable_et" {
@@ -513,7 +523,7 @@ data "coder_parameter" "enable_et" {
   type         = "bool"
   default      = true
   icon         = "/icon/terminal.svg"
-  order        = 68
+  order        = 69
 }
 
 data "coder_parameter" "proxmox_endpoint" {
@@ -670,6 +680,29 @@ data "coder_parameter" "container_memory_mb" {
   order        = 43
 }
 
+data "coder_parameter" "enable_container_swap" {
+  name         = "enable_container_swap"
+  display_name = "Enable Swap"
+  description  = "Enable swap for the container."
+  type         = "bool"
+  default      = true
+  mutable      = true
+  icon         = "/icon/memory.svg"
+  order        = 44
+}
+
+data "coder_parameter" "container_swap_mb" {
+  count        = data.coder_parameter.enable_container_swap.value ? 1 : 0
+  name         = "container_swap_mb"
+  display_name = "Swap Size (MB)"
+  description  = "Additional swap in MB. 0 = 50% of the memory size."
+  type         = "number"
+  default      = 0
+  mutable      = true
+  icon         = "/icon/memory.svg"
+  order        = 45
+}
+
 data "coder_parameter" "container_cores" {
   name         = "container_cores"
   display_name = "CPU Cores"
@@ -678,7 +711,7 @@ data "coder_parameter" "container_cores" {
   default      = 2
   mutable      = true
   icon         = "/icon/memory.svg"
-  order        = 44
+  order        = 46
 }
 
 data "coder_parameter" "container_disk_gb" {
@@ -689,7 +722,7 @@ data "coder_parameter" "container_disk_gb" {
   default      = 20
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/database.svg"
-  order        = 45
+  order        = 47
 }
 
 data "coder_parameter" "enable_home_disk" {
@@ -835,7 +868,10 @@ locals {
   docker_data_root_env = (data.coder_parameter.enable_home_disk.value || data.coder_parameter.enable_docker_data_offload.value) ? {
     DOCKER_DATA_ROOT = "/home/coder/.local/share/docker"
   } : {}
-  combined_env = merge(local.default_env, local.docker_data_root_env, local.user_env, local.secret_env)
+  combined_env            = merge(local.default_env, local.docker_data_root_env, local.user_env, local.secret_env)
+  container_swap_enabled  = data.coder_parameter.enable_container_swap.value
+  container_swap_mb_input = local.container_swap_enabled && length(data.coder_parameter.container_swap_mb) > 0 ? data.coder_parameter.container_swap_mb[0].value : 0
+  container_swap_mb       = local.container_swap_enabled ? (local.container_swap_mb_input > 0 ? local.container_swap_mb_input : ceil(data.coder_parameter.container_memory_mb.value * 0.5)) : 0
 
   selected_template_tag = length(data.coder_parameter.template_tag) > 0 && trimspace(data.coder_parameter.template_tag[0].value) != "" ? trimspace(data.coder_parameter.template_tag[0].value) : "latest"
   selected_template_file_id = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.custom_template_file_id[0].value : (
@@ -1041,7 +1077,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
 
   memory {
     dedicated = data.coder_parameter.container_memory_mb.value
-    swap      = 0
+    swap      = local.container_swap_mb
   }
 
   disk {
@@ -1256,6 +1292,13 @@ module "coder-login" {
 module "git-commit-signing" {
   count      = data.coder_parameter.enable_git_commit_signing.value ? data.coder_workspace.me.start_count : 0
   source     = "github.com/shekohex/hakim//coder/modules/git-commit-signing?ref=main"
+  agent_id   = coder_agent.main.id
+  depends_on = [coder_script.git_setup]
+}
+
+module "ssh-keys" {
+  count      = data.coder_parameter.enable_ssh_keys.value ? data.coder_workspace.me.start_count : 0
+  source     = "github.com/shekohex/hakim//coder/modules/ssh-keys?ref=main"
   agent_id   = coder_agent.main.id
   depends_on = [coder_script.git_setup]
 }

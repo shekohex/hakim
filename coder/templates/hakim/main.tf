@@ -209,6 +209,16 @@ data "coder_parameter" "enable_git_commit_signing" {
   order        = 63
 }
 
+data "coder_parameter" "enable_ssh_keys" {
+  name         = "enable_ssh_keys"
+  display_name = "Enable SSH Keys"
+  description  = "Install the Coder SSH key as ~/.ssh/id_ed25519 for outbound SSH."
+  type         = "bool"
+  default      = false
+  icon         = "/icon/terminal.svg"
+  order        = 64
+}
+
 data "coder_parameter" "enable_zed" {
   name         = "enable_zed"
   display_name = "Enable Zed"
@@ -216,7 +226,7 @@ data "coder_parameter" "enable_zed" {
   type         = "bool"
   default      = true
   icon         = "/icon/zed.svg"
-  order        = 64
+  order        = 65
 }
 
 data "coder_parameter" "enable_tmux" {
@@ -226,7 +236,7 @@ data "coder_parameter" "enable_tmux" {
   type         = "bool"
   default      = true
   icon         = "/icon/terminal.svg"
-  order        = 65
+  order        = 66
 }
 
 data "coder_parameter" "tmux_sessions" {
@@ -238,7 +248,7 @@ data "coder_parameter" "tmux_sessions" {
   default      = "default"
   mutable      = true
   icon         = "/icon/terminal.svg"
-  order        = 66
+  order        = 67
 }
 
 data "coder_parameter" "tmux_config" {
@@ -251,7 +261,7 @@ data "coder_parameter" "tmux_config" {
   default      = trimspace(file("${path.module}/tmux.conf"))
   mutable      = true
   icon         = "/icon/terminal.svg"
-  order        = 67
+  order        = 68
 }
 
 data "coder_parameter" "enable_et" {
@@ -261,7 +271,7 @@ data "coder_parameter" "enable_et" {
   type         = "bool"
   default      = true
   icon         = "/icon/terminal.svg"
-  order        = 68
+  order        = 69
 }
 
 data "coder_parameter" "opencode_auth" {
@@ -486,6 +496,30 @@ data "coder_parameter" "container_cpus" {
   order        = 16
 }
 
+data "coder_parameter" "enable_container_swap" {
+  count        = data.coder_parameter.enable_resource_limits.value && length(data.coder_parameter.container_memory) > 0 && data.coder_parameter.container_memory[0].value > 0 ? 1 : 0
+  name         = "enable_container_swap"
+  display_name = "Enable Swap"
+  description  = "Enable container swap when a memory limit is set."
+  type         = "bool"
+  default      = true
+  mutable      = true
+  icon         = "/icon/memory.svg"
+  order        = 17
+}
+
+data "coder_parameter" "container_swap_mb" {
+  count        = length(data.coder_parameter.enable_container_swap) > 0 && data.coder_parameter.enable_container_swap[0].value ? 1 : 0
+  name         = "container_swap_mb"
+  display_name = "Swap Size (MB)"
+  description  = "Additional swap in MB. 0 = 50% of the memory limit."
+  type         = "number"
+  default      = 0
+  mutable      = true
+  icon         = "/icon/memory.svg"
+  order        = 18
+}
+
 data "coder_parameter" "vault_addr" {
   count        = data.coder_parameter.enable_vault.value ? 1 : 0
   name         = "vault_addr"
@@ -541,14 +575,19 @@ locals {
     HEX_HOME     = "/home/coder/.hex"
     MIX_ARCHIVES = "/home/coder/.mix/archives"
   }
-  combined_env        = merge(local.default_env, local.user_env, local.secret_env)
-  project_dir         = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
-  git_setup_script    = file("${path.module}/scripts/setup-git.sh")
-  tmux_sessions_raw   = length(data.coder_parameter.tmux_sessions) > 0 ? data.coder_parameter.tmux_sessions[0].value : "default"
-  tmux_sessions_clean = [for session in split(",", local.tmux_sessions_raw) : trimspace(session) if trimspace(session) != ""]
-  tmux_sessions       = length(local.tmux_sessions_clean) > 0 ? local.tmux_sessions_clean : ["default"]
-  tmux_default_config = trimspace(file("${path.module}/tmux.conf"))
-  tmux_config         = length(data.coder_parameter.tmux_config) > 0 && trimspace(data.coder_parameter.tmux_config[0].value) != "" ? trimspace(data.coder_parameter.tmux_config[0].value) : local.tmux_default_config
+  combined_env             = merge(local.default_env, local.user_env, local.secret_env)
+  container_memory_mb      = data.coder_parameter.enable_resource_limits.value && length(data.coder_parameter.container_memory) > 0 && data.coder_parameter.container_memory[0].value > 0 ? data.coder_parameter.container_memory[0].value : 0
+  container_swap_enabled   = local.container_memory_mb > 0 && length(data.coder_parameter.enable_container_swap) > 0 ? data.coder_parameter.enable_container_swap[0].value : false
+  container_swap_mb_input  = local.container_swap_enabled && length(data.coder_parameter.container_swap_mb) > 0 ? data.coder_parameter.container_swap_mb[0].value : 0
+  container_swap_mb        = local.container_swap_enabled ? (local.container_swap_mb_input > 0 ? local.container_swap_mb_input : ceil(local.container_memory_mb * 0.5)) : 0
+  container_memory_swap_mb = local.container_swap_enabled ? local.container_memory_mb + local.container_swap_mb : null
+  project_dir              = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
+  git_setup_script         = file("${path.module}/scripts/setup-git.sh")
+  tmux_sessions_raw        = length(data.coder_parameter.tmux_sessions) > 0 ? data.coder_parameter.tmux_sessions[0].value : "default"
+  tmux_sessions_clean      = [for session in split(",", local.tmux_sessions_raw) : trimspace(session) if trimspace(session) != ""]
+  tmux_sessions            = length(local.tmux_sessions_clean) > 0 ? local.tmux_sessions_clean : ["default"]
+  tmux_default_config      = trimspace(file("${path.module}/tmux.conf"))
+  tmux_config              = length(data.coder_parameter.tmux_config) > 0 && trimspace(data.coder_parameter.tmux_config[0].value) != "" ? trimspace(data.coder_parameter.tmux_config[0].value) : local.tmux_default_config
 }
 
 # ------------------------------------------------------------------------------
@@ -776,6 +815,13 @@ module "git-commit-signing" {
   depends_on = [coder_script.git_setup]
 }
 
+module "ssh-keys" {
+  count      = data.coder_parameter.enable_ssh_keys.value ? data.coder_workspace.me.start_count : 0
+  source     = "github.com/shekohex/hakim//coder/modules/ssh-keys?ref=main"
+  agent_id   = coder_agent.main.id
+  depends_on = [coder_script.git_setup]
+}
+
 module "zed" {
   count    = data.coder_parameter.enable_zed.value ? data.coder_workspace.me.start_count : 0
   source   = "registry.coder.com/coder/zed/coder"
@@ -995,6 +1041,8 @@ resource "docker_container" "workspace" {
     length(data.coder_parameter.container_memory) > 0 &&
     data.coder_parameter.container_memory[0].value > 0
   ) ? data.coder_parameter.container_memory[0].value : null
+
+  memory_swap = local.container_memory_swap_mb
 
   cpus = (
     data.coder_parameter.enable_resource_limits.value &&
