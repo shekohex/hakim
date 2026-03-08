@@ -177,7 +177,7 @@ jobs:
             echo "${{ github.event.release.body }}" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
           else
-            echo "version_name=nightly-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+            echo "version_name=nightly-$(git rev-parse --short HEAD)-${{ github.run_id }}" >> $GITHUB_OUTPUT
             echo "message=$(git log -1 --pretty=%s)" >> $GITHUB_OUTPUT
           fi
 
