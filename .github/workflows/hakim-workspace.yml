@@ -1,0 +1,73 @@
+name: Hakim Workspace
+
+run-name: Hakim Workspace ${{ inputs.workspace_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      workspace_id:
+        description: Workspace id
+        required: true
+        type: string
+      workspace_name:
+        description: Workspace name
+        required: true
+        type: string
+      manifest:
+        description: Encrypted workspace manifest
+        required: true
+        type: string
+      workspace_token_secret_name:
+        description: Secret injected into the workspace as GH_TOKEN
+        required: false
+        default: HAKIM_WORKSPACE_GH_TOKEN
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+  packages: read
+
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      WORKSPACE_ID: ${{ inputs.workspace_id }}
+      WORKSPACE_NAME: ${{ inputs.workspace_name }}
+      HAKIM_WORKSPACE_MAX_RUNTIME_SECONDS: "21000"
+      HAKIM_WORKSPACE_MANIFEST: ${{ inputs.manifest }}
+      HAKIM_WORKSPACE_AGE_SECRET_KEY: ${{ secrets.HAKIM_WORKSPACE_AGE_SECRET_KEY }}
+      HAKIM_WORKSPACE_GH_TOKEN: ${{ secrets[inputs.workspace_token_secret_name] }}
+      HAKIM_CONTROL_GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare workspace
+        run: bash .github/scripts/hakim-workspace.sh prepare
+
+      - name: Restore home
+        run: bash .github/scripts/hakim-workspace.sh restore
+
+      - name: Run workspace
+        timeout-minutes: 350
+        run: bash .github/scripts/hakim-workspace.sh run
+
+      - name: Snapshot home
+        if: always()
+        run: bash .github/scripts/hakim-workspace.sh snapshot
+
+      - name: Upload snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.WORKSPACE_ARTIFACT_NAME }}
+          path: ${{ env.WORKSPACE_SNAPSHOT_PATH }}
+          if-no-files-found: ignore
+          retention-days: 30
+          compression-level: 0
+
+      - name: Cleanup workspace metadata
+        if: always()
+        run: bash .github/scripts/hakim-workspace.sh cleanup
