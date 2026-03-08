@@ -5,11 +5,15 @@ on:
     branches:
       - main
     paths:
+      - "docker/coder/**"
       - "devcontainers/**"
+      - "scripts/build-coder-image.sh"
       - ".github/workflows/ci.yml"
   pull_request:
     paths:
+      - "docker/coder/**"
       - "devcontainers/**"
+      - "scripts/build-coder-image.sh"
       - ".github/workflows/ci.yml"
   workflow_dispatch:
 
@@ -23,6 +27,7 @@ jobs:
     outputs:
       variants: ${{ steps.find.outputs.variants }}
       build_base: ${{ steps.find.outputs.build_base }}
+      build_coder: ${{ steps.find.outputs.build_coder }}
       build_tooling: ${{ steps.find.outputs.build_tooling }}
       base_tag: ${{ steps.find.outputs.base_tag }}
       tooling_tag: ${{ steps.find.outputs.tooling_tag }}
@@ -41,6 +46,7 @@ jobs:
           declare -A selected_variants=()
           build_all=false
           base_changed=false
+          coder_changed=false
           tooling_changed=false
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -67,12 +73,16 @@ jobs:
                 base_changed=true
                 tooling_changed=true
                 ;;
+              docker/coder/*|scripts/build-coder-image.sh)
+                coder_changed=true
+                ;;
               devcontainers/tooling/*)
                 build_all=true
                 tooling_changed=true
                 ;;
               .github/workflows/ci.yml)
                 build_all=true
+                coder_changed=true
                 ;;
               devcontainers/.devcontainer/images/*)
                 variant="$(echo "${file}" | cut -d/ -f4)"
@@ -127,10 +137,67 @@ jobs:
 
           echo "variants=${variants}" >> "${GITHUB_OUTPUT}"
           echo "build_base=${base_changed}" >> "${GITHUB_OUTPUT}"
+          echo "build_coder=${coder_changed}" >> "${GITHUB_OUTPUT}"
           echo "build_tooling=${tooling_changed}" >> "${GITHUB_OUTPUT}"
           echo "base_tag=${base_tag}" >> "${GITHUB_OUTPUT}"
           echo "tooling_tag=${tooling_tag}" >> "${GITHUB_OUTPUT}"
           echo "Selected variants: ${variants}"
+
+  build-coder:
+    needs: discover
+    runs-on: ubuntu-latest
+    if: needs.discover.outputs.build_coder == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve Coder version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ vars.CODER_VERSION }}" ]; then
+            CODER_VERSION="${{ vars.CODER_VERSION }}"
+          else
+            CODER_VERSION="$(gh release view --repo coder/coder --json tagName --jq .tagName | sed 's/^v//')"
+          fi
+          echo "CODER_VERSION=${CODER_VERSION}" >> "${GITHUB_ENV}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build custom Coder image
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/coder
+          load: true
+          build-args: |
+            CODER_VERSION=${{ env.CODER_VERSION }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/hakim-coder:latest
+            ghcr.io/${{ github.repository_owner }}/hakim-coder:${{ env.CODER_VERSION }}
+          cache-from: |
+            type=gha,scope=coder
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:coder
+            ghcr.io/${{ github.repository_owner }}/hakim-coder:latest
+          cache-to: |
+            type=gha,mode=max,scope=coder
+            type=registry,ref=ghcr.io/${{ github.repository_owner }}/hakim-cache:coder,mode=max
+
+      - name: Smoke test custom Coder image
+        run: |
+          docker run --rm ghcr.io/${{ github.repository_owner }}/hakim-coder:${{ env.CODER_VERSION }} sh -lc 'jq --version && age --version >/dev/null'
+
+      - name: Push custom Coder image
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/hakim-coder:latest
+          docker push ghcr.io/${{ github.repository_owner }}/hakim-coder:${{ env.CODER_VERSION }}
 
   build-base:
     needs: discover

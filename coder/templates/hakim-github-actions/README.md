@@ -20,10 +20,11 @@ Run Hakim workspaces inside GitHub Actions using the published GHCR images.
 
 ## Required setup
 
-1. Add `.github/workflows/hakim-workspace.yml` and `.github/scripts/hakim-workspace.sh` to the control repository.
-2. Create the repository secret `HAKIM_WORKSPACE_AGE_SECRET_KEY` with an age secret key.
-3. Set `secret_env` to include `GITHUB_API_TOKEN`, for example `{"GITHUB_API_TOKEN":"ghp_xxx"}`, so the Coder provisioner can dispatch and stop workflow runs.
-4. Paste the matching age public key into the template parameter `actions_age_public_key`.
+1. Run the Coder control plane with the custom `hakim-coder` image so provisioner-side tools like `jq` and `age` are available.
+2. Add `.github/workflows/hakim-workspace.yml` and `.github/scripts/hakim-workspace.sh` to the control repository.
+3. Create the repository secret `HAKIM_WORKSPACE_AGE_SECRET_KEY` with an age secret key.
+4. Set `secret_env` to include `GITHUB_API_TOKEN`, for example `{"GITHUB_API_TOKEN":"ghp_xxx"}`, so the Coder provisioner can dispatch and stop workflow runs.
+5. Paste the matching age public key into the template parameter `actions_age_public_key`.
 
 ## Generate the age key
 
