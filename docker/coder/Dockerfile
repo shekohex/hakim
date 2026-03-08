@@ -32,10 +32,10 @@ RUN apk add --no-cache \
   jq
 
 COPY --from=provider-builder /out/terraform-provider-hakim_v${HAKIM_PROVIDER_VERSION} /opt/terraform-providers/registry.terraform.io/shekohex/hakim/${HAKIM_PROVIDER_VERSION}/${TARGETOS}_${TARGETARCH}/terraform-provider-hakim_v${HAKIM_PROVIDER_VERSION}
-COPY docker/coder/terraformrc /home/coder/.terraformrc
+COPY docker/coder/terraformrc /etc/terraform.d/terraform.rc
 
-RUN chown -R 1000:1000 /opt/terraform-providers /home/coder/.terraformrc
+RUN mkdir -p /etc/terraform.d && chown -R 1000:1000 /opt/terraform-providers /etc/terraform.d
 
-ENV TF_CLI_CONFIG_FILE=/home/coder/.terraformrc
+ENV TF_CLI_CONFIG_FILE=/etc/terraform.d/terraform.rc
 
 USER 1000:1000

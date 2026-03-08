@@ -25,7 +25,7 @@ For Proxmox, templates are pre-pulled into `vztmpl` storage. With `enable_home_d
 
 The GitHub Actions template runs the published Hakim GHCR images on GitHub-hosted runners, keeps the workspace step under 350 minutes, and stores encrypted `/home/coder` snapshots as Actions artifacts for restartable one-off workspaces.
 
-The Coder control plane for that template should run on the custom `hakim-coder` image, which extends the official Coder image with provisioner-side tools such as `jq` and `age` and bundles the custom Hakim Terraform provider used to manage GitHub Actions runs.
+The Coder control plane for that template should run on the custom `hakim-coder` image, which extends the official Coder image with provisioner-side tools such as `jq` and `age` and bundles the custom Hakim Terraform provider used to manage GitHub Actions runs. Its Terraform CLI config is stored outside `/home/coder` so persistent home mounts do not hide the provider mirror.
 
 ## Common Template Parameters
 

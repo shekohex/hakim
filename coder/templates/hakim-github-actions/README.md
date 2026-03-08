@@ -20,7 +20,7 @@ Run Hakim workspaces inside GitHub Actions using the published GHCR images.
 
 ## Required setup
 
-1. Run the Coder control plane with the custom `hakim-coder` image so provisioner-side tools like `jq` and `age` are available.
+1. Run the Coder control plane with the custom `hakim-coder` image so provisioner-side tools like `jq` and `age` are available. The image keeps Terraform CLI config outside `/home/coder`, which is important when the home directory is mounted persistently.
 2. Add `.github/workflows/hakim-workspace.yml` and `.github/scripts/hakim-workspace.sh` to the control repository.
 3. Create the repository secret `HAKIM_WORKSPACE_AGE_SECRET_KEY` with an age secret key.
 4. Set `secret_env` to include `GITHUB_API_TOKEN`, for example `{"GITHUB_API_TOKEN":"ghp_xxx"}`, so the custom Hakim Terraform provider can dispatch and cancel workflow runs.
