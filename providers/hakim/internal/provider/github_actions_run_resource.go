@@ -27,6 +27,8 @@ type gitHubActionsRunResource struct {
 	client *githubClient
 }
 
+const missingGitHubAPITokenDetail = "Set provider token or GITHUB_API_TOKEN."
+
 type gitHubActionsRunResourceModel struct {
 	ID               types.String `tfsdk:"id"`
 	Repository       types.String `tfsdk:"repository"`
@@ -101,7 +103,7 @@ func (r *gitHubActionsRunResource) Create(ctx context.Context, req resource.Crea
 	}
 
 	if r.client == nil {
-		resp.Diagnostics.AddError("Provider not configured", "The Hakim provider client is unavailable.")
+		resp.Diagnostics.AddError("Missing GitHub API token", missingGitHubAPITokenDetail)
 		return
 	}
 
@@ -161,6 +163,11 @@ func (r *gitHubActionsRunResource) Read(ctx context.Context, req resource.ReadRe
 		return
 	}
 
+	if r.client == nil {
+		resp.Diagnostics.AddError("Missing GitHub API token", missingGitHubAPITokenDetail)
+		return
+	}
+
 	owner, repo, err := parseRepository(state.Repository.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddAttributeError(path.Root("repository"), "Invalid repository", err.Error())
@@ -213,6 +220,11 @@ func (r *gitHubActionsRunResource) Delete(ctx context.Context, req resource.Dele
 
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if r.client == nil {
+		resp.Diagnostics.AddError("Missing GitHub API token", missingGitHubAPITokenDetail)
 		return
 	}
 

@@ -61,13 +61,8 @@ func (p *hakimProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	token := strings.TrimSpace(config.Token.ValueString())
+	token := resolveGitHubAPIToken(config.Token.ValueString())
 	if token == "" {
-		token = strings.TrimSpace(os.Getenv("GITHUB_API_TOKEN"))
-	}
-
-	if token == "" {
-		resp.Diagnostics.AddError("Missing GitHub API token", "Set provider token or GITHUB_API_TOKEN.")
 		return
 	}
 
@@ -81,6 +76,15 @@ func (p *hakimProvider) Configure(ctx context.Context, req provider.ConfigureReq
 
 	resp.ResourceData = client
 	resp.DataSourceData = client
+}
+
+func resolveGitHubAPIToken(configToken string) string {
+	token := strings.TrimSpace(configToken)
+	if token != "" {
+		return token
+	}
+
+	return strings.TrimSpace(os.Getenv("GITHUB_API_TOKEN"))
 }
 
 func (p *hakimProvider) Resources(_ context.Context) []func() resource.Resource {
