@@ -47,19 +47,34 @@ init_runtime_context() {
 
 build_snapshot_filelist() {
   SNAPSHOT_FILELIST_PATH="${RUNNER_TEMP}/${WORKSPACE_ARTIFACT_NAME}.files"
-  local ageignore_path file_count
+  local ageignore_path ageignore_repo file_count match_path
 
   ageignore_path="${WORKSPACE_HOME_DIR}/.ageignore"
+  ageignore_repo=''
+  if [[ -f "$ageignore_path" ]]; then
+    ageignore_repo="$(mktemp -d "${RUNNER_TEMP}/hakim-ageignore.XXXXXX")"
+    git -C "$ageignore_repo" init --quiet >/dev/null 2>&1
+    cp "$ageignore_path" "$ageignore_repo/.git/info/exclude"
+  fi
+
   (
     cd "$WORKSPACE_HOME_DIR"
     while IFS= read -r -d '' path; do
       path="${path#./}"
-      if [[ -f "$ageignore_path" ]] && git -c core.excludesFile="$ageignore_path" check-ignore --no-index --quiet "$path"; then
+      match_path="$path"
+      if [[ -d "$path" ]]; then
+        match_path="${path}/"
+      fi
+      if [[ -n "$ageignore_repo" ]] && git -C "$ageignore_repo" check-ignore --quiet "$match_path" >/dev/null 2>&1; then
         continue
       fi
       printf '%s\0' "$path"
     done < <(find . -mindepth 1 -print0)
   ) > "$SNAPSHOT_FILELIST_PATH"
+
+  if [[ -n "$ageignore_repo" ]]; then
+    rm -rf "$ageignore_repo"
+  fi
 
   file_count="$(tr -cd '\0' < "$SNAPSHOT_FILELIST_PATH" | wc -c | tr -d ' ')"
   if [[ -f "$ageignore_path" ]]; then
@@ -234,9 +249,9 @@ snapshot() {
   archive_path="${RUNNER_TEMP}/${WORKSPACE_ARTIFACT_NAME}.tar.gz"
   encrypted_path="${archive_path}.age"
   build_snapshot_filelist
-  tar --null -czf "$archive_path" -C "$WORKSPACE_HOME_DIR" -T "$SNAPSHOT_FILELIST_PATH"
+  tar --null --no-recursion -czf "$archive_path" -C "$WORKSPACE_HOME_DIR" -T "$SNAPSHOT_FILELIST_PATH"
   printf '%s\n' "$ARTIFACT_AGE_PUBLIC_KEY" > "${RUNNER_TEMP}/hakim-age.pub"
-  "$AGE_BIN" --encrypt --recipient-file "${RUNNER_TEMP}/hakim-age.pub" --output "$encrypted_path" "$archive_path"
+  "$AGE_BIN" --encrypt --recipients-file "${RUNNER_TEMP}/hakim-age.pub" --output "$encrypted_path" "$archive_path"
   rm -f "$archive_path"
   printf 'WORKSPACE_SNAPSHOT_PATH=%s\n' "$encrypted_path" >> "$GITHUB_ENV"
   log "Created encrypted snapshot ${encrypted_path}."
