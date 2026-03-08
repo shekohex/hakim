@@ -25,7 +25,7 @@ For Proxmox, templates are pre-pulled into `vztmpl` storage. With `enable_home_d
 
 The GitHub Actions template runs the published Hakim GHCR images on GitHub-hosted runners, keeps the workspace step under 350 minutes, and stores encrypted `/home/coder` snapshots as Actions artifacts for restartable one-off workspaces.
 
-The Coder control plane for that template should run on the custom `hakim-coder` image, which extends the official Coder image with provisioner-side tools such as `jq` and `age`.
+The Coder control plane for that template should run on the custom `hakim-coder` image, which extends the official Coder image with provisioner-side tools such as `jq` and `age` and bundles the custom Hakim Terraform provider used to manage GitHub Actions runs.
 
 ## Common Template Parameters
 
@@ -47,10 +47,11 @@ The Coder control plane for that template should run on the custom `hakim-coder`
 - Generate the snapshot encryption key with `secret_key="$(mise exec -- age-keygen)"`.
 - Derive the public key with `public_key="$(printf '%s\n' "$secret_key" | mise exec -- age-keygen -y /dev/stdin)"`.
 - Store the private key in the control repo secret `HAKIM_WORKSPACE_AGE_SECRET_KEY`.
-- Set template `secret_env` to include `GITHUB_API_TOKEN`; the template uses it both for Actions dispatch/stop and for `GH_TOKEN` inside the workspace container.
+- Set template `secret_env` to include `GITHUB_API_TOKEN`; the template uses it both for provider-side Actions dispatch/stop and for `GH_TOKEN` inside the workspace container.
 - Paste `public_key` into the template parameter `actions_age_public_key`.
 - Control-plane workflow assets live in `.github/workflows/hakim-workspace.yml` and `.github/scripts/hakim-workspace.sh`.
 - Build the control-plane image locally with `scripts/build-coder-image.sh`, which reads `CODER_VERSION` from the environment or `.env` and tags `hakim-coder:<CODER_VERSION>`.
+- Build the local provider binary with `scripts/build-terraform-provider-hakim.sh` when you need a dev override outside the custom Coder image.
 
 ## Resilient SSH (Optional ET Mode)
 

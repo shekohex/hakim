@@ -38,27 +38,11 @@ ensure_age() {
   export AGE_KEYGEN_BIN
 }
 
-signal_name() {
-  local prefix="$1"
-  local workspace_id_upper
-  workspace_id_upper="${WORKSPACE_ID^^}"
-  workspace_id_upper="${workspace_id_upper//-/_}"
-  printf '%s_%s\n' "$prefix" "$workspace_id_upper"
-}
-
-delete_variable() {
-  local name="$1"
-  GH_TOKEN="$HAKIM_CONTROL_GH_TOKEN" gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/variables/${name}" >/dev/null 2>&1 || true
-}
-
-set_variable() {
-  local name="$1"
-  local value="$2"
-  if GH_TOKEN="$HAKIM_CONTROL_GH_TOKEN" gh api "repos/${GITHUB_REPOSITORY}/actions/variables/${name}" >/dev/null 2>&1; then
-    GH_TOKEN="$HAKIM_CONTROL_GH_TOKEN" gh api -X PATCH "repos/${GITHUB_REPOSITORY}/actions/variables/${name}" -f name="$name" -f value="$value" >/dev/null
-  else
-    GH_TOKEN="$HAKIM_CONTROL_GH_TOKEN" gh api -X POST "repos/${GITHUB_REPOSITORY}/actions/variables" -f name="$name" -f value="$value" >/dev/null
-  fi
+init_runtime_context() {
+  export WORKSPACE_HOME_DIR="${RUNNER_TEMP}/hakim-home"
+  export WORKSPACE_ARTIFACT_NAME="hakim-home-${WORKSPACE_ID}"
+  export WORKSPACE_MANIFEST_FILE="${RUNNER_TEMP}/hakim-manifest.json"
+  export CONTAINER_NAME="hakim-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 }
 
 build_snapshot_filelist() {
@@ -88,17 +72,8 @@ build_snapshot_filelist() {
 prepare() {
   ensure_tools
   ensure_age
+  init_runtime_context
   log "Preparing workspace ${WORKSPACE_ID}."
-
-  export STOP_SIGNAL_NAME="$(signal_name HAKIM_STOP)"
-  export RUN_SIGNAL_NAME="$(signal_name HAKIM_RUN)"
-  export WORKSPACE_HOME_DIR="${RUNNER_TEMP}/hakim-home"
-  export WORKSPACE_ARTIFACT_NAME="hakim-home-${WORKSPACE_ID}"
-  export WORKSPACE_MANIFEST_FILE="${RUNNER_TEMP}/hakim-manifest.json"
-  export CONTAINER_NAME="hakim-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-
-  delete_variable "$STOP_SIGNAL_NAME"
-  set_variable "$RUN_SIGNAL_NAME" "$GITHUB_RUN_ID"
 
   printf '::add-mask::%s\n' "$HAKIM_WORKSPACE_AGE_SECRET_KEY"
   printf '%s' "$HAKIM_WORKSPACE_MANIFEST" > "${RUNNER_TEMP}/hakim-manifest.age"
@@ -114,8 +89,6 @@ prepare() {
   printf '::add-mask::%s\n' "$CODER_AGENT_TOKEN"
   printf '::add-mask::%s\n' "$WORKSPACE_GITHUB_TOKEN"
   {
-    printf 'STOP_SIGNAL_NAME=%s\n' "$STOP_SIGNAL_NAME"
-    printf 'RUN_SIGNAL_NAME=%s\n' "$RUN_SIGNAL_NAME"
     printf 'WORKSPACE_HOME_DIR=%s\n' "$WORKSPACE_HOME_DIR"
     printf 'WORKSPACE_ARTIFACT_NAME=%s\n' "$WORKSPACE_ARTIFACT_NAME"
     printf 'WORKSPACE_MANIFEST_FILE=%s\n' "$WORKSPACE_MANIFEST_FILE"
@@ -135,6 +108,7 @@ prepare() {
 restore() {
   ensure_tools
   ensure_age
+  init_runtime_context
   mkdir -p "$WORKSPACE_HOME_DIR"
 
   artifact_id="$(GH_TOKEN="$HAKIM_CONTROL_GH_TOKEN" gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '.artifacts | map(select(.name == "'"${WORKSPACE_ARTIFACT_NAME}"'" and .expired == false)) | sort_by(.created_at) | reverse | .[0].id // empty')"
@@ -163,6 +137,7 @@ restore() {
 
 run_workspace() {
   ensure_tools
+  init_runtime_context
   docker pull "$WORKSPACE_IMAGE" >/dev/null
   docker_args=()
   if [[ -n "${CONTAINER_MEMORY_MB:-}" && "${CONTAINER_MEMORY_MB}" != '0' ]]; then
@@ -181,7 +156,7 @@ run_workspace() {
     docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
   }
 
-  trap 'cleanup_container; exit 1' TERM INT HUP
+  trap 'cleanup_container; trap - TERM INT HUP; exit 0' TERM INT HUP
 
   docker run -d \
     --name "$CONTAINER_NAME" \
@@ -231,13 +206,6 @@ run_workspace() {
       exit "$exit_code"
     fi
 
-    if GH_TOKEN="$HAKIM_CONTROL_GH_TOKEN" gh api "repos/${GITHUB_REPOSITORY}/actions/variables/${STOP_SIGNAL_NAME}" >/dev/null 2>&1; then
-      log "Stop signal ${STOP_SIGNAL_NAME} received; shutting down container ${CONTAINER_NAME}."
-      cleanup_container
-      trap - TERM INT HUP
-      exit 0
-    fi
-
     now_epoch="$(date +%s)"
     if (( now_epoch - start_epoch >= max_runtime_seconds )); then
       log "Runtime budget reached; shutting down container ${CONTAINER_NAME}."
@@ -253,8 +221,13 @@ run_workspace() {
 snapshot() {
   ensure_tools
   ensure_age
+  init_runtime_context
   if [[ ! -d "$WORKSPACE_HOME_DIR" ]]; then
     log "Workspace home ${WORKSPACE_HOME_DIR} is missing; skipping snapshot."
+    exit 0
+  fi
+  if [[ -z "${ARTIFACT_AGE_PUBLIC_KEY:-}" ]]; then
+    log "Snapshot encryption key is unavailable; skipping snapshot."
     exit 0
   fi
 
@@ -270,8 +243,7 @@ snapshot() {
 }
 
 cleanup() {
-  delete_variable "$STOP_SIGNAL_NAME"
-  delete_variable "$RUN_SIGNAL_NAME"
+  init_runtime_context
 
   artifacts_json="$(GH_TOKEN="$HAKIM_CONTROL_GH_TOKEN" gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100")"
   printf '%s' "$artifacts_json" | jq -r '.artifacts | map(select(.name == "'"${WORKSPACE_ARTIFACT_NAME}"'" and .expired == false)) | sort_by(.created_at) | reverse | .[3:] | .[].id' | while read -r artifact_id; do

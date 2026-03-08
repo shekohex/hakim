@@ -6,12 +6,21 @@ terraform {
       source  = "coder/coder"
       version = ">= 2.13"
     }
+
+    hakim = {
+      source  = "shekohex/hakim"
+      version = "0.1.0"
+    }
   }
 }
 
 data "coder_workspace" "me" {}
 data "coder_workspace_owner" "me" {}
 data "coder_provisioner" "me" {}
+
+provider "hakim" {
+  token = local.github_api_token
+}
 
 # ------------------------------------------------------------------------------
 # Parameters
@@ -646,24 +655,34 @@ locals {
     HEX_HOME     = "/home/coder/.hex"
     MIX_ARCHIVES = "/home/coder/.mix/archives"
   }
-  combined_env               = merge(local.default_env, local.user_env, local.secret_env)
-  github_api_token           = try(trimspace(local.secret_env.GITHUB_API_TOKEN), "")
-  container_memory_mb        = data.coder_parameter.enable_resource_limits.value && length(data.coder_parameter.container_memory) > 0 && data.coder_parameter.container_memory[0].value > 0 ? data.coder_parameter.container_memory[0].value : 0
-  container_cpus_value       = data.coder_parameter.enable_resource_limits.value && length(data.coder_parameter.container_cpus) > 0 && tonumber(data.coder_parameter.container_cpus[0].value) > 0 ? data.coder_parameter.container_cpus[0].value : ""
-  container_swap_enabled     = local.container_memory_mb > 0 && length(data.coder_parameter.enable_container_swap) > 0 ? data.coder_parameter.enable_container_swap[0].value : false
-  container_swap_mb_input    = local.container_swap_enabled && length(data.coder_parameter.container_swap_mb) > 0 ? data.coder_parameter.container_swap_mb[0].value : 0
-  container_swap_mb          = local.container_swap_enabled ? (local.container_swap_mb_input > 0 ? local.container_swap_mb_input : ceil(local.container_memory_mb * 0.5)) : 0
-  container_memory_swap_mb   = local.container_swap_enabled ? local.container_memory_mb + local.container_swap_mb : null
-  project_dir                = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
-  git_setup_script           = file("${path.module}/scripts/setup-git.sh")
-  tmux_sessions_raw          = length(data.coder_parameter.tmux_sessions) > 0 ? data.coder_parameter.tmux_sessions[0].value : "default"
-  tmux_sessions_clean        = [for session in split(",", local.tmux_sessions_raw) : trimspace(session) if trimspace(session) != ""]
-  tmux_sessions              = length(local.tmux_sessions_clean) > 0 ? local.tmux_sessions_clean : ["default"]
-  tmux_default_config        = trimspace(file("${path.module}/tmux.conf"))
-  tmux_config                = length(data.coder_parameter.tmux_config) > 0 && trimspace(data.coder_parameter.tmux_config[0].value) != "" ? trimspace(data.coder_parameter.tmux_config[0].value) : local.tmux_default_config
-  workspace_image            = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.image_url[0].value : "ghcr.io/shekohex/hakim-${data.coder_parameter.image_variant.value}:latest"
-  workspace_stop_signal_name = "HAKIM_STOP_${upper(replace(data.coder_workspace.me.id, "-", "_"))}"
-  workspace_run_signal_name  = "HAKIM_RUN_${upper(replace(data.coder_workspace.me.id, "-", "_"))}"
+  combined_env             = merge(local.default_env, local.user_env, local.secret_env)
+  github_api_token         = try(trimspace(local.secret_env.GITHUB_API_TOKEN), "")
+  container_memory_mb      = data.coder_parameter.enable_resource_limits.value && length(data.coder_parameter.container_memory) > 0 && data.coder_parameter.container_memory[0].value > 0 ? data.coder_parameter.container_memory[0].value : 0
+  container_cpus_value     = data.coder_parameter.enable_resource_limits.value && length(data.coder_parameter.container_cpus) > 0 && tonumber(data.coder_parameter.container_cpus[0].value) > 0 ? data.coder_parameter.container_cpus[0].value : ""
+  container_swap_enabled   = local.container_memory_mb > 0 && length(data.coder_parameter.enable_container_swap) > 0 ? data.coder_parameter.enable_container_swap[0].value : false
+  container_swap_mb_input  = local.container_swap_enabled && length(data.coder_parameter.container_swap_mb) > 0 ? data.coder_parameter.container_swap_mb[0].value : 0
+  container_swap_mb        = local.container_swap_enabled ? (local.container_swap_mb_input > 0 ? local.container_swap_mb_input : ceil(local.container_memory_mb * 0.5)) : 0
+  container_memory_swap_mb = local.container_swap_enabled ? local.container_memory_mb + local.container_swap_mb : null
+  project_dir              = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
+  git_setup_script         = file("${path.module}/scripts/setup-git.sh")
+  tmux_sessions_raw        = length(data.coder_parameter.tmux_sessions) > 0 ? data.coder_parameter.tmux_sessions[0].value : "default"
+  tmux_sessions_clean      = [for session in split(",", local.tmux_sessions_raw) : trimspace(session) if trimspace(session) != ""]
+  tmux_sessions            = length(local.tmux_sessions_clean) > 0 ? local.tmux_sessions_clean : ["default"]
+  tmux_default_config      = trimspace(file("${path.module}/tmux.conf"))
+  tmux_config              = length(data.coder_parameter.tmux_config) > 0 && trimspace(data.coder_parameter.tmux_config[0].value) != "" ? trimspace(data.coder_parameter.tmux_config[0].value) : local.tmux_default_config
+  workspace_image          = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.image_url[0].value : "ghcr.io/shekohex/hakim-${data.coder_parameter.image_variant.value}:latest"
+  workspace_manifest_json = jsonencode({
+    workspace_id             = data.coder_workspace.me.id
+    workspace_name           = data.coder_workspace.me.name
+    workspace_owner          = data.coder_workspace_owner.me.name
+    workspace_image          = local.workspace_image
+    container_memory_mb      = tostring(local.container_memory_mb)
+    container_memory_swap_mb = local.container_memory_swap_mb != null ? tostring(local.container_memory_swap_mb) : ""
+    container_cpus           = local.container_cpus_value
+    coder_agent_url          = data.coder_workspace.me.access_url
+    coder_agent_token        = coder_agent.main.token
+    workspace_github_token   = local.github_api_token
+  })
 
 }
 
@@ -789,66 +808,16 @@ EOF
   }
 }
 
-resource "terraform_data" "github_actions_workspace" {
+resource "hakim_github_actions_run" "workspace" {
   count = data.coder_workspace.me.start_count
 
-  input = {
-    actions_repository       = data.coder_parameter.github_actions_repository.value
-    actions_workflow_file    = data.coder_parameter.github_actions_workflow_file.value
-    actions_workflow_ref     = data.coder_parameter.github_actions_workflow_ref.value
-    workspace_id             = data.coder_workspace.me.id
-    workspace_name           = data.coder_workspace.me.name
-    workspace_owner          = data.coder_workspace_owner.me.name
-    github_api_token         = local.github_api_token
-    workspace_image          = local.workspace_image
-    container_memory_mb      = tostring(local.container_memory_mb)
-    container_memory_swap_mb = local.container_memory_swap_mb != null ? tostring(local.container_memory_swap_mb) : ""
-    container_cpus           = local.container_cpus_value
-    coder_agent_url          = data.coder_workspace.me.access_url
-    coder_agent_token        = coder_agent.main.token
-    workspace_github_token   = local.github_api_token
-    age_public_key           = data.coder_parameter.actions_age_public_key.value
-    stop_signal_name         = local.workspace_stop_signal_name
-    run_signal_name          = local.workspace_run_signal_name
-  }
-
-  provisioner "local-exec" {
-    command = "bash ${path.module}/scripts/dispatch-github-actions-workspace.sh"
-
-    environment = {
-      GITHUB_API_TOKEN         = self.input.github_api_token
-      ACTIONS_REPOSITORY       = self.input.actions_repository
-      ACTIONS_WORKFLOW_FILE    = self.input.actions_workflow_file
-      ACTIONS_WORKFLOW_REF     = self.input.actions_workflow_ref
-      WORKSPACE_ID             = self.input.workspace_id
-      WORKSPACE_NAME           = self.input.workspace_name
-      WORKSPACE_OWNER          = self.input.workspace_owner
-      WORKSPACE_IMAGE          = self.input.workspace_image
-      CONTAINER_MEMORY_MB      = self.input.container_memory_mb
-      CONTAINER_MEMORY_SWAP_MB = self.input.container_memory_swap_mb
-      CONTAINER_CPUS           = self.input.container_cpus
-      CODER_AGENT_URL          = self.input.coder_agent_url
-      CODER_AGENT_TOKEN        = self.input.coder_agent_token
-      WORKSPACE_GITHUB_TOKEN   = self.input.workspace_github_token
-      ACTIONS_AGE_PUBLIC_KEY   = self.input.age_public_key
-      STOP_SIGNAL_NAME         = self.input.stop_signal_name
-      RUN_SIGNAL_NAME          = self.input.run_signal_name
-    }
-  }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = "bash ${path.module}/scripts/stop-github-actions-workspace.sh"
-
-    environment = {
-      GITHUB_API_TOKEN      = self.input.github_api_token
-      ACTIONS_REPOSITORY    = self.input.actions_repository
-      ACTIONS_WORKFLOW_FILE = self.input.actions_workflow_file
-      WORKSPACE_ID          = self.input.workspace_id
-      STOP_SIGNAL_NAME      = self.input.stop_signal_name
-      RUN_SIGNAL_NAME       = self.input.run_signal_name
-    }
-  }
+  repository     = data.coder_parameter.github_actions_repository.value
+  workflow_file  = data.coder_parameter.github_actions_workflow_file.value
+  workflow_ref   = data.coder_parameter.github_actions_workflow_ref.value
+  workspace_id   = data.coder_workspace.me.id
+  workspace_name = data.coder_workspace.me.name
+  manifest_json  = local.workspace_manifest_json
+  age_public_key = data.coder_parameter.actions_age_public_key.value
 }
 
 # Link OpenCode to Coder Tasks UI

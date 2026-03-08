@@ -1,6 +1,6 @@
 name: Hakim Workspace
 
-run-name: Hakim Workspace ${{ inputs.workspace_id }}
+run-name: Hakim Workspace ${{ inputs.workspace_id }} ${{ inputs.request_id }}
 
 on:
   workflow_dispatch:
@@ -11,6 +11,10 @@ on:
         type: string
       workspace_name:
         description: Workspace name
+        required: true
+        type: string
+      request_id:
+        description: Unique dispatch request id
         required: true
         type: string
       manifest:
@@ -53,7 +57,7 @@ jobs:
         run: bash .github/scripts/hakim-workspace.sh snapshot
 
       - name: Upload snapshot
-        if: always()
+        if: always() && env.WORKSPACE_SNAPSHOT_PATH != ''
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.WORKSPACE_ARTIFACT_NAME }}

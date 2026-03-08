@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE_NAME="${IMAGE_NAME:-hakim-coder}"
+HAKIM_PROVIDER_VERSION="${HAKIM_PROVIDER_VERSION:-0.1.0}"
 
 load_env_file() {
   local env_file="$1"
@@ -32,8 +33,9 @@ IMAGE_TAG="${IMAGE_NAME}:${CODER_VERSION}"
 
 docker build \
   --build-arg "CODER_VERSION=${CODER_VERSION}" \
+  --build-arg "HAKIM_PROVIDER_VERSION=${HAKIM_PROVIDER_VERSION}" \
   --tag "$IMAGE_TAG" \
   --file "$ROOT_DIR/docker/coder/Dockerfile" \
-  "$ROOT_DIR/docker/coder"
+  "$ROOT_DIR"
 
 printf '%s\n' "$IMAGE_TAG"

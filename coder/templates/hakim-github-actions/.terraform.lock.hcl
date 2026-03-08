@@ -23,3 +23,11 @@ provider "registry.terraform.io/coder/coder" {
     "zh:f569b65999264a9416862bca5cd2a6177d94ccb0424f3a4ef424428912b9cb3c",
   ]
 }
+
+provider "registry.terraform.io/shekohex/hakim" {
+  version     = "0.1.0"
+  constraints = "0.1.0"
+  hashes = [
+    "h1:rCMuHIFDHGSnszBsMHkbMzhuxbLpTb6eeHhfzVQFpBU=",
+  ]
+}

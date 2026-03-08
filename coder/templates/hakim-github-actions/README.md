@@ -23,7 +23,7 @@ Run Hakim workspaces inside GitHub Actions using the published GHCR images.
 1. Run the Coder control plane with the custom `hakim-coder` image so provisioner-side tools like `jq` and `age` are available.
 2. Add `.github/workflows/hakim-workspace.yml` and `.github/scripts/hakim-workspace.sh` to the control repository.
 3. Create the repository secret `HAKIM_WORKSPACE_AGE_SECRET_KEY` with an age secret key.
-4. Set `secret_env` to include `GITHUB_API_TOKEN`, for example `{"GITHUB_API_TOKEN":"ghp_xxx"}`, so the Coder provisioner can dispatch and stop workflow runs.
+4. Set `secret_env` to include `GITHUB_API_TOKEN`, for example `{"GITHUB_API_TOKEN":"ghp_xxx"}`, so the custom Hakim Terraform provider can dispatch and cancel workflow runs.
 5. Paste the matching age public key into the template parameter `actions_age_public_key`.
 
 ## Generate the age key
@@ -50,7 +50,8 @@ printf '%s\n' "$public_key"
 ## Security model
 
 - Workflow dispatch input contains only encrypted workspace bootstrap data.
-- The Coder-side dispatch/stop hooks and the workspace container both read `GITHUB_API_TOKEN` from `secret_env`.
+- The custom Hakim Terraform provider stores the exact GitHub Actions `run_id` in Terraform state, then uses it for deterministic stop/cancel operations.
+- The provider and the workspace container both read `GITHUB_API_TOKEN` from `secret_env`.
 - The control workflow uses the built-in `GITHUB_TOKEN` for Actions lifecycle and artifacts.
 - The workspace container receives `GH_TOKEN` from the encrypted manifest, not from `github.token`.
 - Do not enable verbose shell tracing in the control workflow if you are handling private work.

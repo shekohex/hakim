@@ -36,5 +36,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Terraform
 .terraform/
 **/.terraform/
+.terraform/providers-mirror/
 *.tfstate
 *.tfstate.backup
