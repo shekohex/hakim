@@ -47,36 +47,29 @@ init_runtime_context() {
 
 build_snapshot_filelist() {
   SNAPSHOT_FILELIST_PATH="${RUNNER_TEMP}/${WORKSPACE_ARTIFACT_NAME}.files"
-  local ageignore_path ageignore_repo file_count match_path
+  local ageignore_path ageignore_repo listing_warnings_path file_count warning_count
 
   ageignore_path="${WORKSPACE_HOME_DIR}/.ageignore"
-  ageignore_repo=''
+  ageignore_repo="$(mktemp -d "${RUNNER_TEMP}/hakim-ageignore.XXXXXX")"
+  listing_warnings_path="${RUNNER_TEMP}/${WORKSPACE_ARTIFACT_NAME}.warnings"
+
+  git -C "$ageignore_repo" init --quiet >/dev/null 2>&1
   if [[ -f "$ageignore_path" ]]; then
-    ageignore_repo="$(mktemp -d "${RUNNER_TEMP}/hakim-ageignore.XXXXXX")"
-    git -C "$ageignore_repo" init --quiet >/dev/null 2>&1
-    cp "$ageignore_path" "$ageignore_repo/.git/info/exclude"
+    git --git-dir="$ageignore_repo/.git" --work-tree="$WORKSPACE_HOME_DIR" ls-files -z -co --exclude-from="$ageignore_path" > "$SNAPSHOT_FILELIST_PATH" 2> "$listing_warnings_path"
+  else
+    git --git-dir="$ageignore_repo/.git" --work-tree="$WORKSPACE_HOME_DIR" ls-files -z -co > "$SNAPSHOT_FILELIST_PATH" 2> "$listing_warnings_path"
   fi
 
-  (
-    cd "$WORKSPACE_HOME_DIR"
-    while IFS= read -r -d '' path; do
-      path="${path#./}"
-      match_path="$path"
-      if [[ -d "$path" ]]; then
-        match_path="${path}/"
-      fi
-      if [[ -n "$ageignore_repo" ]] && git -C "$ageignore_repo" check-ignore --quiet "$match_path" >/dev/null 2>&1; then
-        continue
-      fi
-      printf '%s\0' "$path"
-    done < <(find . -mindepth 1 -print0)
-  ) > "$SNAPSHOT_FILELIST_PATH"
-
-  if [[ -n "$ageignore_repo" ]]; then
-    rm -rf "$ageignore_repo"
-  fi
+  rm -rf "$ageignore_repo"
 
   file_count="$(tr -cd '\0' < "$SNAPSHOT_FILELIST_PATH" | wc -c | tr -d ' ')"
+  warning_count="$(wc -l < "$listing_warnings_path" | tr -d ' ')"
+  rm -f "$listing_warnings_path"
+
+  if [[ "$warning_count" != '0' ]]; then
+    log "Skipped ${warning_count} unreadable paths while building snapshot file list."
+  fi
+
   if [[ -f "$ageignore_path" ]]; then
     log "Prepared snapshot file list (${file_count} entries) using ${ageignore_path}."
   else
@@ -246,13 +239,11 @@ snapshot() {
     exit 0
   fi
 
-  archive_path="${RUNNER_TEMP}/${WORKSPACE_ARTIFACT_NAME}.tar.gz"
-  encrypted_path="${archive_path}.age"
+  encrypted_path="${RUNNER_TEMP}/${WORKSPACE_ARTIFACT_NAME}.tar.gz.age"
   build_snapshot_filelist
-  tar --null --no-recursion -czf "$archive_path" -C "$WORKSPACE_HOME_DIR" -T "$SNAPSHOT_FILELIST_PATH"
   printf '%s\n' "$ARTIFACT_AGE_PUBLIC_KEY" > "${RUNNER_TEMP}/hakim-age.pub"
-  "$AGE_BIN" --encrypt --recipients-file "${RUNNER_TEMP}/hakim-age.pub" --output "$encrypted_path" "$archive_path"
-  rm -f "$archive_path"
+  tar --null --no-recursion --ignore-failed-read -czf - -C "$WORKSPACE_HOME_DIR" -T "$SNAPSHOT_FILELIST_PATH" | "$AGE_BIN" --encrypt --recipients-file "${RUNNER_TEMP}/hakim-age.pub" --output "$encrypted_path"
+  rm -f "$SNAPSHOT_FILELIST_PATH"
   printf 'WORKSPACE_SNAPSHOT_PATH=%s\n' "$encrypted_path" >> "$GITHUB_ENV"
   log "Created encrypted snapshot ${encrypted_path}."
 }

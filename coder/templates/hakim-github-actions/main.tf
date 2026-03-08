@@ -624,6 +624,15 @@ data "coder_parameter" "snapshot_ageignore" {
   type         = "string"
   form_type    = "textarea"
   default      = <<-EOT
+.bash_history
+.ssh/
+.cache/blesh/
+.config/atuin/
+.local/state/
+.local/share/atuin/
+.local/share/etserver/
+.local/share/hakim-et/
+.local/share/nvim/lazy/
 project/**/node_modules/
 project/**/.pnpm-store/
 project/**/.yarn/
