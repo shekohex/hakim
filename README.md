@@ -19,8 +19,11 @@ Images follow the DevContainer Features model and are also OCI-ready for Proxmox
 
 - Docker template: `coder/templates/hakim`
 - Proxmox template: `coder/templates/hakim-proxmox`
+- GitHub Actions template: `coder/templates/hakim-github-actions`
 
 For Proxmox, templates are pre-pulled into `vztmpl` storage. With `enable_home_disk = true`, `/home/coder` is persisted and Docker data is stored at `/home/coder/.local/share/docker` to survive container rebuilds.
+
+The GitHub Actions template runs the published Hakim GHCR images on GitHub-hosted runners, keeps the workspace step under 350 minutes, and stores encrypted `/home/coder` snapshots as Actions artifacts for restartable one-off workspaces.
 
 ## Common Template Parameters
 
@@ -33,7 +36,18 @@ For Proxmox, templates are pre-pulled into `vztmpl` storage. With `enable_home_d
 | `default_env` / `secret_env` | Environment variable injection | `{}` |
 | `preview_port` | Preview app port | `3000` |
 | `setup_script` | Startup shell script | `""` |
+| `snapshot_ageignore` | Seed content for `/home/coder/.ageignore` used during encrypted snapshots | common transient paths |
 | `enable_et` | Enable ET-based resilient SSH transport | `true` |
+
+## GitHub Actions Template Setup
+
+- Install local tooling with `mise install` so `age` and `terraform` are available.
+- Generate the snapshot encryption key with `secret_key="$(mise exec -- age-keygen)"`.
+- Derive the public key with `public_key="$(printf '%s\n' "$secret_key" | mise exec -- age-keygen -y /dev/stdin)"`.
+- Store the private key in the control repo secret `HAKIM_WORKSPACE_AGE_SECRET_KEY`.
+- Store a GitHub token for the workspace in `HAKIM_WORKSPACE_GH_TOKEN`.
+- Paste `public_key` into the template parameter `actions_age_public_key`.
+- Control-plane workflow assets live in `.github/workflows/hakim-workspace.yml` and `.github/scripts/hakim-workspace.sh`.
 
 ## Resilient SSH (Optional ET Mode)
 
