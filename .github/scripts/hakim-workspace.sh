@@ -109,9 +109,10 @@ prepare() {
   export CONTAINER_CPUS="$(jq -r '.container_cpus // ""' "$WORKSPACE_MANIFEST_FILE")"
   export CODER_AGENT_URL="$(jq -r '.coder_agent_url' "$WORKSPACE_MANIFEST_FILE")"
   export CODER_AGENT_TOKEN="$(jq -r '.coder_agent_token' "$WORKSPACE_MANIFEST_FILE")"
+  export WORKSPACE_GITHUB_TOKEN="$(jq -r '.workspace_github_token // ""' "$WORKSPACE_MANIFEST_FILE")"
   export ARTIFACT_AGE_PUBLIC_KEY="$($AGE_KEYGEN_BIN -y <(printf '%s\n' "$HAKIM_WORKSPACE_AGE_SECRET_KEY"))"
   printf '::add-mask::%s\n' "$CODER_AGENT_TOKEN"
-  printf '::add-mask::%s\n' "$HAKIM_WORKSPACE_GH_TOKEN"
+  printf '::add-mask::%s\n' "$WORKSPACE_GITHUB_TOKEN"
   {
     printf 'STOP_SIGNAL_NAME=%s\n' "$STOP_SIGNAL_NAME"
     printf 'RUN_SIGNAL_NAME=%s\n' "$RUN_SIGNAL_NAME"
@@ -125,6 +126,7 @@ prepare() {
     printf 'CONTAINER_CPUS=%s\n' "$CONTAINER_CPUS"
     printf 'CODER_AGENT_URL=%s\n' "$CODER_AGENT_URL"
     printf 'CODER_AGENT_TOKEN=%s\n' "$CODER_AGENT_TOKEN"
+    printf 'WORKSPACE_GITHUB_TOKEN=%s\n' "$WORKSPACE_GITHUB_TOKEN"
     printf 'ARTIFACT_AGE_PUBLIC_KEY=%s\n' "$ARTIFACT_AGE_PUBLIC_KEY"
   } >> "$GITHUB_ENV"
   log "Prepared manifest and runtime metadata for ${WORKSPACE_ID}."
@@ -191,8 +193,8 @@ run_workspace() {
     -e CODER_AGENT_URL="$CODER_AGENT_URL" \
     -e CODER_AGENT_TOKEN="$CODER_AGENT_TOKEN" \
     -e CODER_PROJECT_DIR=/home/coder/project \
-    -e GH_TOKEN="$HAKIM_WORKSPACE_GH_TOKEN" \
-    -e GITHUB_TOKEN="$HAKIM_WORKSPACE_GH_TOKEN" \
+    -e GH_TOKEN="$WORKSPACE_GITHUB_TOKEN" \
+    -e GITHUB_TOKEN="$WORKSPACE_GITHUB_TOKEN" \
     -e GITHUB_ACTIONS=true \
     -e GITHUB_REPOSITORY="$GITHUB_REPOSITORY" \
     -e GITHUB_RUN_ID="$GITHUB_RUN_ID" \

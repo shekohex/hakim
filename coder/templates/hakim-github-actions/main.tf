@@ -120,17 +120,6 @@ data "coder_parameter" "github_actions_workflow_ref" {
   order        = 6
 }
 
-data "coder_parameter" "workspace_github_token_secret_name" {
-  name         = "workspace_github_token_secret_name"
-  display_name = "Workspace GitHub Token Secret"
-  description  = "Actions secret name injected into the workspace container as GH_TOKEN."
-  default      = "HAKIM_WORKSPACE_GH_TOKEN"
-  mutable      = true
-  type         = "string"
-  icon         = "/icon/git.svg"
-  order        = 8
-}
-
 data "coder_parameter" "actions_age_public_key" {
   name         = "actions_age_public_key"
   display_name = "Actions age Public Key"
@@ -804,46 +793,46 @@ resource "terraform_data" "github_actions_workspace" {
   count = data.coder_workspace.me.start_count
 
   input = {
-    actions_repository          = data.coder_parameter.github_actions_repository.value
-    actions_workflow_file       = data.coder_parameter.github_actions_workflow_file.value
-    actions_workflow_ref        = data.coder_parameter.github_actions_workflow_ref.value
-    workspace_id                = data.coder_workspace.me.id
-    workspace_name              = data.coder_workspace.me.name
-    workspace_owner             = data.coder_workspace_owner.me.name
-    github_api_token            = local.github_api_token
-    workspace_image             = local.workspace_image
-    container_memory_mb         = tostring(local.container_memory_mb)
-    container_memory_swap_mb    = local.container_memory_swap_mb != null ? tostring(local.container_memory_swap_mb) : ""
-    container_cpus              = local.container_cpus_value
-    coder_agent_url             = data.coder_workspace.me.access_url
-    coder_agent_token           = coder_agent.main.token
-    age_public_key              = data.coder_parameter.actions_age_public_key.value
-    workspace_token_secret_name = data.coder_parameter.workspace_github_token_secret_name.value
-    stop_signal_name            = local.workspace_stop_signal_name
-    run_signal_name             = local.workspace_run_signal_name
+    actions_repository       = data.coder_parameter.github_actions_repository.value
+    actions_workflow_file    = data.coder_parameter.github_actions_workflow_file.value
+    actions_workflow_ref     = data.coder_parameter.github_actions_workflow_ref.value
+    workspace_id             = data.coder_workspace.me.id
+    workspace_name           = data.coder_workspace.me.name
+    workspace_owner          = data.coder_workspace_owner.me.name
+    github_api_token         = local.github_api_token
+    workspace_image          = local.workspace_image
+    container_memory_mb      = tostring(local.container_memory_mb)
+    container_memory_swap_mb = local.container_memory_swap_mb != null ? tostring(local.container_memory_swap_mb) : ""
+    container_cpus           = local.container_cpus_value
+    coder_agent_url          = data.coder_workspace.me.access_url
+    coder_agent_token        = coder_agent.main.token
+    workspace_github_token   = local.github_api_token
+    age_public_key           = data.coder_parameter.actions_age_public_key.value
+    stop_signal_name         = local.workspace_stop_signal_name
+    run_signal_name          = local.workspace_run_signal_name
   }
 
   provisioner "local-exec" {
     command = "bash ${path.module}/scripts/dispatch-github-actions-workspace.sh"
 
     environment = {
-      GITHUB_API_TOKEN            = self.input.github_api_token
-      ACTIONS_REPOSITORY          = self.input.actions_repository
-      ACTIONS_WORKFLOW_FILE       = self.input.actions_workflow_file
-      ACTIONS_WORKFLOW_REF        = self.input.actions_workflow_ref
-      WORKSPACE_ID                = self.input.workspace_id
-      WORKSPACE_NAME              = self.input.workspace_name
-      WORKSPACE_OWNER             = self.input.workspace_owner
-      WORKSPACE_IMAGE             = self.input.workspace_image
-      CONTAINER_MEMORY_MB         = self.input.container_memory_mb
-      CONTAINER_MEMORY_SWAP_MB    = self.input.container_memory_swap_mb
-      CONTAINER_CPUS              = self.input.container_cpus
-      CODER_AGENT_URL             = self.input.coder_agent_url
-      CODER_AGENT_TOKEN           = self.input.coder_agent_token
-      ACTIONS_AGE_PUBLIC_KEY      = self.input.age_public_key
-      WORKSPACE_TOKEN_SECRET_NAME = self.input.workspace_token_secret_name
-      STOP_SIGNAL_NAME            = self.input.stop_signal_name
-      RUN_SIGNAL_NAME             = self.input.run_signal_name
+      GITHUB_API_TOKEN         = self.input.github_api_token
+      ACTIONS_REPOSITORY       = self.input.actions_repository
+      ACTIONS_WORKFLOW_FILE    = self.input.actions_workflow_file
+      ACTIONS_WORKFLOW_REF     = self.input.actions_workflow_ref
+      WORKSPACE_ID             = self.input.workspace_id
+      WORKSPACE_NAME           = self.input.workspace_name
+      WORKSPACE_OWNER          = self.input.workspace_owner
+      WORKSPACE_IMAGE          = self.input.workspace_image
+      CONTAINER_MEMORY_MB      = self.input.container_memory_mb
+      CONTAINER_MEMORY_SWAP_MB = self.input.container_memory_swap_mb
+      CONTAINER_CPUS           = self.input.container_cpus
+      CODER_AGENT_URL          = self.input.coder_agent_url
+      CODER_AGENT_TOKEN        = self.input.coder_agent_token
+      WORKSPACE_GITHUB_TOKEN   = self.input.workspace_github_token
+      ACTIONS_AGE_PUBLIC_KEY   = self.input.age_public_key
+      STOP_SIGNAL_NAME         = self.input.stop_signal_name
+      RUN_SIGNAL_NAME          = self.input.run_signal_name
     }
   }
 

@@ -9,7 +9,7 @@ require_env() {
   fi
 }
 
-for name in GITHUB_API_TOKEN ACTIONS_REPOSITORY ACTIONS_WORKFLOW_FILE ACTIONS_WORKFLOW_REF WORKSPACE_ID WORKSPACE_NAME WORKSPACE_IMAGE CODER_AGENT_URL CODER_AGENT_TOKEN ACTIONS_AGE_PUBLIC_KEY WORKSPACE_TOKEN_SECRET_NAME STOP_SIGNAL_NAME RUN_SIGNAL_NAME; do
+for name in GITHUB_API_TOKEN ACTIONS_REPOSITORY ACTIONS_WORKFLOW_FILE ACTIONS_WORKFLOW_REF WORKSPACE_ID WORKSPACE_NAME WORKSPACE_IMAGE CODER_AGENT_URL CODER_AGENT_TOKEN ACTIONS_AGE_PUBLIC_KEY STOP_SIGNAL_NAME RUN_SIGNAL_NAME; do
   require_env "$name"
 done
 
@@ -114,7 +114,8 @@ manifest_json="$(jq -nc \
   --arg container_cpus "${CONTAINER_CPUS:-}" \
   --arg coder_agent_url "$CODER_AGENT_URL" \
   --arg coder_agent_token "$CODER_AGENT_TOKEN" \
-  '{workspace_id:$workspace_id,workspace_name:$workspace_name,workspace_owner:$workspace_owner,workspace_image:$workspace_image,container_memory_mb:$container_memory_mb,container_memory_swap_mb:$container_memory_swap_mb,container_cpus:$container_cpus,coder_agent_url:$coder_agent_url,coder_agent_token:$coder_agent_token}')"
+  --arg workspace_github_token "$GITHUB_API_TOKEN" \
+  '{workspace_id:$workspace_id,workspace_name:$workspace_name,workspace_owner:$workspace_owner,workspace_image:$workspace_image,container_memory_mb:$container_memory_mb,container_memory_swap_mb:$container_memory_swap_mb,container_cpus:$container_cpus,coder_agent_url:$coder_agent_url,coder_agent_token:$coder_agent_token,workspace_github_token:$workspace_github_token}')"
 
 manifest_file="$(mktemp)"
 cipher_file="$(mktemp)"
@@ -128,7 +129,6 @@ payload="$(jq -nc \
   --arg workspace_id "$WORKSPACE_ID" \
   --arg workspace_name "$WORKSPACE_NAME" \
   --arg manifest "$manifest_cipher" \
-  --arg workspace_token_secret_name "$WORKSPACE_TOKEN_SECRET_NAME" \
-  '{ref:$ref,inputs:{workspace_id:$workspace_id,workspace_name:$workspace_name,manifest:$manifest,workspace_token_secret_name:$workspace_token_secret_name}}')"
+  '{ref:$ref,inputs:{workspace_id:$workspace_id,workspace_name:$workspace_name,manifest:$manifest}}')"
 
 curl_api POST "/repos/${repo_owner}/${repo_name}/actions/workflows/$(urlencode "$ACTIONS_WORKFLOW_FILE")/dispatches" "$payload" >/dev/null

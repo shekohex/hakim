@@ -17,11 +17,6 @@ on:
         description: Encrypted workspace manifest
         required: true
         type: string
-      workspace_token_secret_name:
-        description: Secret injected into the workspace as GH_TOKEN
-        required: false
-        default: HAKIM_WORKSPACE_GH_TOKEN
-        type: string
 
 permissions:
   contents: read
@@ -38,7 +33,6 @@ jobs:
       HAKIM_WORKSPACE_MAX_RUNTIME_SECONDS: "21000"
       HAKIM_WORKSPACE_MANIFEST: ${{ inputs.manifest }}
       HAKIM_WORKSPACE_AGE_SECRET_KEY: ${{ secrets.HAKIM_WORKSPACE_AGE_SECRET_KEY }}
-      HAKIM_WORKSPACE_GH_TOKEN: ${{ secrets[inputs.workspace_token_secret_name] }}
       HAKIM_CONTROL_GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout

@@ -16,15 +16,14 @@ Run Hakim workspaces inside GitHub Actions using the published GHCR images.
 - OpenCode, OpenChamber, code-server, tmux, Zed, ET, and the existing Git helpers
 - Encrypted `/home/coder` snapshots restored from GitHub Actions artifacts
 - `~/.ageignore` support for excluding transient files from snapshots
-- `GH_TOKEN` injected from a repository secret inside the workspace container
+- `GH_TOKEN` injected from `secret_env.GITHUB_API_TOKEN` inside the workspace container
 
 ## Required setup
 
 1. Add `.github/workflows/hakim-workspace.yml` and `.github/scripts/hakim-workspace.sh` to the control repository.
 2. Create the repository secret `HAKIM_WORKSPACE_AGE_SECRET_KEY` with an age secret key.
-3. Create the repository secret `HAKIM_WORKSPACE_GH_TOKEN` with a GitHub token for `gh` and private repository access inside the workspace.
-4. Set `secret_env` to include `GITHUB_API_TOKEN`, for example `{"GITHUB_API_TOKEN":"ghp_xxx"}`, so the Coder provisioner can dispatch and stop workflow runs.
-5. Paste the matching age public key into the template parameter `actions_age_public_key`.
+3. Set `secret_env` to include `GITHUB_API_TOKEN`, for example `{"GITHUB_API_TOKEN":"ghp_xxx"}`, so the Coder provisioner can dispatch and stop workflow runs.
+4. Paste the matching age public key into the template parameter `actions_age_public_key`.
 
 ## Generate the age key
 
@@ -38,7 +37,6 @@ Run Hakim workspaces inside GitHub Actions using the published GHCR images.
 secret_key="$(mise exec -- age-keygen)"
 public_key="$(printf '%s\n' "$secret_key" | mise exec -- age-keygen -y /dev/stdin)"
 printf '%s\n' "$secret_key" | gh secret set HAKIM_WORKSPACE_AGE_SECRET_KEY
-gh auth token | gh secret set HAKIM_WORKSPACE_GH_TOKEN
 printf '%s\n' "$public_key"
 ```
 
@@ -51,11 +49,11 @@ printf '%s\n' "$public_key"
 ## Security model
 
 - Workflow dispatch input contains only encrypted workspace bootstrap data.
-- The Coder-side dispatch/stop hooks read `GITHUB_API_TOKEN` from `secret_env`.
+- The Coder-side dispatch/stop hooks and the workspace container both read `GITHUB_API_TOKEN` from `secret_env`.
 - The control workflow uses the built-in `GITHUB_TOKEN` for Actions lifecycle and artifacts.
-- The workspace container receives `GH_TOKEN` from the configured repository secret, not from `github.token`.
+- The workspace container receives `GH_TOKEN` from the encrypted manifest, not from `github.token`.
 - Do not enable verbose shell tracing in the control workflow if you are handling private work.
 
 ## Single-tenant note
 
-This template currently assumes a single trusted operator. The fixed secret names are intentional for v1.
+This template currently assumes a single trusted operator. The control repo still uses the fixed age secret name `HAKIM_WORKSPACE_AGE_SECRET_KEY` in v1.
