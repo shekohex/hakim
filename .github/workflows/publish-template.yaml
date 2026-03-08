@@ -71,6 +71,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: providers/hakim/go.mod
+          cache-dependency-path: providers/hakim/go.sum
 
       - name: Build Hakim provider
         run: |
@@ -124,6 +125,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: providers/hakim/go.mod
+          cache-dependency-path: providers/hakim/go.sum
 
       - name: Build Hakim provider
         run: |
