@@ -39,3 +39,4 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .terraform/providers-mirror/
 *.tfstate
 *.tfstate.backup
+coder/templates/hakim-github-actions/.terraform.lock.hcl
