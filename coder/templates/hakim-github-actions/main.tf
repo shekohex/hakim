@@ -13,10 +13,6 @@ data "coder_workspace" "me" {}
 data "coder_workspace_owner" "me" {}
 data "coder_provisioner" "me" {}
 
-data "coder_external_auth" "github" {
-  id = data.coder_parameter.github_external_auth_id.value
-}
-
 # ------------------------------------------------------------------------------
 # Parameters
 # ------------------------------------------------------------------------------
@@ -122,17 +118,6 @@ data "coder_parameter" "github_actions_workflow_ref" {
   type         = "string"
   icon         = "/icon/git.svg"
   order        = 6
-}
-
-data "coder_parameter" "github_external_auth_id" {
-  name         = "github_external_auth_id"
-  display_name = "Coder GitHub Auth Provider ID"
-  description  = "Coder external auth provider id with repo/workflow access to the actions repository."
-  default      = "github"
-  mutable      = true
-  type         = "string"
-  icon         = "/icon/git.svg"
-  order        = 7
 }
 
 data "coder_parameter" "workspace_github_token_secret_name" {
@@ -673,6 +658,7 @@ locals {
     MIX_ARCHIVES = "/home/coder/.mix/archives"
   }
   combined_env               = merge(local.default_env, local.user_env, local.secret_env)
+  github_api_token           = try(trimspace(local.secret_env.GITHUB_API_TOKEN), "")
   container_memory_mb        = data.coder_parameter.enable_resource_limits.value && length(data.coder_parameter.container_memory) > 0 && data.coder_parameter.container_memory[0].value > 0 ? data.coder_parameter.container_memory[0].value : 0
   container_cpus_value       = data.coder_parameter.enable_resource_limits.value && length(data.coder_parameter.container_cpus) > 0 && tonumber(data.coder_parameter.container_cpus[0].value) > 0 ? data.coder_parameter.container_cpus[0].value : ""
   container_swap_enabled     = local.container_memory_mb > 0 && length(data.coder_parameter.enable_container_swap) > 0 ? data.coder_parameter.enable_container_swap[0].value : false
@@ -824,7 +810,7 @@ resource "terraform_data" "github_actions_workspace" {
     workspace_id                = data.coder_workspace.me.id
     workspace_name              = data.coder_workspace.me.name
     workspace_owner             = data.coder_workspace_owner.me.name
-    github_api_token            = nonsensitive(data.coder_external_auth.github.access_token)
+    github_api_token            = local.github_api_token
     workspace_image             = local.workspace_image
     container_memory_mb         = tostring(local.container_memory_mb)
     container_memory_swap_mb    = local.container_memory_swap_mb != null ? tostring(local.container_memory_swap_mb) : ""
@@ -841,7 +827,7 @@ resource "terraform_data" "github_actions_workspace" {
     command = "bash ${path.module}/scripts/dispatch-github-actions-workspace.sh"
 
     environment = {
-      GITHUB_API_TOKEN            = data.coder_external_auth.github.access_token
+      GITHUB_API_TOKEN            = self.input.github_api_token
       ACTIONS_REPOSITORY          = self.input.actions_repository
       ACTIONS_WORKFLOW_FILE       = self.input.actions_workflow_file
       ACTIONS_WORKFLOW_REF        = self.input.actions_workflow_ref

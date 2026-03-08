@@ -46,6 +46,7 @@ The GitHub Actions template runs the published Hakim GHCR images on GitHub-hoste
 - Derive the public key with `public_key="$(printf '%s\n' "$secret_key" | mise exec -- age-keygen -y /dev/stdin)"`.
 - Store the private key in the control repo secret `HAKIM_WORKSPACE_AGE_SECRET_KEY`.
 - Store a GitHub token for the workspace in `HAKIM_WORKSPACE_GH_TOKEN`.
+- Set template `secret_env` to include `GITHUB_API_TOKEN` so Coder can dispatch and stop workflow runs against the control repo.
 - Paste `public_key` into the template parameter `actions_age_public_key`.
 - Control-plane workflow assets live in `.github/workflows/hakim-workspace.yml` and `.github/scripts/hakim-workspace.sh`.
 

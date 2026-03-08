@@ -23,7 +23,7 @@ Run Hakim workspaces inside GitHub Actions using the published GHCR images.
 1. Add `.github/workflows/hakim-workspace.yml` and `.github/scripts/hakim-workspace.sh` to the control repository.
 2. Create the repository secret `HAKIM_WORKSPACE_AGE_SECRET_KEY` with an age secret key.
 3. Create the repository secret `HAKIM_WORKSPACE_GH_TOKEN` with a GitHub token for `gh` and private repository access inside the workspace.
-4. Configure Coder external auth for GitHub with access to dispatch workflows and manage Actions variables for the control repository.
+4. Set `secret_env` to include `GITHUB_API_TOKEN`, for example `{"GITHUB_API_TOKEN":"ghp_xxx"}`, so the Coder provisioner can dispatch and stop workflow runs.
 5. Paste the matching age public key into the template parameter `actions_age_public_key`.
 
 ## Generate the age key
@@ -51,6 +51,7 @@ printf '%s\n' "$public_key"
 ## Security model
 
 - Workflow dispatch input contains only encrypted workspace bootstrap data.
+- The Coder-side dispatch/stop hooks read `GITHUB_API_TOKEN` from `secret_env`.
 - The control workflow uses the built-in `GITHUB_TOKEN` for Actions lifecycle and artifacts.
 - The workspace container receives `GH_TOKEN` from the configured repository secret, not from `github.token`.
 - Do not enable verbose shell tracing in the control workflow if you are handling private work.
