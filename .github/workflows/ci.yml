@@ -192,7 +192,7 @@ jobs:
 
       - name: Smoke test custom Coder image
         run: |
-          docker run --rm ghcr.io/${{ github.repository_owner }}/hakim-coder:${{ env.CODER_VERSION }} sh -lc 'jq --version && age --version >/dev/null'
+          docker run --rm --entrypoint sh ghcr.io/${{ github.repository_owner }}/hakim-coder:${{ env.CODER_VERSION }} -lc 'jq --version && age --version >/dev/null'
 
       - name: Push custom Coder image
         run: |
