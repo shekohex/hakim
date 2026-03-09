@@ -32,13 +32,16 @@ The Coder control plane for that template should run on the custom `hakim-coder`
 | Parameter | Description | Default |
 | :--- | :--- | :--- |
 | `image_variant` | Workspace image variant | `base` |
-| `git_repo_url` | Repository to clone on startup | `""` |
+| `git_url` | Repository to clone on startup | `""` |
+| `git_branch` | Branch to clone and validate for yield flow | `"main"` |
 | `opencode_auth` | OpenCode auth JSON | `{}` |
 | `opencode_config` | OpenCode config JSON | `{}` |
 | `default_env` / `secret_env` | Environment variable injection | `{}` |
 | `preview_port` | Preview app port | `3000` |
 | `setup_script` | Startup shell script | `""` |
-| `snapshot_ageignore` | Seed content for `/home/coder/.ageignore` used during encrypted snapshots | common transient paths |
+| `persist_paths` | Encrypted snapshot allowlist under `/home/coder` | common config/state paths |
+| `persist_excludes` | Gitignore-style exclusions for `persist_paths` | generated config files |
+| `cache_paths` | Reproducible home paths restored through GitHub cache | editor/runtime caches |
 | `enable_et` | Enable ET-based resilient SSH transport | `true` |
 
 ## GitHub Actions Template Setup
@@ -49,7 +52,7 @@ The Coder control plane for that template should run on the custom `hakim-coder`
 - Store the private key in the control repo secret `HAKIM_WORKSPACE_AGE_SECRET_KEY`.
 - Set template `secret_env` to include `GITHUB_API_TOKEN`; the template uses it both for provider-side Actions dispatch/stop and for `GH_TOKEN` inside the workspace container.
 - Paste `public_key` into the template parameter `actions_age_public_key`.
-- Control-plane workflow assets live in `.github/workflows/hakim-workspace.yml` and `.github/scripts/hakim-workspace.sh`.
+- Reusable control-plane action lives in `.github/actions/hakim-workspace` and the local wrapper workflow lives in `.github/workflows/hakim-workspace.yml`.
 - Build the control-plane image locally with `scripts/build-coder-image.sh`, which reads `CODER_VERSION` from the environment or `.env` and tags `hakim-coder:<CODER_VERSION>`.
 - Build the local provider binary with `scripts/build-terraform-provider-hakim.sh` when you need a dev override outside the custom Coder image.
 

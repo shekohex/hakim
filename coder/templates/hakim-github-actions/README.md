@@ -14,17 +14,51 @@ Run Hakim workspaces inside GitHub Actions using the published GHCR images.
 
 - Existing Hakim images (`ghcr.io/shekohex/hakim-<variant>:latest`)
 - OpenCode, OpenChamber, code-server, tmux, Zed, ET, and the existing Git helpers
-- Encrypted `/home/coder` snapshots restored from GitHub Actions artifacts
-- `~/.ageignore` support for excluding transient files from snapshots
+- Encrypted allowlisted home snapshots restored from GitHub Actions artifacts
+- Reproducible cache paths restored through GitHub cache
 - `GH_TOKEN` injected from `secret_env.GITHUB_API_TOKEN` inside the workspace container
 
 ## Required setup
 
 1. Run the Coder control plane with the custom `hakim-coder` image so provisioner-side tools like `jq` and `age` are available. The image keeps Terraform CLI config outside `/home/coder`, which is important when the home directory is mounted persistently.
-2. Add `.github/workflows/hakim-workspace.yml` and `.github/scripts/hakim-workspace.sh` to the control repository.
+2. Add a tiny wrapper workflow that calls `shekohex/hakim/.github/actions/hakim-workspace@main`.
 3. Create the repository secret `HAKIM_WORKSPACE_AGE_SECRET_KEY` with an age secret key.
 4. Set `secret_env` to include `GITHUB_API_TOKEN`, for example `{"GITHUB_API_TOKEN":"ghp_xxx"}`, so the custom Hakim Terraform provider can dispatch and cancel workflow runs.
 5. Paste the matching age public key into the template parameter `actions_age_public_key`.
+
+```yaml
+name: Hakim Workspace
+
+on:
+  workflow_dispatch:
+    inputs:
+      workspace_id:
+        required: true
+        type: string
+      workspace_name:
+        required: true
+        type: string
+      manifest:
+        required: true
+        type: string
+
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      actions: write
+      contents: read
+      packages: read
+    steps:
+      - uses: shekohex/hakim/.github/actions/hakim-workspace@main
+        with:
+          workspace_id: ${{ inputs.workspace_id }}
+          workspace_name: ${{ inputs.workspace_name }}
+          manifest: ${{ inputs.manifest }}
+          age_secret_key: ${{ secrets.HAKIM_WORKSPACE_AGE_SECRET_KEY }}
+          control_gh_token: ${{ github.token }}
+```
 
 ## Generate the age key
 
@@ -41,11 +75,12 @@ printf '%s\n' "$secret_key" | gh secret set HAKIM_WORKSPACE_AGE_SECRET_KEY
 printf '%s\n' "$public_key"
 ```
 
-## Snapshot filtering
+## Persistence model
 
-- The template seeds `/home/coder/.ageignore` from the `snapshot_ageignore` parameter when the file is missing.
-- The default rules skip common transient paths such as `node_modules`, Python caches, `target`, `dist`, `build`, and `.gradle` under `/home/coder/project`.
-- Edit `/home/coder/.ageignore` inside the workspace to customize future snapshots.
+- `persist_paths` controls which home-relative paths are encrypted and restored.
+- `persist_excludes` applies gitignore-style filters to those persisted paths.
+- `cache_paths` controls reproducible directories restored through GitHub cache.
+- Git work should live in the cloned repository and be pushed upstream before stopping the workspace.
 
 ## Security model
 

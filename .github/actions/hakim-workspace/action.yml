@@ -1,0 +1,109 @@
+name: Hakim Workspace
+description: Run a Hakim workspace inside GitHub Actions with encrypted persistence and reproducible caches.
+
+inputs:
+  workspace_id:
+    description: Workspace id
+    required: true
+  workspace_name:
+    description: Workspace name
+    required: true
+  manifest:
+    description: Encrypted workspace manifest
+    required: true
+  age_secret_key:
+    description: age secret key used to decrypt manifests and restore snapshots
+    required: true
+  control_gh_token:
+    description: GitHub token used for artifacts and workflow lifecycle operations
+    required: true
+  max_runtime_seconds:
+    description: Maximum workspace runtime before forced shutdown
+    required: false
+    default: "21000"
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare workspace
+      shell: bash
+      env:
+        WORKSPACE_ID: ${{ inputs.workspace_id }}
+        WORKSPACE_NAME: ${{ inputs.workspace_name }}
+        HAKIM_WORKSPACE_MAX_RUNTIME_SECONDS: ${{ inputs.max_runtime_seconds }}
+        HAKIM_WORKSPACE_MANIFEST: ${{ inputs.manifest }}
+        HAKIM_WORKSPACE_AGE_SECRET_KEY: ${{ inputs.age_secret_key }}
+        HAKIM_CONTROL_GH_TOKEN: ${{ inputs.control_gh_token }}
+      run: bash "${{ github.action_path }}/hakim-workspace.sh" prepare
+
+    - name: Restore reproducible caches
+      if: env.WORKSPACE_CACHE_PATHS != ''
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ env.WORKSPACE_CACHE_PATHS }}
+        key: ${{ env.WORKSPACE_CACHE_PRIMARY_KEY }}
+        restore-keys: |
+          ${{ env.WORKSPACE_CACHE_RESTORE_KEY_PREFIX }}
+
+    - name: Restore home
+      shell: bash
+      env:
+        WORKSPACE_ID: ${{ inputs.workspace_id }}
+        WORKSPACE_NAME: ${{ inputs.workspace_name }}
+        HAKIM_WORKSPACE_MAX_RUNTIME_SECONDS: ${{ inputs.max_runtime_seconds }}
+        HAKIM_WORKSPACE_MANIFEST: ${{ inputs.manifest }}
+        HAKIM_WORKSPACE_AGE_SECRET_KEY: ${{ inputs.age_secret_key }}
+        HAKIM_CONTROL_GH_TOKEN: ${{ inputs.control_gh_token }}
+      run: bash "${{ github.action_path }}/hakim-workspace.sh" restore
+
+    - name: Run workspace
+      shell: bash
+      env:
+        WORKSPACE_ID: ${{ inputs.workspace_id }}
+        WORKSPACE_NAME: ${{ inputs.workspace_name }}
+        HAKIM_WORKSPACE_MAX_RUNTIME_SECONDS: ${{ inputs.max_runtime_seconds }}
+        HAKIM_WORKSPACE_MANIFEST: ${{ inputs.manifest }}
+        HAKIM_WORKSPACE_AGE_SECRET_KEY: ${{ inputs.age_secret_key }}
+        HAKIM_CONTROL_GH_TOKEN: ${{ inputs.control_gh_token }}
+      run: bash "${{ github.action_path }}/hakim-workspace.sh" run
+
+    - name: Snapshot home
+      if: always()
+      shell: bash
+      env:
+        WORKSPACE_ID: ${{ inputs.workspace_id }}
+        WORKSPACE_NAME: ${{ inputs.workspace_name }}
+        HAKIM_WORKSPACE_MAX_RUNTIME_SECONDS: ${{ inputs.max_runtime_seconds }}
+        HAKIM_WORKSPACE_MANIFEST: ${{ inputs.manifest }}
+        HAKIM_WORKSPACE_AGE_SECRET_KEY: ${{ inputs.age_secret_key }}
+        HAKIM_CONTROL_GH_TOKEN: ${{ inputs.control_gh_token }}
+      run: bash "${{ github.action_path }}/hakim-workspace.sh" snapshot
+
+    - name: Upload snapshot
+      if: always() && env.WORKSPACE_SNAPSHOT_PATH != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.WORKSPACE_ARTIFACT_NAME }}
+        path: ${{ env.WORKSPACE_SNAPSHOT_PATH }}
+        if-no-files-found: ignore
+        retention-days: 30
+        compression-level: 0
+
+    - name: Save reproducible caches
+      if: always() && env.WORKSPACE_CACHE_PATHS != ''
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ env.WORKSPACE_CACHE_PATHS }}
+        key: ${{ env.WORKSPACE_CACHE_PRIMARY_KEY }}
+
+    - name: Cleanup workspace metadata
+      if: always()
+      shell: bash
+      env:
+        WORKSPACE_ID: ${{ inputs.workspace_id }}
+        WORKSPACE_NAME: ${{ inputs.workspace_name }}
+        HAKIM_WORKSPACE_MAX_RUNTIME_SECONDS: ${{ inputs.max_runtime_seconds }}
+        HAKIM_WORKSPACE_MANIFEST: ${{ inputs.manifest }}
+        HAKIM_WORKSPACE_AGE_SECRET_KEY: ${{ inputs.age_secret_key }}
+        HAKIM_CONTROL_GH_TOKEN: ${{ inputs.control_gh_token }}
+      run: bash "${{ github.action_path }}/hakim-workspace.sh" cleanup

@@ -45,36 +45,122 @@ init_runtime_context() {
   export CONTAINER_NAME="hakim-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 }
 
-build_snapshot_filelist() {
-  SNAPSHOT_FILELIST_PATH="${RUNNER_TEMP}/${WORKSPACE_ARTIFACT_NAME}.files"
-  local ageignore_path ageignore_repo listing_warnings_path file_count warning_count
+append_multiline_env() {
+  local name="$1"
+  local value="$2"
 
-  ageignore_path="${WORKSPACE_HOME_DIR}/.ageignore"
-  ageignore_repo="$(mktemp -d "${RUNNER_TEMP}/hakim-ageignore.XXXXXX")"
-  listing_warnings_path="${RUNNER_TEMP}/${WORKSPACE_ARTIFACT_NAME}.warnings"
+  {
+    printf '%s<<__HAKIM__\n' "$name"
+    printf '%s\n' "$value"
+    printf '__HAKIM__\n'
+  } >> "$GITHUB_ENV"
+}
 
-  git -C "$ageignore_repo" init --quiet >/dev/null 2>&1
-  if [[ -f "$ageignore_path" ]]; then
-    git --git-dir="$ageignore_repo/.git" --work-tree="$WORKSPACE_HOME_DIR" ls-files -z -co --exclude-from="$ageignore_path" > "$SNAPSHOT_FILELIST_PATH" 2> "$listing_warnings_path"
-  else
-    git --git-dir="$ageignore_repo/.git" --work-tree="$WORKSPACE_HOME_DIR" ls-files -z -co > "$SNAPSHOT_FILELIST_PATH" 2> "$listing_warnings_path"
+normalize_home_relative_path() {
+  local path="$1"
+
+  path="${path%$'\r'}"
+  path="${path#~/}"
+  path="${path#/home/coder/}"
+  path="${path#/}"
+  while [[ "$path" == ./* ]]; do
+    path="${path#./}"
+  done
+
+  printf '%s' "$path"
+}
+
+normalize_gitignore_pattern() {
+  local pattern="$1"
+  local negated=''
+
+  pattern="${pattern%$'\r'}"
+  if [[ "$pattern" == '!'* ]]; then
+    negated='!'
+    pattern="${pattern#!}"
   fi
 
-  rm -rf "$ageignore_repo"
+  printf '%s%s' "$negated" "$(normalize_home_relative_path "$pattern")"
+}
+
+build_absolute_home_path_list() {
+  local raw_paths="$1"
+  local raw_path normalized_path result=''
+
+  while IFS= read -r raw_path; do
+    raw_path="${raw_path%$'\r'}"
+    [[ -n "$raw_path" ]] || continue
+    [[ "$raw_path" == '#'* ]] && continue
+
+    normalized_path="$(normalize_home_relative_path "$raw_path")"
+    [[ -n "$normalized_path" ]] || continue
+    result+="${WORKSPACE_HOME_DIR}/${normalized_path}"$'\n'
+  done <<< "$raw_paths"
+
+  printf '%s' "${result%$'\n'}"
+}
+
+build_persist_filelist() {
+  SNAPSHOT_FILELIST_PATH="${RUNNER_TEMP}/${WORKSPACE_ARTIFACT_NAME}.files"
+  local persist_repo persist_excludes_path listing_warnings_path file_count warning_count raw_path normalized_path
+  local -a pathspecs git_args
+
+  : > "$SNAPSHOT_FILELIST_PATH"
+  SNAPSHOT_FILE_COUNT='0'
+  if [[ -z "${WORKSPACE_PERSIST_PATHS:-}" ]]; then
+    log 'No persist paths configured; skipping encrypted snapshot.'
+    return
+  fi
+
+  while IFS= read -r raw_path; do
+    raw_path="${raw_path%$'\r'}"
+    [[ -n "$raw_path" ]] || continue
+    [[ "$raw_path" == '#'* ]] && continue
+
+    normalized_path="$(normalize_home_relative_path "$raw_path")"
+    [[ -n "$normalized_path" ]] || continue
+    [[ -e "${WORKSPACE_HOME_DIR}/${normalized_path}" ]] || continue
+    pathspecs+=("$normalized_path")
+  done <<< "$WORKSPACE_PERSIST_PATHS"
+
+  if [[ ${#pathspecs[@]} -eq 0 ]]; then
+    log 'Persist paths did not match any files; skipping encrypted snapshot.'
+    return
+  fi
+
+  persist_repo="$(mktemp -d "${RUNNER_TEMP}/hakim-persist.XXXXXX")"
+  persist_excludes_path="${RUNNER_TEMP}/${WORKSPACE_ARTIFACT_NAME}.exclude"
+  listing_warnings_path="${RUNNER_TEMP}/${WORKSPACE_ARTIFACT_NAME}.warnings"
+  git -C "$persist_repo" init --quiet >/dev/null 2>&1
+
+  git_args=(--git-dir="$persist_repo/.git" --work-tree="$WORKSPACE_HOME_DIR" ls-files -z -co)
+  if [[ -n "${WORKSPACE_PERSIST_EXCLUDES:-}" ]]; then
+    : > "$persist_excludes_path"
+    while IFS= read -r raw_path; do
+      raw_path="${raw_path%$'\r'}"
+      [[ -n "$raw_path" ]] || continue
+      [[ "$raw_path" == '#'* ]] && continue
+      printf '%s\n' "$(normalize_gitignore_pattern "$raw_path")" >> "$persist_excludes_path"
+    done <<< "$WORKSPACE_PERSIST_EXCLUDES"
+    git_args+=(--exclude-from="$persist_excludes_path")
+  fi
+
+  git "${git_args[@]}" -- "${pathspecs[@]}" > "$SNAPSHOT_FILELIST_PATH" 2> "$listing_warnings_path"
+
+  rm -rf "$persist_repo"
+  rm -f "$persist_excludes_path"
 
   file_count="$(tr -cd '\0' < "$SNAPSHOT_FILELIST_PATH" | wc -c | tr -d ' ')"
   warning_count="$(wc -l < "$listing_warnings_path" | tr -d ' ')"
+  SNAPSHOT_FILE_COUNT="$file_count"
+  export SNAPSHOT_FILE_COUNT
   rm -f "$listing_warnings_path"
 
   if [[ "$warning_count" != '0' ]]; then
-    log "Skipped ${warning_count} unreadable paths while building snapshot file list."
+    log "Skipped ${warning_count} unreadable paths while building persist file list."
   fi
 
-  if [[ -f "$ageignore_path" ]]; then
-    log "Prepared snapshot file list (${file_count} entries) using ${ageignore_path}."
-  else
-    log "Prepared snapshot file list (${file_count} entries) without .ageignore overrides."
-  fi
+  log "Prepared persist file list (${file_count} entries)."
 }
 
 prepare() {
@@ -87,6 +173,29 @@ prepare() {
   printf '%s' "$HAKIM_WORKSPACE_MANIFEST" > "${RUNNER_TEMP}/hakim-manifest.age"
   "$AGE_BIN" --decrypt --identity <(printf '%s\n' "$HAKIM_WORKSPACE_AGE_SECRET_KEY") --output "$WORKSPACE_MANIFEST_FILE" "${RUNNER_TEMP}/hakim-manifest.age"
   export WORKSPACE_IMAGE="$(jq -r '.workspace_image' "$WORKSPACE_MANIFEST_FILE")"
+  export WORKSPACE_OWNER="$(jq -r '.workspace_owner' "$WORKSPACE_MANIFEST_FILE")"
+  export PROJECT_DIR="$(jq -r '.project_dir // "/home/coder/project"' "$WORKSPACE_MANIFEST_FILE")"
+  export REPO_METADATA_PATH="$(jq -r '.repo_metadata_path // "/home/coder/.local/share/hakim/repo.json"' "$WORKSPACE_MANIFEST_FILE")"
+  export GIT_URL_VALUE="$(jq -r '.git_url // ""' "$WORKSPACE_MANIFEST_FILE")"
+  export GIT_BRANCH_VALUE="$(jq -r '.git_branch // ""' "$WORKSPACE_MANIFEST_FILE")"
+  export WORKSPACE_PERSIST_PATHS="$(jq -r '.persist_paths // ""' "$WORKSPACE_MANIFEST_FILE")"
+  export WORKSPACE_PERSIST_EXCLUDES="$(jq -r '.persist_excludes // ""' "$WORKSPACE_MANIFEST_FILE")"
+  export WORKSPACE_CACHE_PATHS="$(build_absolute_home_path_list "$(jq -r '.cache_paths // ""' "$WORKSPACE_MANIFEST_FILE")")"
+  export WORKSPACE_CACHE_KEY_SEED="$(jq -r '.cache_key_seed // ""' "$WORKSPACE_MANIFEST_FILE")"
+  export WORKSPACE_CACHE_PRIMARY_KEY=""
+  export WORKSPACE_CACHE_RESTORE_KEY_PREFIX=""
+  if [[ -n "$WORKSPACE_CACHE_KEY_SEED" && -n "$WORKSPACE_CACHE_PATHS" ]]; then
+    export WORKSPACE_CACHE_PRIMARY_KEY="hakim-cache-${WORKSPACE_ID}-${WORKSPACE_CACHE_KEY_SEED}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+    export WORKSPACE_CACHE_RESTORE_KEY_PREFIX="hakim-cache-${WORKSPACE_ID}-${WORKSPACE_CACHE_KEY_SEED}-"
+    while IFS= read -r cache_path; do
+      [[ -n "$cache_path" ]] || continue
+      if [[ "$cache_path" == */ ]]; then
+        mkdir -p "$cache_path"
+      else
+        mkdir -p "$(dirname "$cache_path")"
+      fi
+    done <<< "$WORKSPACE_CACHE_PATHS"
+  fi
   export CONTAINER_MEMORY_MB="$(jq -r '.container_memory_mb // ""' "$WORKSPACE_MANIFEST_FILE")"
   export CONTAINER_MEMORY_SWAP_MB="$(jq -r '.container_memory_swap_mb // ""' "$WORKSPACE_MANIFEST_FILE")"
   export CONTAINER_CPUS="$(jq -r '.container_cpus // ""' "$WORKSPACE_MANIFEST_FILE")"
@@ -102,6 +211,11 @@ prepare() {
     printf 'WORKSPACE_MANIFEST_FILE=%s\n' "$WORKSPACE_MANIFEST_FILE"
     printf 'CONTAINER_NAME=%s\n' "$CONTAINER_NAME"
     printf 'WORKSPACE_IMAGE=%s\n' "$WORKSPACE_IMAGE"
+    printf 'WORKSPACE_OWNER=%s\n' "$WORKSPACE_OWNER"
+    printf 'PROJECT_DIR=%s\n' "$PROJECT_DIR"
+    printf 'REPO_METADATA_PATH=%s\n' "$REPO_METADATA_PATH"
+    printf 'GIT_URL_VALUE=%s\n' "$GIT_URL_VALUE"
+    printf 'GIT_BRANCH_VALUE=%s\n' "$GIT_BRANCH_VALUE"
     printf 'CONTAINER_MEMORY_MB=%s\n' "$CONTAINER_MEMORY_MB"
     printf 'CONTAINER_MEMORY_SWAP_MB=%s\n' "$CONTAINER_MEMORY_SWAP_MB"
     printf 'CONTAINER_CPUS=%s\n' "$CONTAINER_CPUS"
@@ -109,7 +223,12 @@ prepare() {
     printf 'CODER_AGENT_TOKEN=%s\n' "$CODER_AGENT_TOKEN"
     printf 'WORKSPACE_GITHUB_TOKEN=%s\n' "$WORKSPACE_GITHUB_TOKEN"
     printf 'ARTIFACT_AGE_PUBLIC_KEY=%s\n' "$ARTIFACT_AGE_PUBLIC_KEY"
+    printf 'WORKSPACE_CACHE_PRIMARY_KEY=%s\n' "$WORKSPACE_CACHE_PRIMARY_KEY"
+    printf 'WORKSPACE_CACHE_RESTORE_KEY_PREFIX=%s\n' "$WORKSPACE_CACHE_RESTORE_KEY_PREFIX"
   } >> "$GITHUB_ENV"
+  append_multiline_env 'WORKSPACE_PERSIST_PATHS' "$WORKSPACE_PERSIST_PATHS"
+  append_multiline_env 'WORKSPACE_PERSIST_EXCLUDES' "$WORKSPACE_PERSIST_EXCLUDES"
+  append_multiline_env 'WORKSPACE_CACHE_PATHS' "$WORKSPACE_CACHE_PATHS"
   log "Prepared manifest and runtime metadata for ${WORKSPACE_ID}."
 }
 
@@ -191,8 +310,14 @@ run_workspace() {
     -e HAKIM_CONTROL_RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
     -e HAKIM_WORKSPACE_ID="$WORKSPACE_ID" \
     -e HAKIM_WORKSPACE_NAME="$WORKSPACE_NAME" \
+    -e HAKIM_WORKSPACE_OWNER="$WORKSPACE_OWNER" \
     -e HAKIM_WORKSPACE_ARTIFACT_NAME="$WORKSPACE_ARTIFACT_NAME" \
     -e HAKIM_WORKSPACE_TIMEOUT_SECONDS="$HAKIM_WORKSPACE_MAX_RUNTIME_SECONDS" \
+    -e HAKIM_PROJECT_DIR="$PROJECT_DIR" \
+    -e HAKIM_REPO_METADATA_FILE="$REPO_METADATA_PATH" \
+    -e HAKIM_GIT_URL="$GIT_URL_VALUE" \
+    -e HAKIM_GIT_BRANCH="$GIT_BRANCH_VALUE" \
+    -e HAKIM_AUTO_YIELD_ON_IDLE=1 \
     -e START_DOCKER_DAEMON=0 \
     "$WORKSPACE_IMAGE" >/dev/null
 
@@ -240,7 +365,12 @@ snapshot() {
   fi
 
   encrypted_path="${RUNNER_TEMP}/${WORKSPACE_ARTIFACT_NAME}.tar.gz.age"
-  build_snapshot_filelist
+  build_persist_filelist
+  if [[ "${SNAPSHOT_FILE_COUNT:-0}" == '0' ]]; then
+    rm -f "$SNAPSHOT_FILELIST_PATH"
+    log 'No matching persist files found; skipping encrypted snapshot.'
+    exit 0
+  fi
   printf '%s\n' "$ARTIFACT_AGE_PUBLIC_KEY" > "${RUNNER_TEMP}/hakim-age.pub"
   tar --null --no-recursion --ignore-failed-read -czf - -C "$WORKSPACE_HOME_DIR" -T "$SNAPSHOT_FILELIST_PATH" | "$AGE_BIN" --encrypt --recipients-file "${RUNNER_TEMP}/hakim-age.pub" --output "$encrypted_path"
   rm -f "$SNAPSHOT_FILELIST_PATH"

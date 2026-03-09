@@ -1,46 +1,35 @@
-name: Hakim Workspace
+# Hakim Workspace Action
 
-run-name: Hakim Workspace ${{ inputs.workspace_id }} ${{ inputs.request_id }}
+```yaml
+name: Hakim Workspace
 
 on:
   workflow_dispatch:
     inputs:
       workspace_id:
-        description: Workspace id
         required: true
         type: string
       workspace_name:
-        description: Workspace name
-        required: true
-        type: string
-      request_id:
-        description: Unique dispatch request id
         required: true
         type: string
       manifest:
-        description: Encrypted workspace manifest
         required: true
         type: string
-
-permissions:
-  contents: read
-  actions: write
-  packages: read
 
 jobs:
   workspace:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    permissions:
+      actions: write
+      contents: read
+      packages: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run Hakim workspace action
-        uses: ./.github/actions/hakim-workspace
+      - uses: shekohex/hakim/.github/actions/hakim-workspace@main
         with:
           workspace_id: ${{ inputs.workspace_id }}
           workspace_name: ${{ inputs.workspace_name }}
           manifest: ${{ inputs.manifest }}
           age_secret_key: ${{ secrets.HAKIM_WORKSPACE_AGE_SECRET_KEY }}
           control_gh_token: ${{ github.token }}
-          max_runtime_seconds: "21000"
+```

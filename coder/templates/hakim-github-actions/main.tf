@@ -151,6 +151,18 @@ data "coder_parameter" "git_url" {
   order        = 3
 }
 
+data "coder_parameter" "git_branch" {
+  count        = data.coder_parameter.git_url.value != "" ? 1 : 0
+  name         = "git_branch"
+  display_name = "Git Branch"
+  default      = "main"
+  mutable      = true
+  type         = "string"
+  description  = "Branch to clone and validate when yielding the workspace."
+  icon         = "/icon/git.svg"
+  order        = 4
+}
+
 data "coder_parameter" "git_user_name" {
   name         = "git_user_name"
   display_name = "Git User Name"
@@ -617,43 +629,69 @@ data "coder_parameter" "setup_script" {
   order        = 13
 }
 
-data "coder_parameter" "snapshot_ageignore" {
-  name         = "snapshot_ageignore"
-  display_name = "Snapshot .ageignore"
-  description  = "Optional content used to seed ~/.ageignore for encrypted home snapshots when the file is missing."
+data "coder_parameter" "persist_paths" {
+  name         = "persist_paths"
+  display_name = "Persist Paths"
+  description  = "Home-relative paths to persist in encrypted snapshots. Use one path per line."
   type         = "string"
   form_type    = "textarea"
   default      = <<-EOT
-.bash_history
-.ssh/
-.cache/blesh/
-.config/atuin/
-.local/state/
-.local/share/atuin/
-.local/share/etserver/
-.local/share/hakim-et/
-.local/share/nvim/lazy/
-project/**/node_modules/
-project/**/.pnpm-store/
-project/**/.yarn/
-project/**/.next/
-project/**/.turbo/
-project/**/__pycache__/
-project/**/.pytest_cache/
-project/**/.mypy_cache/
-project/**/.ruff_cache/
-project/**/.venv/
-project/**/venv/
-project/**/.tox/
-project/**/dist/
-project/**/build/
-project/**/coverage/
-project/**/target/
-project/**/.gradle/
+.config/
+.local/share/code-server/User/
+.local/share/hakim/
+.local/share/opencode/auth.json
+.local/share/opencode/opencode.db
+.local/share/opencode/opencode.db-shm
+.local/share/opencode/opencode.db-wal
+.local/share/opencode/snapshot/
+.local/share/opencode/storage/
+.local/share/opencode/tool-output/
+.local/share/zoxide/
+.local/share/zed/extensions/
+.local/share/zed/server_state/
+.local/state/nvim/
+.local/state/opencode/
 EOT
   mutable      = true
   icon         = "/icon/terminal.svg"
   order        = 14
+}
+
+data "coder_parameter" "persist_excludes" {
+  name         = "persist_excludes"
+  display_name = "Persist Excludes"
+  description  = "Gitignore-style exclusions applied to persisted paths. Use one pattern per line."
+  type         = "string"
+  form_type    = "textarea"
+  default      = <<-EOT
+.config/**/node_modules/
+.config/**/*.log
+.config/**/*.sock
+.config/opencode/opencode.jsonc.backup_*
+EOT
+  mutable      = true
+  icon         = "/icon/terminal.svg"
+  order        = 15
+}
+
+data "coder_parameter" "cache_paths" {
+  name         = "cache_paths"
+  display_name = "Cache Paths"
+  description  = "Home-relative reproducible paths restored through GitHub cache. Use one path per line."
+  type         = "string"
+  form_type    = "textarea"
+  default      = <<-EOT
+.local/share/nvim/lazy/
+.local/share/nvim/mason/
+.local/share/nvim/site/
+.local/share/opencode/bin/
+.local/share/zed/languages/
+.local/share/zed/node/
+.local/share/zed/remote_extensions/
+EOT
+  mutable      = true
+  icon         = "/icon/terminal.svg"
+  order        = 16
 }
 
 locals {
@@ -673,18 +711,34 @@ locals {
   container_swap_mb        = local.container_swap_enabled ? (local.container_swap_mb_input > 0 ? local.container_swap_mb_input : ceil(local.container_memory_mb * 0.5)) : 0
   container_memory_swap_mb = local.container_swap_enabled ? local.container_memory_mb + local.container_swap_mb : null
   project_dir              = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
+  repo_metadata_path       = "/home/coder/.local/share/hakim/repo.json"
   git_setup_script         = file("${path.module}/scripts/setup-git.sh")
+  hakim_cli_script         = file("${path.module}/scripts/hakim.sh")
+  repo_metadata_script     = file("${path.module}/scripts/write-repo-metadata.sh")
+  hakim_idle_plugin_script = file("${path.module}/scripts/hakim-idle-plugin.js")
   tmux_sessions_raw        = length(data.coder_parameter.tmux_sessions) > 0 ? data.coder_parameter.tmux_sessions[0].value : "default"
   tmux_sessions_clean      = [for session in split(",", local.tmux_sessions_raw) : trimspace(session) if trimspace(session) != ""]
   tmux_sessions            = length(local.tmux_sessions_clean) > 0 ? local.tmux_sessions_clean : ["default"]
   tmux_default_config      = trimspace(file("${path.module}/tmux.conf"))
   tmux_config              = length(data.coder_parameter.tmux_config) > 0 && trimspace(data.coder_parameter.tmux_config[0].value) != "" ? trimspace(data.coder_parameter.tmux_config[0].value) : local.tmux_default_config
   workspace_image          = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.image_url[0].value : "ghcr.io/shekohex/hakim-${data.coder_parameter.image_variant.value}:latest"
+  persist_paths            = trimspace(data.coder_parameter.persist_paths.value)
+  persist_excludes         = trimspace(data.coder_parameter.persist_excludes.value)
+  cache_paths              = trimspace(data.coder_parameter.cache_paths.value)
+  cache_key_seed           = substr(sha256(join("\n", [local.workspace_image, local.cache_paths, "v1"])), 0, 16)
   workspace_manifest_json = jsonencode({
     workspace_id             = data.coder_workspace.me.id
     workspace_name           = data.coder_workspace.me.name
     workspace_owner          = data.coder_workspace_owner.me.name
     workspace_image          = local.workspace_image
+    project_dir              = local.project_dir
+    repo_metadata_path       = local.repo_metadata_path
+    git_url                  = data.coder_parameter.git_url.value
+    git_branch               = length(data.coder_parameter.git_branch) > 0 ? data.coder_parameter.git_branch[0].value : ""
+    persist_paths            = local.persist_paths
+    persist_excludes         = local.persist_excludes
+    cache_paths              = local.cache_paths
+    cache_key_seed           = local.cache_key_seed
     container_memory_mb      = tostring(local.container_memory_mb)
     container_memory_swap_mb = local.container_memory_swap_mb != null ? tostring(local.container_memory_swap_mb) : ""
     container_cpus           = local.container_cpus_value
@@ -710,12 +764,13 @@ resource "coder_agent" "main" {
     mkdir -p ~/.config/mise
     mkdir -p ~/.config
     mkdir -p ~/.local/bin
+    mkdir -p ~/.local/share/hakim
     touch ~/.config/mise/config.toml
 
     mkdir -p ~/project
 
-    if [ ! -f "$HOME/.ageignore" ] && [ -n '${base64encode(data.coder_parameter.snapshot_ageignore.value)}' ]; then
-      echo -n '${base64encode(data.coder_parameter.snapshot_ageignore.value)}' | base64 -d > "$HOME/.ageignore"
+    if [ -z '${data.coder_parameter.git_url.value}' ]; then
+      rm -f '${local.repo_metadata_path}'
     fi
 
     if [ ! -f ~/.init_done ]; then
@@ -750,6 +805,12 @@ exec opencode attach http://localhost:4096 --dir . "$@"
 # vim: set ft=sh
 EOF
     chmod +x ~/.local/bin/oca
+
+    echo -n '${base64encode(local.hakim_cli_script)}' | base64 -d > ~/.local/bin/hakim
+    chmod +x ~/.local/bin/hakim
+
+    mkdir -p ~/.config/opencode/plugins
+    echo -n '${base64encode(local.hakim_idle_plugin_script)}' | base64 -d > ~/.config/opencode/plugins/hakim-idle-plugin.js
 
     lazyvim_seed_src="/opt/hakim/lazyvim/nvim"
     lazyvim_seed_lock="$HOME/.local/share/hakim/lazyvim.seeded"
@@ -909,12 +970,28 @@ module "openclaw_node" {
 }
 
 module "git-clone" {
-  count      = data.coder_parameter.git_url.value != "" ? 1 : 0
-  source     = "registry.coder.com/coder/git-clone/coder"
-  agent_id   = coder_agent.main.id
-  url        = data.coder_parameter.git_url.value
-  base_dir   = "/home/coder"
-  depends_on = [coder_script.git_setup]
+  count             = data.coder_parameter.git_url.value != "" ? 1 : 0
+  source            = "registry.coder.com/coder/git-clone/coder"
+  agent_id          = coder_agent.main.id
+  url               = data.coder_parameter.git_url.value
+  branch_name       = length(data.coder_parameter.git_branch) > 0 ? data.coder_parameter.git_branch[0].value : ""
+  base_dir          = "/home/coder"
+  post_clone_script = <<-EOT
+    #!/bin/bash
+    set -euo pipefail
+
+    METADATA_SCRIPT="/tmp/hakim-write-repo-metadata-$$.sh"
+    echo -n '${base64encode(local.repo_metadata_script)}' | base64 -d > "$METADATA_SCRIPT"
+    chmod +x "$METADATA_SCRIPT"
+
+    ARG_GIT_URL='${base64encode(data.coder_parameter.git_url.value)}' \
+    ARG_GIT_BRANCH='${length(data.coder_parameter.git_branch) > 0 ? base64encode(data.coder_parameter.git_branch[0].value) : ""}' \
+    ARG_METADATA_PATH='${base64encode(local.repo_metadata_path)}' \
+    "$METADATA_SCRIPT"
+
+    rm -f "$METADATA_SCRIPT"
+  EOT
+  depends_on        = [coder_script.git_setup]
 }
 
 module "dotfiles" {
