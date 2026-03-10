@@ -601,7 +601,13 @@ resource "coder_agent" "main" {
   startup_script = <<-EOT
     #!/bin/bash
     set -e
-    
+
+    sudo mkdir -p /dev/shm
+    if ! grep -qsE '^[^ ]+ /dev/shm tmpfs ' /proc/mounts; then
+      sudo mount -t tmpfs -o rw,nosuid,nodev,noexec,relatime,size=1g,mode=1777 tmpfs /dev/shm || true
+    fi
+    sudo chmod 1777 /dev/shm || true
+
     mkdir -p ~/.config/mise
     mkdir -p ~/.config
     mkdir -p ~/.local/bin
@@ -1030,8 +1036,9 @@ resource "docker_volume" "home_volume" {
 }
 
 resource "docker_container" "workspace" {
-  count = data.coder_workspace.me.start_count
-  image = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.image_url[count.index].value : "ghcr.io/shekohex/hakim-${data.coder_parameter.image_variant.value}:latest"
+  count    = data.coder_workspace.me.start_count
+  image    = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.image_url[count.index].value : "ghcr.io/shekohex/hakim-${data.coder_parameter.image_variant.value}:latest"
+  shm_size = 1024
 
   name     = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
   hostname = data.coder_workspace.me.name

@@ -760,7 +760,13 @@ resource "coder_agent" "main" {
   startup_script = <<-EOT
     #!/bin/bash
     set -e
-    
+
+    sudo mkdir -p /dev/shm
+    if ! grep -qsE '^[^ ]+ /dev/shm tmpfs ' /proc/mounts; then
+      sudo mount -t tmpfs -o rw,nosuid,nodev,noexec,relatime,size=1g,mode=1777 tmpfs /dev/shm || true
+    fi
+    sudo chmod 1777 /dev/shm || true
+
     mkdir -p ~/.config/mise
     mkdir -p ~/.config
     mkdir -p ~/.local/bin

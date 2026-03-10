@@ -289,6 +289,7 @@ run_workspace() {
     --name "$CONTAINER_NAME" \
     --hostname "$WORKSPACE_NAME" \
     --add-host host.docker.internal:host-gateway \
+    --shm-size 1g \
     "${docker_args[@]}" \
     -v "$WORKSPACE_HOME_DIR:/home/coder" \
     -v /var/run/docker.sock:/var/run/docker.sock \
