@@ -8,7 +8,7 @@ tags: [agent, happy, opencode, ai, acp]
 
 # Happy Coder
 
-Run [Happy CLI](https://happy.engineering/) in your workspace. This module installs `happy-coder`, starts a background supervisor, and auto-connects Happy to the running OpenCode ACP endpoint on port 4096 by default.
+Run [Happy CLI](https://happy.engineering/) in your workspace. This module installs `happy-coder` and a `happy-opencode` helper that starts a background Happy ACP session for the current working directory against the running OpenCode server on port 4096 by default.
 
 ```tf
 module "happy_coder" {
@@ -22,6 +22,22 @@ module "happy_coder" {
 
 - OpenCode running and reachable from the workspace
 - Happy authenticated via `happy auth` with credentials stored in `HAPPY_HOME_DIR` (default: `~/.happy/access.key`)
+
+## Quick Start
+
+```bash
+happy auth
+cd /home/coder/project
+happy-opencode start
+```
+
+Useful commands:
+
+- `happy-opencode start` - start a background ACP session for the current directory
+- `happy-opencode status` - show the tracked session, PID, and log path for the current directory
+- `happy-opencode stop` - stop the tracked session for the current directory
+- `happy-opencode restart` - restart the tracked session for the current directory
+- `happy-opencode list` - list all sessions known to the Happy daemon
 
 ## Variables
 
@@ -38,7 +54,7 @@ module "happy_coder" {
 
 ## Troubleshooting
 
-Check logs at `/tmp/happy-coder-supervisor.log`, `/tmp/happy-coder-daemon.log`, and `/tmp/happy-coder-session.log` within your workspace.
+Use `happy-opencode logs` to print the current directory log path, then inspect that file. Session state is stored under `HAPPY_HOME_DIR/hakim/opencode/`.
 
 ## References
 

@@ -185,7 +185,7 @@ data "coder_parameter" "happy_coder_version" {
   default      = "0.15.0-beta.0"
   mutable      = true
   icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 9
+  order        = 70
 }
 
 data "coder_parameter" "happy_server_url" {
@@ -196,7 +196,7 @@ data "coder_parameter" "happy_server_url" {
   default      = "https://api.cluster-fluster.com"
   mutable      = true
   icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 10
+  order        = 71
 }
 
 data "coder_parameter" "happy_webapp_url" {
@@ -207,7 +207,7 @@ data "coder_parameter" "happy_webapp_url" {
   default      = "https://app.happy.engineering"
   mutable      = true
   icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 11
+  order        = 72
 }
 
 data "coder_parameter" "happy_home_dir" {
@@ -218,7 +218,7 @@ data "coder_parameter" "happy_home_dir" {
   default      = "~/.happy"
   mutable      = true
   icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 12
+  order        = 73
 }
 
 data "coder_parameter" "happy_disable_caffeinate" {
@@ -229,7 +229,7 @@ data "coder_parameter" "happy_disable_caffeinate" {
   default      = false
   mutable      = true
   icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 13
+  order        = 74
 }
 
 data "coder_parameter" "happy_experimental" {
@@ -240,7 +240,7 @@ data "coder_parameter" "happy_experimental" {
   default      = false
   mutable      = true
   icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 14
+  order        = 75
 }
 
 data "coder_parameter" "happy_opencode_port" {
@@ -251,7 +251,7 @@ data "coder_parameter" "happy_opencode_port" {
   default      = 4096
   mutable      = true
   icon         = "https://opencode.ai/favicon.svg"
-  order        = 15
+  order        = 76
 }
 
 data "coder_parameter" "system_prompt" {
@@ -952,6 +952,7 @@ locals {
     HAPPY_HOME_DIR           = local.happy_home_dir
     HAPPY_DISABLE_CAFFEINATE = tostring(data.coder_parameter.happy_disable_caffeinate.value)
     HAPPY_EXPERIMENTAL       = tostring(data.coder_parameter.happy_experimental.value)
+    HAPPY_OPENCODE_PORT      = tostring(data.coder_parameter.happy_opencode_port.value)
   }
   combined_env            = merge(local.default_env, local.docker_data_root_env, local.user_env, local.secret_env, local.happy_env)
   container_swap_enabled  = data.coder_parameter.enable_container_swap.value

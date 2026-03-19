@@ -109,12 +109,13 @@ locals {
   workdir        = trimsuffix(var.workdir, "/")
   app_slug       = "happy-coder"
   install_script = file("${path.module}/scripts/install.sh")
+  manager_script = file("${path.module}/scripts/manager.sh")
   start_script   = file("${path.module}/scripts/start.sh")
 }
 
 resource "coder_script" "happy_coder_start" {
   agent_id     = var.agent_id
-  display_name = "Start Happy ACP Session"
+  display_name = "Install Happy OpenCode Manager"
   icon         = var.icon
   script       = <<-EOT
     #!/bin/bash
@@ -136,6 +137,10 @@ resource "coder_script" "happy_coder_start" {
     echo -n '${base64encode(local.start_script)}' | base64 -d > "$START_SCRIPT"
     chmod +x "$START_SCRIPT"
 
+    MANAGER_SCRIPT="/tmp/happy-opencode-manager-$$.sh"
+    echo -n '${base64encode(local.manager_script)}' | base64 -d > "$MANAGER_SCRIPT"
+    chmod +x "$MANAGER_SCRIPT"
+
     ARG_WORKDIR='${local.workdir}' \
     ARG_OPENCODE_PORT='${var.opencode_port}' \
     ARG_HAPPY_SERVER_URL='${base64encode(var.happy_server_url)}' \
@@ -143,9 +148,10 @@ resource "coder_script" "happy_coder_start" {
     ARG_HAPPY_HOME_DIR='${base64encode(var.happy_home_dir)}' \
     ARG_HAPPY_DISABLE_CAFFEINATE='${var.happy_disable_caffeinate}' \
     ARG_HAPPY_EXPERIMENTAL='${var.happy_experimental}' \
+    ARG_MANAGER_SCRIPT="$MANAGER_SCRIPT" \
     bash -lc "$START_SCRIPT"
 
-    rm -f "$INSTALL_SCRIPT" "$START_SCRIPT"
+    rm -f "$INSTALL_SCRIPT" "$START_SCRIPT" "$MANAGER_SCRIPT"
   EOT
   run_on_start = true
 }
