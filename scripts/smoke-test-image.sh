@@ -195,7 +195,7 @@ function check_tooling() {
   opencode_version="$(docker_coder 'opencode --version')"
   assert_contains "$opencode_version" "$opencode_expected" "opencode version"
 
-  happy_version="$(docker_coder 'happy daemon status 2>&1 | rg -m1 "Happy CLI Version:"')"
+  happy_version="$(docker_coder 'happy --version')"
   assert_contains "$happy_version" "$happy_expected" "happy-coder version"
 
   docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; node -e "console.log(\"ok\")" | rg "^ok$" >/dev/null'
@@ -353,7 +353,7 @@ function check_js() {
 
   docker_coder 'npm --version'
   docker_coder 'opencode --version'
-  docker_coder 'happy daemon status >/dev/null'
+  docker_coder 'happy --version >/dev/null'
   docker_coder 'uv --version'
   docker_coder 'python --version'
   docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; node -e "console.log(\"ok\")" | rg "^ok$" >/dev/null'
