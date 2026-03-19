@@ -177,6 +177,83 @@ data "coder_parameter" "openchamber_opencode_port" {
   order        = 8
 }
 
+data "coder_parameter" "happy_coder_version" {
+  name         = "happy_coder_version"
+  display_name = "Happy Version"
+  description  = "The npm version or dist-tag of happy-coder to install."
+  type         = "string"
+  default      = "0.15.0-beta.0"
+  mutable      = true
+  icon         = "https://app.happy.engineering/favicon.ico"
+  order        = 9
+}
+
+data "coder_parameter" "happy_server_url" {
+  name         = "happy_server_url"
+  display_name = "Happy Server URL"
+  description  = "Custom Happy server URL."
+  type         = "string"
+  default      = "https://api.cluster-fluster.com"
+  mutable      = true
+  icon         = "https://app.happy.engineering/favicon.ico"
+  order        = 10
+}
+
+data "coder_parameter" "happy_webapp_url" {
+  name         = "happy_webapp_url"
+  display_name = "Happy Web App URL"
+  description  = "Custom Happy web app URL."
+  type         = "string"
+  default      = "https://app.happy.engineering"
+  mutable      = true
+  icon         = "https://app.happy.engineering/favicon.ico"
+  order        = 11
+}
+
+data "coder_parameter" "happy_home_dir" {
+  name         = "happy_home_dir"
+  display_name = "Happy Home Dir"
+  description  = "Custom Happy home directory. Supports ~ expansion."
+  type         = "string"
+  default      = "~/.happy"
+  mutable      = true
+  icon         = "https://app.happy.engineering/favicon.ico"
+  order        = 12
+}
+
+data "coder_parameter" "happy_disable_caffeinate" {
+  name         = "happy_disable_caffeinate"
+  display_name = "Happy Disable Caffeinate"
+  description  = "Disable Happy macOS sleep prevention."
+  type         = "bool"
+  default      = false
+  mutable      = true
+  icon         = "https://app.happy.engineering/favicon.ico"
+  order        = 13
+}
+
+data "coder_parameter" "happy_experimental" {
+  name         = "happy_experimental"
+  display_name = "Happy Experimental"
+  description  = "Enable Happy experimental features."
+  type         = "bool"
+  default      = false
+  mutable      = true
+  icon         = "https://app.happy.engineering/favicon.ico"
+  order        = 14
+}
+
+data "coder_parameter" "happy_opencode_port" {
+  name         = "happy_opencode_port"
+  display_name = "Happy: OpenCode Server Port"
+  description  = "Port of the running OpenCode server Happy should attach to via ACP."
+  type         = "number"
+  default      = 4096
+  mutable      = true
+  icon         = "https://opencode.ai/favicon.svg"
+  order        = 15
+}
+
 data "coder_parameter" "system_prompt" {
   name         = "system_prompt"
   display_name = "System Prompt"
@@ -850,8 +927,9 @@ data "coder_parameter" "egress_mode" {
 }
 
 locals {
-  user_env   = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
-  secret_env = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
+  user_env       = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
+  secret_env     = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
+  happy_home_dir = startswith(trimspace(data.coder_parameter.happy_home_dir.value), "~") ? "/home/coder${trimprefix(trimspace(data.coder_parameter.happy_home_dir.value), "~")}" : trimspace(data.coder_parameter.happy_home_dir.value)
   default_env = {
     PATH                  = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims"
     LANG                  = "C.UTF-8"
@@ -868,7 +946,14 @@ locals {
   docker_data_root_env = (data.coder_parameter.enable_home_disk.value || data.coder_parameter.enable_docker_data_offload.value) ? {
     DOCKER_DATA_ROOT = "/home/coder/.local/share/docker"
   } : {}
-  combined_env            = merge(local.default_env, local.docker_data_root_env, local.user_env, local.secret_env)
+  happy_env = {
+    HAPPY_SERVER_URL         = data.coder_parameter.happy_server_url.value
+    HAPPY_WEBAPP_URL         = data.coder_parameter.happy_webapp_url.value
+    HAPPY_HOME_DIR           = local.happy_home_dir
+    HAPPY_DISABLE_CAFFEINATE = tostring(data.coder_parameter.happy_disable_caffeinate.value)
+    HAPPY_EXPERIMENTAL       = tostring(data.coder_parameter.happy_experimental.value)
+  }
+  combined_env            = merge(local.default_env, local.docker_data_root_env, local.user_env, local.secret_env, local.happy_env)
   container_swap_enabled  = data.coder_parameter.enable_container_swap.value
   container_swap_mb_input = local.container_swap_enabled && length(data.coder_parameter.container_swap_mb) > 0 ? data.coder_parameter.container_swap_mb[0].value : 0
   container_swap_mb       = local.container_swap_enabled ? (local.container_swap_mb_input > 0 ? local.container_swap_mb_input : ceil(data.coder_parameter.container_memory_mb.value * 0.5)) : 0
@@ -1219,6 +1304,31 @@ module "openchamber" {
   order                 = 998
   subdomain             = true
   depends_on            = [module.opencode]
+}
+
+module "happy_coder" {
+  count = data.coder_workspace.me.start_count > 0 && contains([
+    "php",
+    "dotnet",
+    "js",
+    "rust",
+    "android",
+    "elixir"
+  ], data.coder_parameter.image_variant.value) ? 1 : 0
+
+  source                   = "github.com/shekohex/hakim//coder/modules/happy-coder?ref=main"
+  agent_id                 = coder_agent.main.id
+  workdir                  = local.project_dir
+  happy_coder_version      = data.coder_parameter.happy_coder_version.value
+  happy_server_url         = data.coder_parameter.happy_server_url.value
+  happy_webapp_url         = data.coder_parameter.happy_webapp_url.value
+  happy_home_dir           = data.coder_parameter.happy_home_dir.value
+  happy_disable_caffeinate = data.coder_parameter.happy_disable_caffeinate.value
+  happy_experimental       = data.coder_parameter.happy_experimental.value
+  opencode_port            = data.coder_parameter.happy_opencode_port.value
+  install_happy_coder      = true
+  order                    = 997
+  depends_on               = [module.opencode]
 }
 
 module "openclaw_node" {

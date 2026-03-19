@@ -39,6 +39,14 @@ RUN --mount=type=cache,target=/home/coder/.npm,uid=1000,gid=1000,sharing=locked 
   su coder -s /bin/bash -c "HOME=/home/coder NPM_CONFIG_PREFIX=/home/coder/.npm-global NPM_CONFIG_CACHE=/home/coder/.npm MISE_INSTALL_PATH=/usr/local/bin/mise PATH=/usr/local/bin:/usr/local/share/mise/installs/node/${NODE_VERSION}/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin /usr/local/share/mise/installs/node/${NODE_VERSION}/bin/npm install -g opencode-ai@${OPENCODE_VERSION}" && \
   ln -sf /home/coder/.npm-global/bin/opencode /usr/local/bin/opencode
 
+# VERSION_UPDATE_BEGIN: happy-coder
+ARG HAPPY_CODER_VERSION=0.15.0-beta.0
+# VERSION_UPDATE_END: happy-coder
+RUN --mount=type=cache,target=/home/coder/.bun/install/cache,uid=1000,gid=1000,sharing=locked \
+  su coder -s /bin/bash -c "HOME=/home/coder BUN_INSTALL=/home/coder/.bun PATH=/usr/local/share/mise/installs/bun/${BUN_VERSION}/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin /usr/local/share/mise/installs/bun/${BUN_VERSION}/bin/bun add -g happy-coder@${HAPPY_CODER_VERSION}" && \
+  ln -sf /home/coder/.bun/bin/happy /usr/local/bin/happy && \
+  ln -sf /home/coder/.bun/bin/happy-mcp /usr/local/bin/happy-mcp
+
 ARG UV_VERSION=0.9.24
 ARG UV_PYTHON_VERSION=3.12.12
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
