@@ -104,6 +104,47 @@ References:
 - Coder docs: https://coder.com/docs
 - ET module details and FAQ: `coder/modules/et/README.md`
 
+## Local OpenCode Attach Helper
+
+Install on your developer machine:
+
+```bash
+mkdir -p ~/.local/bin
+curl -fsSL https://raw.githubusercontent.com/shekohex/hakim/main/scripts/oca.sh -o ~/.local/bin/oca
+chmod 0755 ~/.local/bin/oca
+```
+
+Local prerequisites:
+
+- `coder` CLI
+- `opencode`
+- `curl`
+
+Examples:
+
+```bash
+oca list
+oca list --verbose
+oca doctor
+oca doctor my-workspace
+oca status my-workspace
+oca --verbose my-workspace
+oca my-workspace
+oca my-workspace --dir api
+oca my-workspace --dir ~/project/foo --tcp 3000:3000
+oca my-workspace --dir services/api run "fix the failing tests"
+```
+
+Commands:
+
+- `oca list` proxies to `coder list`
+- `oca doctor [workspace]` checks local tooling, Coder auth, and optional workspace/OpenCode reachability
+- `oca status <workspace>` shows `coder show` output plus OpenCode health
+
+`--dir` maps to remote workspace paths: absolute paths stay absolute, `~/...` expands to `/home/coder/...`, and relative paths resolve from `/home/coder/project`.
+`--tcp` uses the same syntax and local:remote ordering as `coder port-forward --tcp`.
+`--verbose` prints wrapper steps and keeps temp logs/state for debugging.
+
 ## Build
 
 Prerequisites:
