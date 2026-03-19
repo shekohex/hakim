@@ -34,6 +34,7 @@ jobs:
       build_coder: ${{ steps.find.outputs.build_coder }}
       build_tooling: ${{ steps.find.outputs.build_tooling }}
       base_tag: ${{ steps.find.outputs.base_tag }}
+      coder_version: ${{ steps.find.outputs.coder_version }}
       tooling_tag: ${{ steps.find.outputs.tooling_tag }}
     steps:
       - name: Checkout
@@ -43,6 +44,8 @@ jobs:
 
       - name: Find variants
         id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -52,6 +55,32 @@ jobs:
           base_changed=false
           coder_changed=false
           tooling_changed=false
+
+          if [ -n "${{ vars.CODER_VERSION }}" ]; then
+            coder_version="${{ vars.CODER_VERSION }}"
+          else
+            coder_version="$(gh release view --repo coder/coder --json tagName --jq .tagName | sed 's/^v//')"
+          fi
+
+          owner_api_path="users"
+          if [ "${{ github.event.repository.owner.type }}" = "Organization" ]; then
+            owner_api_path="orgs"
+          fi
+
+          package_versions="$(gh api -H 'Accept: application/vnd.github+json' "/${owner_api_path}/${{ github.repository_owner }}/packages/container/hakim-coder/versions?per_page=100" 2>/dev/null || true)"
+          published_coder_version="$(PACKAGE_VERSIONS="${package_versions}" python3 -c 'import json, os, re; raw = os.environ.get("PACKAGE_VERSIONS", "").strip(); semver_pattern = re.compile(r"^\d+\.\d+\.\d+$"); versions = json.loads(raw) if raw else []; tags = {tuple(int(part) for part in tag.split(".")) for version in versions for tag in (((version.get("metadata", {}) or {}).get("container", {}) or {}).get("tags", []) or []) if semver_pattern.fullmatch(tag)}; print(".".join(str(part) for part in max(tags))) if tags else None' 2>/dev/null || true)"
+
+          coder_version_is_newer=false
+          if [ -z "${published_coder_version}" ]; then
+            coder_version_is_newer=true
+          elif TARGET_CODER_VERSION="${coder_version}" PUBLISHED_CODER_VERSION="${published_coder_version}" python3 -c 'import os, re, sys; semver_pattern = re.compile(r"^\d+\.\d+\.\d+$"); target = os.environ["TARGET_CODER_VERSION"]; published = os.environ["PUBLISHED_CODER_VERSION"]; sys.exit(0 if semver_pattern.fullmatch(target) and semver_pattern.fullmatch(published) and tuple(int(part) for part in target.split(".")) > tuple(int(part) for part in published.split(".")) else 1)'
+          then
+            coder_version_is_newer=true
+          fi
+
+          if [ "${coder_version_is_newer}" = "true" ]; then
+            coder_changed=true
+          fi
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             base_sha="${{ github.event.pull_request.base.sha }}"
@@ -144,8 +173,12 @@ jobs:
           echo "build_coder=${coder_changed}" >> "${GITHUB_OUTPUT}"
           echo "build_tooling=${tooling_changed}" >> "${GITHUB_OUTPUT}"
           echo "base_tag=${base_tag}" >> "${GITHUB_OUTPUT}"
+          echo "coder_version=${coder_version}" >> "${GITHUB_OUTPUT}"
           echo "tooling_tag=${tooling_tag}" >> "${GITHUB_OUTPUT}"
           echo "Selected variants: ${variants}"
+          echo "Coder version target: ${coder_version}"
+          echo "Published coder image version: ${published_coder_version:-none}"
+          echo "Build coder image: ${coder_changed}"
 
   build-coder:
     needs: discover
@@ -156,14 +189,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Resolve Coder version
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -n "${{ vars.CODER_VERSION }}" ]; then
-            CODER_VERSION="${{ vars.CODER_VERSION }}"
-          else
-            CODER_VERSION="$(gh release view --repo coder/coder --json tagName --jq .tagName | sed 's/^v//')"
-          fi
+          CODER_VERSION='${{ needs.discover.outputs.coder_version }}'
           echo "CODER_VERSION=${CODER_VERSION}" >> "${GITHUB_ENV}"
 
       - name: Set up Docker Buildx
