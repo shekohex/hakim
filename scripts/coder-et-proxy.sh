@@ -156,6 +156,33 @@ process_matches() {
   [[ "$cmdline" == *"$pattern"* ]]
 }
 
+listener_pid_for_port() {
+  local port="$1"
+  local pid
+
+  while IFS= read -r pid; do
+    if [ -n "$pid" ]; then
+      printf '%s\n' "$pid"
+      return 0
+    fi
+  done < <(lsof -t -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+
+  return 1
+}
+
+pid_matches_command() {
+  local pid="$1"
+  local pattern="$2"
+  local cmdline
+
+  cmdline="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+  if [ -z "$cmdline" ]; then
+    return 1
+  fi
+
+  [[ "$cmdline" == *"$pattern"* ]]
+}
+
 file_mtime_epoch() {
   local file_path="$1"
   if stat -f %m "$file_path" >/dev/null 2>&1; then
@@ -211,6 +238,7 @@ require_command et
 require_command nc
 require_command ssh-keygen
 require_command base64
+require_command lsof
 
 mkdir -p "$workspace_state_dir"
 mkdir -p "$keys_root" "$workspace_key_dir"
@@ -251,7 +279,31 @@ fi
 
 marker_prefix_b64="$(printf '%s' "$key_comment_prefix" | base64 | tr -d '\n')"
 pubkey_b64="$(base64 <"$local_key_pub_file" | tr -d '\n')"
-if ! coder ssh "$workspace" -- "set -euo pipefail; umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys; marker_prefix=\$(printf '%s' '${marker_prefix_b64}' | base64 -d); pubkey=\$(printf '%s' '${pubkey_b64}' | base64 -d); if ! grep -Fqx \"\$pubkey\" ~/.ssh/authorized_keys; then printf '%s\\n' \"\$pubkey\" >> ~/.ssh/authorized_keys; fi" < /dev/null >"$setup_log_file" 2>&1; then
+bootstrap_authorized_keys() {
+  coder ssh "$workspace" -- "set -euo pipefail; umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys; chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys; marker_prefix=\$(printf '%s' '${marker_prefix_b64}' | base64 -d); pubkey=\$(printf '%s' '${pubkey_b64}' | base64 -d); if ! grep -Fqx \"\$pubkey\" ~/.ssh/authorized_keys; then printf '%s\\n' \"\$pubkey\" >> ~/.ssh/authorized_keys; fi" < /dev/null >"$setup_log_file" 2>&1
+}
+
+retry_command() {
+  local attempts="$1"
+  shift
+  local attempt=1
+  local delay=1
+
+  while [ "$attempt" -le "$attempts" ]; do
+    if "$@"; then
+      return 0
+    fi
+    if [ "$attempt" -lt "$attempts" ]; then
+      sleep "$delay"
+      delay=$((delay * 2))
+    fi
+    attempt=$((attempt + 1))
+  done
+
+  return 1
+}
+
+if ! retry_command 3 bootstrap_authorized_keys; then
   printf "coder ssh bootstrap failed for workspace %s\n" "$workspace" >&2
   printf "See log: %s\n" "$setup_log_file" >&2
   exit 1
@@ -277,6 +329,12 @@ if [[ "$workspace_host_key_pub" == ssh-ed25519* ]]; then
   if [ "$host_alias_c" != "$host_alias_a" ] && [ "$host_alias_c" != "$host_alias_b" ]; then
     printf "%s %s\n" "$host_alias_c" "$workspace_host_key_pub" >>"$known_hosts_file"
   fi
+fi
+
+existing_port_forward_pid="$(listener_pid_for_port "$local_et_port" || true)"
+existing_workspace_ssh_pid="$(listener_pid_for_port "$local_workspace_ssh_port" || true)"
+if [ -n "$existing_port_forward_pid" ] && [ "$existing_port_forward_pid" = "$existing_workspace_ssh_pid" ] && pid_matches_command "$existing_port_forward_pid" "coder port-forward ${workspace}"; then
+  printf '%s\n' "$existing_port_forward_pid" >"$port_forward_pid_file"
 fi
 
 if ! pid_running "$port_forward_pid_file" || ! wait_for_tcp 127.0.0.1 "$local_et_port" 1 || ! wait_for_tcp 127.0.0.1 "$local_workspace_ssh_port" 1 || ! wait_for_ssh_banner 127.0.0.1 "$local_workspace_ssh_port" 1; then
@@ -316,6 +374,11 @@ fi
 
 if [ "$key_rotated" = "1" ]; then
   stop_pid_file "$et_pid_file"
+fi
+
+existing_et_pid="$(listener_pid_for_port "$local_proxy_ssh_port" || true)"
+if [ -n "$existing_et_pid" ] && pid_matches_command "$existing_et_pid" "et -N ${remote_user}@127.0.0.1" && pid_matches_command "$existing_et_pid" "-p ${local_et_port}"; then
+  printf '%s\n' "$existing_et_pid" >"$et_pid_file"
 fi
 
 if ! pid_running "$et_pid_file" || ! wait_for_tcp 127.0.0.1 "$local_proxy_ssh_port" 1; then
