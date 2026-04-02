@@ -416,6 +416,17 @@ data "coder_parameter" "paseo_version" {
   order        = 10
 }
 
+data "coder_parameter" "paseo_tarball_url" {
+  name         = "paseo_tarball_url"
+  display_name = "Paseo Tarball URL"
+  description  = "Optional tarball URL for a built Paseo CLI package. When set, this overrides Paseo Version."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "https://app.paseo.sh/favicon.ico"
+  order        = 11
+}
+
 data "coder_parameter" "paseo_home_dir" {
   name         = "paseo_home_dir"
   display_name = "Paseo Home Dir"
@@ -424,7 +435,7 @@ data "coder_parameter" "paseo_home_dir" {
   default      = "~/.paseo"
   mutable      = true
   icon         = "https://app.paseo.sh/favicon.ico"
-  order        = 11
+  order        = 12
 }
 
 data "coder_parameter" "paseo_config" {
@@ -467,7 +478,7 @@ data "coder_parameter" "paseo_config" {
 EOT
   mutable      = true
   icon         = "https://app.paseo.sh/favicon.ico"
-  order        = 12
+  order        = 13
 }
 
 data "coder_parameter" "enable_happy" {
@@ -1126,14 +1137,15 @@ module "paseo" {
     contains(["php", "dotnet", "js", "rust", "android", "elixir"], data.coder_parameter.image_variant.value)
   ) ? 1 : 0
 
-  source         = "github.com/shekohex/hakim//coder/modules/paseo?ref=main"
-  agent_id       = coder_agent.main.id
-  workdir        = local.project_dir
-  paseo_version  = data.coder_parameter.paseo_version.value
-  paseo_home_dir = data.coder_parameter.paseo_home_dir.value
-  config_json    = data.coder_parameter.paseo_config.value
-  install_paseo  = true
-  order          = 997
+  source            = "github.com/shekohex/hakim//coder/modules/paseo?ref=main"
+  agent_id          = coder_agent.main.id
+  workdir           = local.project_dir
+  paseo_version     = data.coder_parameter.paseo_version.value
+  paseo_tarball_url = data.coder_parameter.paseo_tarball_url.value
+  paseo_home_dir    = data.coder_parameter.paseo_home_dir.value
+  config_json       = data.coder_parameter.paseo_config.value
+  install_paseo     = true
+  order             = 997
 }
 
 module "happy_coder" {

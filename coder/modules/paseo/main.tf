@@ -67,6 +67,12 @@ variable "paseo_version" {
   default     = "latest"
 }
 
+variable "paseo_tarball_url" {
+  type        = string
+  description = "Optional tarball URL for a built Paseo CLI package. When set, this overrides paseo_version."
+  default     = ""
+}
+
 variable "paseo_home_dir" {
   type        = string
   description = "Custom Paseo home directory. Supports ~ expansion."
@@ -134,6 +140,7 @@ resource "coder_script" "paseo_start" {
     chmod +x "$INSTALL_SCRIPT"
 
     ARG_PASEO_VERSION='${var.paseo_version}' \
+    ARG_PASEO_TARBALL_URL='${base64encode(var.paseo_tarball_url)}' \
     ARG_INSTALL_PASEO='${var.install_paseo}' \
     ARG_PRE_INSTALL_SCRIPT='${var.pre_install_script != null ? base64encode(var.pre_install_script) : ""}' \
     ARG_POST_INSTALL_SCRIPT='${var.post_install_script != null ? base64encode(var.post_install_script) : ""}' \

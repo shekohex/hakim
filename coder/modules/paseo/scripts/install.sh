@@ -66,6 +66,7 @@ run_with_bun_lock() {
 }
 
 ARG_PASEO_VERSION=${ARG_PASEO_VERSION:-latest}
+ARG_PASEO_TARBALL_URL=$(decode_b64 "${ARG_PASEO_TARBALL_URL:-}")
 ARG_INSTALL_PASEO=${ARG_INSTALL_PASEO:-true}
 ARG_PRE_INSTALL_SCRIPT=$(decode_b64 "${ARG_PRE_INSTALL_SCRIPT:-}")
 ARG_POST_INSTALL_SCRIPT=$(decode_b64 "${ARG_POST_INSTALL_SCRIPT:-}")
@@ -99,18 +100,22 @@ install_paseo() {
   export PATH="$(dirname "$bun_bin"):$PATH"
 
   installed_version="$(paseo --version 2> /dev/null || true)"
-  if [ "$ARG_PASEO_VERSION" = "latest" ]; then
-    if [ -n "$installed_version" ]; then
-      echo "Paseo already installed (${installed_version})"
-      return 0
-    fi
-    package_spec="@getpaseo/cli"
+  if [ -n "$ARG_PASEO_TARBALL_URL" ]; then
+    package_spec="@getpaseo/cli@${ARG_PASEO_TARBALL_URL}"
   else
-    if [ "$installed_version" = "$ARG_PASEO_VERSION" ]; then
-      echo "Paseo already installed (${installed_version})"
-      return 0
+    if [ "$ARG_PASEO_VERSION" = "latest" ]; then
+      if [ -n "$installed_version" ]; then
+        echo "Paseo already installed (${installed_version})"
+        return 0
+      fi
+      package_spec="@getpaseo/cli"
+    else
+      if [ "$installed_version" = "$ARG_PASEO_VERSION" ]; then
+        echo "Paseo already installed (${installed_version})"
+        return 0
+      fi
+      package_spec="@getpaseo/cli@${ARG_PASEO_VERSION}"
     fi
-    package_spec="@getpaseo/cli@${ARG_PASEO_VERSION}"
   fi
 
   log_file="/tmp/paseo-install.log"
