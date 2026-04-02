@@ -121,7 +121,7 @@ locals {
   install_script = file("${path.module}/scripts/install.sh")
   start_script   = file("${path.module}/scripts/start.sh")
   parsed_config  = try(jsondecode(var.config_json), {})
-  web_app_url    = try(local.parsed_config.app.baseUrl, "https://app.paseo.sh")
+  web_app_url    = try(local.parsed_config.app.baseUrl, "https://paseo.0iq.xyz")
 }
 
 resource "coder_script" "paseo_start" {
@@ -179,6 +179,7 @@ resource "coder_app" "paseo_web" {
   display_name = var.web_app_display_name
   agent_id     = var.agent_id
   url          = local.web_app_url
+  external     = true
   icon         = var.icon
   order        = var.order
   group        = var.group
