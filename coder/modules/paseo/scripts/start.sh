@@ -52,6 +52,42 @@ paseo_running() {
   paseo daemon status --json --home "$ARG_PASEO_HOME_DIR" 2> /dev/null | jq -e '.localDaemon == "running"' > /dev/null
 }
 
+wait_for_paseo() {
+  local timeout=30
+  local elapsed=0
+
+  while [ "$elapsed" -lt "$timeout" ]; do
+    if paseo_running; then
+      return 0
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  return 1
+}
+
+print_paseo_status() {
+  local status_json
+  local listen
+  local version
+  local provider_summary
+
+  status_json="$(paseo daemon status --json --home "$ARG_PASEO_HOME_DIR" 2> /dev/null || true)"
+  if [ -z "$status_json" ] || ! printf '%s' "$status_json" | jq -e '.localDaemon == "running"' > /dev/null 2>&1; then
+    return 1
+  fi
+
+  listen="$(printf '%s' "$status_json" | jq -r '.listen // "unknown"')"
+  version="$(printf '%s' "$status_json" | jq -r '.cliVersion // "unknown"')"
+  provider_summary="$(printf '%s' "$status_json" | jq -r '[.providers[]? | select(.path != null) | .label] | if length > 0 then join(", ") else "none" end')"
+
+  printf 'Paseo daemon ready on %s\n' "$listen"
+  printf 'Paseo CLI version: %s\n' "$version"
+  printf 'Available providers: %s\n' "$provider_summary"
+  printf 'Paseo logs: %s\n' "$ARG_PASEO_HOME_DIR/daemon.log"
+}
+
 write_paseo_config() {
   mkdir -p "$ARG_PASEO_HOME_DIR"
 
@@ -62,14 +98,34 @@ write_paseo_config() {
 }
 
 start_paseo() {
+  local log_file="/tmp/paseo-daemon-start.log"
+
   if paseo_running; then
     echo "Restarting Paseo daemon"
-    paseo daemon restart --home "$ARG_PASEO_HOME_DIR" < /dev/null
+    if ! paseo daemon restart --home "$ARG_PASEO_HOME_DIR" > "$log_file" 2>&1 < /dev/null; then
+      cat "$log_file"
+      return 1
+    fi
+    if ! wait_for_paseo; then
+      cat "$log_file"
+      echo "ERROR: Paseo daemon did not become ready after restart"
+      return 1
+    fi
+    print_paseo_status
     return
   fi
 
   echo "Starting Paseo daemon"
-  paseo daemon start --home "$ARG_PASEO_HOME_DIR" < /dev/null
+  if ! paseo daemon start --home "$ARG_PASEO_HOME_DIR" > "$log_file" 2>&1 < /dev/null; then
+    cat "$log_file"
+    return 1
+  fi
+  if ! wait_for_paseo; then
+    cat "$log_file"
+    echo "ERROR: Paseo daemon did not become ready"
+    return 1
+  fi
+  print_paseo_status
 }
 
 if ! command_exists paseo; then
@@ -79,4 +135,3 @@ fi
 
 write_paseo_config
 start_paseo
-paseo daemon status --json --home "$ARG_PASEO_HOME_DIR" || true
