@@ -99,15 +99,18 @@ write_paseo_config() {
 
 start_paseo() {
   local log_file="/tmp/paseo-daemon-start.log"
+  local start_exit_code=0
 
   if paseo_running; then
     echo "Restarting Paseo daemon"
-    if ! paseo daemon restart --home "$ARG_PASEO_HOME_DIR" > "$log_file" 2>&1 < /dev/null; then
-      cat "$log_file"
-      return 1
-    fi
+    paseo daemon restart --home "$ARG_PASEO_HOME_DIR" > "$log_file" 2>&1 < /dev/null || start_exit_code=$?
     if ! wait_for_paseo; then
-      cat "$log_file"
+      if [ -s "$log_file" ]; then
+        cat "$log_file"
+      fi
+      if [ "$start_exit_code" -ne 0 ]; then
+        echo "ERROR: Paseo daemon restart exited with code $start_exit_code"
+      fi
       echo "ERROR: Paseo daemon did not become ready after restart"
       return 1
     fi
@@ -116,12 +119,14 @@ start_paseo() {
   fi
 
   echo "Starting Paseo daemon"
-  if ! paseo daemon start --home "$ARG_PASEO_HOME_DIR" > "$log_file" 2>&1 < /dev/null; then
-    cat "$log_file"
-    return 1
-  fi
+  paseo daemon start --home "$ARG_PASEO_HOME_DIR" > "$log_file" 2>&1 < /dev/null || start_exit_code=$?
   if ! wait_for_paseo; then
-    cat "$log_file"
+    if [ -s "$log_file" ]; then
+      cat "$log_file"
+    fi
+    if [ "$start_exit_code" -ne 0 ]; then
+      echo "ERROR: Paseo daemon start exited with code $start_exit_code"
+    fi
     echo "ERROR: Paseo daemon did not become ready"
     return 1
   fi
