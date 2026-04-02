@@ -26,10 +26,27 @@ expand_home_path() {
   esac
 }
 
+normalize_home_path() {
+  local path="$1"
+
+  path="$(expand_home_path "$path")"
+  case "$path" in
+    "$HOME/~")
+      printf '%s\n' "$HOME"
+      ;;
+    "$HOME/~/"*)
+      printf '%s\n' "$HOME/${path#"$HOME/~/"}"
+      ;;
+    *)
+      printf '%s\n' "$path"
+      ;;
+  esac
+}
+
 ARG_PASEO_HOME_DIR=$(decode_b64 "${ARG_PASEO_HOME_DIR:-}")
 ARG_PASEO_CONFIG=$(decode_b64 "${ARG_PASEO_CONFIG:-}")
 ARG_PASEO_HOME_DIR=${ARG_PASEO_HOME_DIR:-~/.paseo}
-ARG_PASEO_HOME_DIR="$(expand_home_path "$ARG_PASEO_HOME_DIR")"
+ARG_PASEO_HOME_DIR="$(normalize_home_path "$ARG_PASEO_HOME_DIR")"
 
 paseo_running() {
   paseo daemon status --json --home "$ARG_PASEO_HOME_DIR" 2> /dev/null | jq -e '.localDaemon == "running"' > /dev/null
@@ -47,12 +64,12 @@ write_paseo_config() {
 start_paseo() {
   if paseo_running; then
     echo "Restarting Paseo daemon"
-    paseo daemon restart --home "$ARG_PASEO_HOME_DIR"
+    paseo daemon restart --home "$ARG_PASEO_HOME_DIR" < /dev/null
     return
   fi
 
   echo "Starting Paseo daemon"
-  paseo daemon start --home "$ARG_PASEO_HOME_DIR"
+  paseo daemon start --home "$ARG_PASEO_HOME_DIR" < /dev/null
 }
 
 if ! command_exists paseo; then

@@ -126,7 +126,7 @@ locals {
 
 resource "coder_script" "paseo_start" {
   agent_id     = var.agent_id
-  display_name = "Install Paseo Daemon"
+  display_name = "Install Paseo CLI"
   icon         = var.icon
   script       = <<-EOT
     #!/bin/bash
@@ -134,7 +134,6 @@ resource "coder_script" "paseo_start" {
     set -o pipefail
 
     INSTALL_SCRIPT="/tmp/paseo-install-$$.sh"
-    START_SCRIPT="/tmp/paseo-start-$$.sh"
 
     echo -n '${base64encode(local.install_script)}' | base64 -d > "$INSTALL_SCRIPT"
     chmod +x "$INSTALL_SCRIPT"
@@ -146,6 +145,22 @@ resource "coder_script" "paseo_start" {
     ARG_POST_INSTALL_SCRIPT='${var.post_install_script != null ? base64encode(var.post_install_script) : ""}' \
     bash -lc "$INSTALL_SCRIPT"
 
+    rm -f "$INSTALL_SCRIPT"
+  EOT
+  run_on_start = true
+}
+
+resource "coder_script" "paseo_daemon" {
+  agent_id     = var.agent_id
+  display_name = "Start Paseo Daemon"
+  icon         = var.icon
+  script       = <<-EOT
+    #!/bin/bash
+    set -o errexit
+    set -o pipefail
+
+    START_SCRIPT="/tmp/paseo-start-$$.sh"
+
     echo -n '${base64encode(local.start_script)}' | base64 -d > "$START_SCRIPT"
     chmod +x "$START_SCRIPT"
 
@@ -153,9 +168,10 @@ resource "coder_script" "paseo_start" {
     ARG_PASEO_CONFIG='${var.config_json != null ? base64encode(replace(var.config_json, "'", "'\\''")) : ""}' \
     bash -lc "$START_SCRIPT"
 
-    rm -f "$INSTALL_SCRIPT" "$START_SCRIPT"
+    rm -f "$START_SCRIPT"
   EOT
   run_on_start = true
+  depends_on   = [coder_script.paseo_start]
 }
 
 resource "coder_app" "paseo_web" {
