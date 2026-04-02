@@ -177,6 +177,91 @@ data "coder_parameter" "openchamber_opencode_port" {
   order        = 8
 }
 
+data "coder_parameter" "enable_paseo" {
+  name         = "enable_paseo"
+  display_name = "Enable Paseo"
+  description  = "Install and start the Paseo daemon in this workspace."
+  type         = "bool"
+  default      = true
+  icon         = "https://app.paseo.sh/favicon.ico"
+  order        = 9
+}
+
+data "coder_parameter" "paseo_version" {
+  name         = "paseo_version"
+  display_name = "Paseo Version"
+  description  = "The version of @getpaseo/cli to install."
+  type         = "string"
+  default      = "latest"
+  mutable      = true
+  icon         = "https://app.paseo.sh/favicon.ico"
+  order        = 10
+}
+
+data "coder_parameter" "paseo_home_dir" {
+  name         = "paseo_home_dir"
+  display_name = "Paseo Home Dir"
+  description  = "Custom Paseo home directory. Supports ~ expansion."
+  type         = "string"
+  default      = "~/.paseo"
+  mutable      = true
+  icon         = "https://app.paseo.sh/favicon.ico"
+  order        = 11
+}
+
+data "coder_parameter" "paseo_config" {
+  name         = "paseo_config"
+  display_name = "Paseo Config JSON"
+  description  = "Paseo JSON config written to ~/.paseo/config.json before daemon start."
+  type         = "string"
+  form_type    = "textarea"
+  default      = <<-EOT
+{
+  "version": 1,
+  "daemon": {
+    "listen": "127.0.0.1:6767",
+    "cors": {
+      "allowedOrigins": [
+        "https://app.paseo.sh",
+        "https://paseo.0iq.xyz"
+      ]
+    },
+    "relay": {
+      "enabled": true
+    }
+  },
+  "app": {
+    "baseUrl": "https://paseo.0iq.xyz"
+  },
+  "features": {
+    "dictation": {
+      "enabled": false
+    },
+    "voiceMode": {
+      "enabled": false
+    }
+  },
+  "log": {
+    "level": "debug",
+    "format": "json"
+  }
+}
+EOT
+  mutable      = true
+  icon         = "https://app.paseo.sh/favicon.ico"
+  order        = 12
+}
+
+data "coder_parameter" "enable_happy" {
+  name         = "enable_happy"
+  display_name = "Enable Happy"
+  description  = "Install the Happy OpenCode manager in this workspace."
+  type         = "bool"
+  default      = false
+  icon         = "https://app.happy.engineering/favicon.ico"
+  order        = 70
+}
+
 data "coder_parameter" "happy_coder_version" {
   name         = "happy_coder_version"
   display_name = "Happy Version"
@@ -185,7 +270,7 @@ data "coder_parameter" "happy_coder_version" {
   default      = "0.15.0-beta.0"
   mutable      = true
   icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 70
+  order        = 71
 }
 
 data "coder_parameter" "happy_server_url" {
@@ -196,7 +281,7 @@ data "coder_parameter" "happy_server_url" {
   default      = "https://api.cluster-fluster.com"
   mutable      = true
   icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 71
+  order        = 72
 }
 
 data "coder_parameter" "happy_webapp_url" {
@@ -207,7 +292,7 @@ data "coder_parameter" "happy_webapp_url" {
   default      = "https://app.happy.engineering"
   mutable      = true
   icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 72
+  order        = 73
 }
 
 data "coder_parameter" "happy_home_dir" {
@@ -218,7 +303,7 @@ data "coder_parameter" "happy_home_dir" {
   default      = "~/.happy"
   mutable      = true
   icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 73
+  order        = 74
 }
 
 data "coder_parameter" "happy_disable_caffeinate" {
@@ -229,7 +314,7 @@ data "coder_parameter" "happy_disable_caffeinate" {
   default      = false
   mutable      = true
   icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 74
+  order        = 75
 }
 
 data "coder_parameter" "happy_experimental" {
@@ -240,7 +325,7 @@ data "coder_parameter" "happy_experimental" {
   default      = false
   mutable      = true
   icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 75
+  order        = 76
 }
 
 data "coder_parameter" "happy_opencode_port" {
@@ -251,7 +336,7 @@ data "coder_parameter" "happy_opencode_port" {
   default      = 4096
   mutable      = true
   icon         = "https://opencode.ai/favicon.svg"
-  order        = 76
+  order        = 77
 }
 
 data "coder_parameter" "system_prompt" {
@@ -1307,15 +1392,29 @@ module "openchamber" {
   depends_on            = [module.opencode]
 }
 
+module "paseo" {
+  count = (
+    data.coder_workspace.me.start_count > 0 &&
+    data.coder_parameter.enable_paseo.value &&
+    contains(["php", "dotnet", "js", "rust", "android", "elixir"], data.coder_parameter.image_variant.value)
+  ) ? 1 : 0
+
+  source         = "github.com/shekohex/hakim//coder/modules/paseo?ref=main"
+  agent_id       = coder_agent.main.id
+  workdir        = local.project_dir
+  paseo_version  = data.coder_parameter.paseo_version.value
+  paseo_home_dir = data.coder_parameter.paseo_home_dir.value
+  config_json    = data.coder_parameter.paseo_config.value
+  install_paseo  = true
+  order          = 997
+}
+
 module "happy_coder" {
-  count = data.coder_workspace.me.start_count > 0 && contains([
-    "php",
-    "dotnet",
-    "js",
-    "rust",
-    "android",
-    "elixir"
-  ], data.coder_parameter.image_variant.value) ? 1 : 0
+  count = (
+    data.coder_workspace.me.start_count > 0 &&
+    data.coder_parameter.enable_happy.value &&
+    contains(["php", "dotnet", "js", "rust", "android", "elixir"], data.coder_parameter.image_variant.value)
+  ) ? 1 : 0
 
   source                   = "github.com/shekohex/hakim//coder/modules/happy-coder?ref=main"
   agent_id                 = coder_agent.main.id
@@ -1328,7 +1427,7 @@ module "happy_coder" {
   happy_experimental       = data.coder_parameter.happy_experimental.value
   opencode_port            = data.coder_parameter.happy_opencode_port.value
   install_happy_coder      = true
-  order                    = 997
+  order                    = 996
   depends_on               = [module.opencode]
 }
 
