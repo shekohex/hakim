@@ -1243,8 +1243,9 @@ resource "proxmox_virtual_environment_container" "workspace" {
   start_on_boot         = false
   tags                  = ["coder", "hakim", data.coder_parameter.image_variant.value, data.coder_parameter.egress_mode.value, "template-${local.selected_template_tag}"]
   environment_variables = local.container_environment_variables
+
   lifecycle {
-    ignore_changes = [environment_variables]
+    ignore_changes = [environment_variables, console, mount_point]
 
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
