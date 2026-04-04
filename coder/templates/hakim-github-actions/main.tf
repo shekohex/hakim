@@ -401,6 +401,7 @@ data "coder_parameter" "enable_paseo" {
   description  = "Install and start the Paseo daemon in this workspace."
   type         = "bool"
   default      = false
+  mutable      = true
   icon         = "https://app.paseo.sh/favicon.ico"
   order        = 9
 }
