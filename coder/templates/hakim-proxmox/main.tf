@@ -1055,18 +1055,19 @@ locals {
   container_swap_enabled  = data.coder_parameter.enable_container_swap.value
   container_swap_mb_input = local.container_swap_enabled && length(data.coder_parameter.container_swap_mb) > 0 ? data.coder_parameter.container_swap_mb[0].value : 0
   container_swap_mb       = local.container_swap_enabled ? (local.container_swap_mb_input > 0 ? local.container_swap_mb_input : ceil(data.coder_parameter.container_memory_mb.value * 0.5)) : 0
+  workspace_agent_count   = data.coder_workspace.me.transition == "start" ? 1 : 0
 
   selected_template_tag = length(data.coder_parameter.template_tag) > 0 && trimspace(data.coder_parameter.template_tag[0].value) != "" ? trimspace(data.coder_parameter.template_tag[0].value) : "latest"
   selected_template_file_id = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.custom_template_file_id[0].value : (
     "${data.coder_parameter.proxmox_template_datastore_id.value}:vztmpl/hakim-${data.coder_parameter.image_variant.value}_${local.selected_template_tag}.tar"
   )
 
-  container_agent_bootstrap = base64encode("${data.coder_workspace.me.access_url}|${coder_agent.main.token}")
-  container_runtime_env_sha = sha256("${sha256(jsonencode(local.combined_env))}:${local.container_agent_bootstrap}")
-  container_environment_variables = merge(local.combined_env, {
+  container_agent_bootstrap = local.workspace_agent_count > 0 ? base64encode("${data.coder_workspace.me.access_url}|${coder_agent.main[0].token}") : ""
+  container_runtime_env_sha = local.workspace_agent_count > 0 ? sha256("${sha256(jsonencode(local.combined_env))}:${local.container_agent_bootstrap}") : sha256(jsonencode(local.combined_env))
+  container_environment_variables = local.workspace_agent_count > 0 ? merge(local.combined_env, {
     CODER_AGENT_BOOTSTRAP = local.container_agent_bootstrap
     CODER_RUNTIME_ENV_SHA = local.container_runtime_env_sha
-  })
+  }) : local.combined_env
   container_runtime_env_b64 = join(",", [for key in sort(keys(local.combined_env)) : "${key}=${base64encode(tostring(local.combined_env[key]))}"])
 
   home_disk_enabled          = data.coder_parameter.enable_home_disk.value
@@ -1102,6 +1103,8 @@ locals {
 }
 
 resource "coder_agent" "main" {
+  count = local.workspace_agent_count
+
   arch = data.coder_provisioner.me.arch
   os   = "linux"
   env  = local.combined_env
@@ -1215,7 +1218,7 @@ EOF
 }
 
 resource "coder_ai_task" "task" {
-  count  = data.coder_workspace.me.start_count
+  count  = local.workspace_agent_count
   app_id = module.opencode[count.index].task_app_id
 }
 
@@ -1330,14 +1333,14 @@ resource "proxmox_virtual_environment_container" "workspace" {
 }
 
 resource "terraform_data" "workspace_agent_env" {
-  count = data.coder_workspace.me.start_count
+  count = local.workspace_agent_count
 
   triggers_replace = {
     node_name       = data.coder_parameter.proxmox_node_name.value
     vm_id           = tostring(proxmox_virtual_environment_container.workspace.vm_id)
     endpoint        = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
     insecure        = tostring(data.coder_parameter.proxmox_insecure.value)
-    agent_token_sha = sha256(coder_agent.main.token)
+    agent_token_sha = sha256(coder_agent.main[0].token)
     env_sha         = local.container_runtime_env_sha
     home_source     = local.home_mount_is_bind ? local.home_mount_source : ""
     docker_source   = local.docker_mount_is_bind ? local.docker_mount_source : ""
@@ -1366,9 +1369,9 @@ resource "terraform_data" "workspace_agent_env" {
 }
 
 module "opencode" {
-  count               = data.coder_workspace.me.start_count
+  count               = local.workspace_agent_count
   source              = "github.com/shekohex/hakim//coder/modules/opencode?ref=main"
-  agent_id            = coder_agent.main.id
+  agent_id            = coder_agent.main[0].id
   workdir             = local.project_dir
   auth_json           = data.coder_parameter.opencode_auth.value
   config_json         = data.coder_parameter.opencode_config.value
@@ -1383,7 +1386,7 @@ module "opencode" {
 }
 
 module "openchamber" {
-  count = data.coder_workspace.me.start_count > 0 && contains([
+  count = local.workspace_agent_count > 0 && contains([
     "php",
     "dotnet",
     "js",
@@ -1393,7 +1396,7 @@ module "openchamber" {
   ], data.coder_parameter.image_variant.value) ? 1 : 0
 
   source                = "github.com/shekohex/hakim//coder/modules/openchamber?ref=main"
-  agent_id              = coder_agent.main.id
+  agent_id              = coder_agent.main[0].id
   workdir               = local.project_dir
   ui_password           = data.coder_parameter.openchamber_ui_password.value
   reuse_opencode_server = data.coder_parameter.openchamber_reuse_opencode.value
@@ -1406,13 +1409,13 @@ module "openchamber" {
 
 module "paseo" {
   count = (
-    data.coder_workspace.me.start_count > 0 &&
+    local.workspace_agent_count > 0 &&
     data.coder_parameter.enable_paseo.value &&
     contains(["php", "dotnet", "js", "rust", "android", "elixir"], data.coder_parameter.image_variant.value)
   ) ? 1 : 0
 
   source            = "github.com/shekohex/hakim//coder/modules/paseo?ref=main"
-  agent_id          = coder_agent.main.id
+  agent_id          = coder_agent.main[0].id
   workdir           = local.project_dir
   paseo_version     = data.coder_parameter.paseo_version.value
   paseo_tarball_url = data.coder_parameter.paseo_tarball_url.value
@@ -1424,13 +1427,13 @@ module "paseo" {
 
 module "happy_coder" {
   count = (
-    data.coder_workspace.me.start_count > 0 &&
+    local.workspace_agent_count > 0 &&
     data.coder_parameter.enable_happy.value &&
     contains(["php", "dotnet", "js", "rust", "android", "elixir"], data.coder_parameter.image_variant.value)
   ) ? 1 : 0
 
   source                   = "github.com/shekohex/hakim//coder/modules/happy-coder?ref=main"
-  agent_id                 = coder_agent.main.id
+  agent_id                 = coder_agent.main[0].id
   workdir                  = local.project_dir
   happy_coder_version      = data.coder_parameter.happy_coder_version.value
   happy_server_url         = data.coder_parameter.happy_server_url.value
@@ -1446,7 +1449,7 @@ module "happy_coder" {
 
 module "openclaw_node" {
   count = (
-    data.coder_workspace.me.start_count > 0 &&
+    local.workspace_agent_count > 0 &&
     data.coder_parameter.enable_openclaw_node.value &&
     contains(["php", "dotnet", "js", "rust", "android", "elixir"], data.coder_parameter.image_variant.value) &&
     length(data.coder_parameter.openclaw_bridge_host) > 0 &&
@@ -1454,7 +1457,7 @@ module "openclaw_node" {
   ) ? 1 : 0
 
   source                 = "github.com/shekohex/hakim//coder/modules/openclaw-node?ref=main"
-  agent_id               = coder_agent.main.id
+  agent_id               = coder_agent.main[0].id
   install_openclaw       = false
   bridge_host            = data.coder_parameter.openclaw_bridge_host[0].value
   bridge_port            = data.coder_parameter.openclaw_bridge_port[0].value
@@ -1474,7 +1477,8 @@ module "openclaw_node" {
 }
 
 resource "coder_script" "git_setup" {
-  agent_id     = coder_agent.main.id
+  count        = local.workspace_agent_count
+  agent_id     = coder_agent.main[0].id
   display_name = "Configure Git"
   icon         = "/icon/git.svg"
   script       = <<-EOT
@@ -1499,79 +1503,80 @@ resource "coder_script" "git_setup" {
 }
 
 module "git-clone" {
-  count      = data.coder_parameter.git_url.value != "" ? 1 : 0
+  count      = local.workspace_agent_count > 0 && data.coder_parameter.git_url.value != "" ? 1 : 0
   source     = "registry.coder.com/coder/git-clone/coder"
-  agent_id   = coder_agent.main.id
+  agent_id   = coder_agent.main[0].id
   url        = data.coder_parameter.git_url.value
   base_dir   = "/home/coder"
   depends_on = [coder_script.git_setup]
 }
 
 module "dotfiles" {
+  count    = local.workspace_agent_count
   source   = "registry.coder.com/coder/dotfiles/coder"
-  agent_id = coder_agent.main.id
+  agent_id = coder_agent.main[0].id
 }
 
 module "coder-login" {
-  count    = data.coder_parameter.enable_coder_login.value ? data.coder_workspace.me.start_count : 0
+  count    = data.coder_parameter.enable_coder_login.value ? local.workspace_agent_count : 0
   source   = "registry.coder.com/coder/coder-login/coder"
   version  = "1.1.1"
-  agent_id = coder_agent.main.id
+  agent_id = coder_agent.main[0].id
 }
 
 module "git-commit-signing" {
-  count      = data.coder_parameter.enable_git_commit_signing.value ? data.coder_workspace.me.start_count : 0
+  count      = data.coder_parameter.enable_git_commit_signing.value ? local.workspace_agent_count : 0
   source     = "github.com/shekohex/hakim//coder/modules/git-commit-signing?ref=main"
-  agent_id   = coder_agent.main.id
+  agent_id   = coder_agent.main[0].id
   depends_on = [coder_script.git_setup]
 }
 
 module "ssh-keys" {
-  count      = data.coder_parameter.enable_ssh_keys.value ? data.coder_workspace.me.start_count : 0
+  count      = data.coder_parameter.enable_ssh_keys.value ? local.workspace_agent_count : 0
   source     = "github.com/shekohex/hakim//coder/modules/ssh-keys?ref=main"
-  agent_id   = coder_agent.main.id
+  agent_id   = coder_agent.main[0].id
   depends_on = [coder_script.git_setup]
 }
 
 module "zed" {
-  count    = data.coder_parameter.enable_zed.value ? data.coder_workspace.me.start_count : 0
+  count    = data.coder_parameter.enable_zed.value ? local.workspace_agent_count : 0
   source   = "registry.coder.com/coder/zed/coder"
   version  = "1.1.4"
-  agent_id = coder_agent.main.id
+  agent_id = coder_agent.main[0].id
   folder   = local.project_dir
   order    = 0
 }
 
 module "tmux" {
-  count       = data.coder_parameter.enable_tmux.value ? data.coder_workspace.me.start_count : 0
+  count       = data.coder_parameter.enable_tmux.value ? local.workspace_agent_count : 0
   source      = "registry.coder.com/anomaly/tmux/coder"
   version     = "1.0.4"
-  agent_id    = coder_agent.main.id
+  agent_id    = coder_agent.main[0].id
   sessions    = local.tmux_sessions
   tmux_config = local.tmux_config
 }
 
 module "et" {
-  count    = data.coder_parameter.enable_et.value ? data.coder_workspace.me.start_count : 0
+  count    = data.coder_parameter.enable_et.value ? local.workspace_agent_count : 0
   source   = "github.com/shekohex/hakim//coder/modules/et?ref=main"
-  agent_id = coder_agent.main.id
+  agent_id = coder_agent.main[0].id
 }
 
 module "vault" {
-  count                = data.coder_parameter.enable_vault.value ? 1 : 0
+  count                = data.coder_parameter.enable_vault.value ? local.workspace_agent_count : 0
   source               = "registry.coder.com/modules/vault-github/coder"
   version              = "1.0.7"
-  agent_id             = coder_agent.main.id
+  agent_id             = coder_agent.main[0].id
   vault_addr           = data.coder_parameter.vault_addr[count.index].value
   coder_github_auth_id = data.coder_parameter.vault_github_auth_id[count.index].value
 }
 
 module "code-server" {
-  count          = data.coder_workspace.me.start_count
+  count          = local.workspace_agent_count
   folder         = local.project_dir
   source         = "registry.coder.com/coder/code-server/coder"
   version        = "~> 1.0"
-  agent_id       = coder_agent.main.id
+  agent_id       = coder_agent.main[0].id
   order          = 1
   offline        = true
   install_prefix = "/usr/local/lib/code-server"
@@ -1660,7 +1665,8 @@ data "coder_workspace_preset" "base_minimal" {
 }
 
 resource "coder_app" "preview" {
-  agent_id     = coder_agent.main.id
+  count        = local.workspace_agent_count
+  agent_id     = coder_agent.main[0].id
   slug         = "preview"
   display_name = "Preview"
   icon         = "/emojis/1f50e.png"
