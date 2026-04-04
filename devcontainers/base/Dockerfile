@@ -62,7 +62,7 @@ FROM base-system AS code-server-downloader
 
 ARG TARGETARCH=amd64
 # VERSION_UPDATE_BEGIN: code-server
-ARG CODE_SERVER_VERSION=4.113.1
+ARG CODE_SERVER_VERSION=4.114.0
 # VERSION_UPDATE_END: code-server
 
 WORKDIR /downloads
