@@ -1194,8 +1194,6 @@ module "proliferate" {
   sandbox_mcp_asset_name    = "proliferate-sandbox-mcp.tgz"
   install_sandbox_agent     = true
   install_caddy             = true
-  caddy_version             = "2"
-  sandbox_agent_install_url = "https://releases.rivet.dev/sandbox-agent/0.2.28/install.sh"
   install_opencode          = false
   opencode_version          = "latest"
   port                      = local.proliferate_port
