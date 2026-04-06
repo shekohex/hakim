@@ -333,6 +333,66 @@ data "coder_parameter" "openchamber_opencode_port" {
   order        = 8
 }
 
+data "coder_parameter" "enable_proliferate" {
+  name         = "enable_proliferate"
+  display_name = "Enable Proliferate"
+  description  = "Run the Proliferate runtime bridge stack and expose it as the primary AI app."
+  type         = "bool"
+  default      = false
+  mutable      = true
+  icon         = "https://d1uh4o7rpdqkkl.cloudfront.net/logo.webp"
+  order        = 78
+}
+
+data "coder_parameter" "proliferate_release_ref" {
+  count        = data.coder_parameter.enable_proliferate.value ? 1 : 0
+  name         = "proliferate_release_ref"
+  display_name = "Proliferate Release Ref"
+  description  = "Release tag that contains the Proliferate runtime assets."
+  type         = "string"
+  default      = "coder-module-v0.1.0"
+  mutable      = true
+  icon         = "https://d1uh4o7rpdqkkl.cloudfront.net/logo.webp"
+  order        = 79
+}
+
+data "coder_parameter" "proliferate_gateway_url" {
+  count        = data.coder_parameter.enable_proliferate.value ? 1 : 0
+  name         = "proliferate_gateway_url"
+  display_name = "Proliferate Gateway URL"
+  description  = "Optional Proliferate gateway URL for session integrations."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "/icon/link.svg"
+  order        = 80
+}
+
+data "coder_parameter" "proliferate_session_id" {
+  count        = data.coder_parameter.enable_proliferate.value ? 1 : 0
+  name         = "proliferate_session_id"
+  display_name = "Proliferate Session ID"
+  description  = "Optional Proliferate session ID."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "/icon/tasks.svg"
+  order        = 81
+}
+
+data "coder_parameter" "proliferate_session_token" {
+  count        = data.coder_parameter.enable_proliferate.value ? 1 : 0
+  name         = "proliferate_session_token"
+  display_name = "Proliferate Session Token"
+  description  = "Optional auth token shared by Proliferate runtime services."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  styling      = jsonencode({ mask_input = true })
+  icon         = "/icon/lock.svg"
+  order        = 82
+}
+
 data "coder_parameter" "enable_paseo" {
   name         = "enable_paseo"
   display_name = "Enable Paseo"
@@ -742,9 +802,12 @@ data "coder_parameter" "setup_script" {
 }
 
 locals {
-  user_env       = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
-  secret_env     = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
-  happy_home_dir = startswith(trimspace(data.coder_parameter.happy_home_dir.value), "~") ? "/home/coder${trimprefix(trimspace(data.coder_parameter.happy_home_dir.value), "~")}" : trimspace(data.coder_parameter.happy_home_dir.value)
+  user_env                  = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
+  secret_env                = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
+  happy_home_dir            = startswith(trimspace(data.coder_parameter.happy_home_dir.value), "~") ? "/home/coder${trimprefix(trimspace(data.coder_parameter.happy_home_dir.value), "~")}" : trimspace(data.coder_parameter.happy_home_dir.value)
+  proliferate_enabled       = data.coder_parameter.enable_proliferate.value
+  proliferate_port          = 20000
+  proliferate_opencode_port = 4096
   default_env = {
     MIX_HOME     = "/home/coder/.mix"
     HEX_HOME     = "/home/coder/.hex"
@@ -756,7 +819,7 @@ locals {
     HAPPY_HOME_DIR           = local.happy_home_dir
     HAPPY_DISABLE_CAFFEINATE = tostring(data.coder_parameter.happy_disable_caffeinate.value)
     HAPPY_EXPERIMENTAL       = tostring(data.coder_parameter.happy_experimental.value)
-    HAPPY_OPENCODE_PORT      = tostring(data.coder_parameter.happy_opencode_port.value)
+    HAPPY_OPENCODE_PORT      = tostring(local.proliferate_enabled ? local.proliferate_opencode_port : data.coder_parameter.happy_opencode_port.value)
   }
   combined_env             = merge(local.default_env, local.user_env, local.secret_env, local.happy_env)
   container_memory_mb      = data.coder_parameter.enable_resource_limits.value && length(data.coder_parameter.container_memory) > 0 && data.coder_parameter.container_memory[0].value > 0 ? data.coder_parameter.container_memory[0].value : 0
@@ -765,6 +828,7 @@ locals {
   container_swap_mb        = local.container_swap_enabled ? (local.container_swap_mb_input > 0 ? local.container_swap_mb_input : ceil(local.container_memory_mb * 0.5)) : 0
   container_memory_swap_mb = local.container_swap_enabled ? local.container_memory_mb + local.container_swap_mb : null
   project_dir              = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
+  opencode_attach_url      = local.proliferate_enabled ? "http://localhost:${local.proliferate_port}" : "http://localhost:4096"
   git_setup_script         = file("${path.module}/scripts/setup-git.sh")
   tmux_sessions_raw        = length(data.coder_parameter.tmux_sessions) > 0 ? data.coder_parameter.tmux_sessions[0].value : "default"
   tmux_sessions_clean      = [for session in split(",", local.tmux_sessions_raw) : trimspace(session) if trimspace(session) != ""]
@@ -825,7 +889,7 @@ EOF
 
 set -euo pipefail
 
-exec opencode attach http://localhost:4096 --dir . "$@"
+    exec opencode attach ${local.opencode_attach_url} --dir . "$@"
 
 # vim: set ft=sh
 EOF
@@ -900,7 +964,7 @@ EOF
 # Link OpenCode to Coder Tasks UI
 resource "coder_ai_task" "task" {
   count  = data.coder_workspace.me.start_count
-  app_id = module.opencode[count.index].task_app_id
+  app_id = try(module.proliferate[count.index].task_app_id, module.opencode[count.index].task_app_id)
 }
 
 # You can read the task prompt from the `coder_task` data source.
@@ -926,6 +990,44 @@ module "opencode" {
   post_install_script = data.coder_parameter.setup_script.value
 }
 
+module "proliferate" {
+  count  = data.coder_workspace.me.start_count > 0 && local.proliferate_enabled ? 1 : 0
+  source = "https://github.com/shekohex/proliferate/releases/download/coder-module-v0.1.0/proliferate-terraform-module.tgz//coder/modules/proliferate"
+
+  agent_id                  = coder_agent.main.id
+  workdir                   = local.project_dir
+  workspace_dir             = local.project_dir
+  display_name              = "Proliferate"
+  app_slug                  = "proliferate"
+  icon                      = "https://d1uh4o7rpdqkkl.cloudfront.net/logo.webp"
+  order                     = 999
+  group                     = null
+  subdomain                 = true
+  release_ref               = length(data.coder_parameter.proliferate_release_ref) > 0 ? data.coder_parameter.proliferate_release_ref[0].value : "coder-module-v0.1.0"
+  github_repository         = "shekohex/proliferate"
+  artifact_base_url         = ""
+  sandbox_daemon_asset_name = "proliferate-sandbox-daemon.cjs"
+  sandbox_mcp_asset_name    = "proliferate-sandbox-mcp.tgz"
+  install_sandbox_agent     = true
+  install_caddy             = true
+  caddy_version             = "2"
+  sandbox_agent_install_url = "https://releases.rivet.dev/sandbox-agent/0.2.28/install.sh"
+  install_opencode          = false
+  opencode_version          = "latest"
+  port                      = local.proliferate_port
+  opencode_port             = local.proliferate_opencode_port
+  sandbox_agent_port        = 2468
+  sandbox_daemon_port       = 8470
+  sandbox_mcp_port          = 4000
+  session_id                = length(data.coder_parameter.proliferate_session_id) > 0 ? data.coder_parameter.proliferate_session_id[0].value : ""
+  session_token             = length(data.coder_parameter.proliferate_session_token) > 0 ? data.coder_parameter.proliferate_session_token[0].value : ""
+  gateway_url               = length(data.coder_parameter.proliferate_gateway_url) > 0 ? data.coder_parameter.proliferate_gateway_url[0].value : ""
+  auth_json                 = data.coder_parameter.opencode_auth.value
+  config_json               = data.coder_parameter.opencode_config.value
+  pre_install_script        = null
+  post_install_script       = data.coder_parameter.setup_script.value != "" ? data.coder_parameter.setup_script.value : null
+}
+
 module "openchamber" {
   count = data.coder_workspace.me.start_count > 0 && contains([
     "php",
@@ -939,12 +1041,12 @@ module "openchamber" {
   agent_id              = coder_agent.main.id
   workdir               = local.project_dir
   ui_password           = data.coder_parameter.openchamber_ui_password.value
-  reuse_opencode_server = data.coder_parameter.openchamber_reuse_opencode.value
-  opencode_port         = data.coder_parameter.openchamber_opencode_port.value
+  reuse_opencode_server = local.proliferate_enabled ? true : data.coder_parameter.openchamber_reuse_opencode.value
+  opencode_port         = local.proliferate_enabled ? local.proliferate_opencode_port : data.coder_parameter.openchamber_opencode_port.value
   install_openchamber   = true
   order                 = 998
   subdomain             = true
-  depends_on            = [module.opencode]
+  depends_on            = [module.opencode, module.proliferate]
 }
 
 module "paseo" {
@@ -980,10 +1082,10 @@ module "happy_coder" {
   happy_home_dir           = data.coder_parameter.happy_home_dir.value
   happy_disable_caffeinate = data.coder_parameter.happy_disable_caffeinate.value
   happy_experimental       = data.coder_parameter.happy_experimental.value
-  opencode_port            = data.coder_parameter.happy_opencode_port.value
+  opencode_port            = local.proliferate_enabled ? local.proliferate_opencode_port : data.coder_parameter.happy_opencode_port.value
   install_happy_coder      = true
   order                    = 996
-  depends_on               = [module.opencode]
+  depends_on               = [module.opencode, module.proliferate]
 }
 
 module "openclaw_node" {
@@ -1012,7 +1114,7 @@ module "openclaw_node" {
     trimspace(data.coder_parameter.openclaw_gateway_token[0].value) != ""
   )
   order      = 997
-  depends_on = [module.opencode]
+  depends_on = [module.opencode, module.proliferate]
 }
 
 module "git-clone" {

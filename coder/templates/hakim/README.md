@@ -14,6 +14,7 @@ Pre-built DevContainer images for AI-powered development.
 
 - **Variants**: Base, PHP (Laravel), .NET, Node.js/Bun, Rust, or Custom Image
 - **AI Integration**: OpenCode agent with embedded web UI (port 4096)
+- **Optional Proliferate Runtime**: Caddy-fronted ACP bridge app on port 20000 backed by the released Proliferate module, alongside the standard OpenCode app
 - **MCP Support**: Task reporting via Coder MCP server
 - **Security**: Optional Vault integration, masked secrets
 - **Persistence**: `/home/coder` volume persisted
@@ -40,7 +41,7 @@ Pre-built DevContainer images for AI-powered development.
 
 ## OpenCode Integration
 
-This template uses the `opencode` module from the GitHub repository. The web UI is available on port 4096 with healthcheck at `/project/current`.
+This template always keeps the in-repo `opencode` module available. When `enable_proliferate` is enabled, it also imports the released Proliferate module from the GitHub release tarball and exposes the Proliferate gateway app in parallel.
 
 ## Docker Support (DooD)
 

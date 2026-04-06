@@ -43,8 +43,13 @@ The Coder control plane for that template should run on the custom `hakim-coder`
 | `persist_excludes` | Gitignore-style exclusions for `persist_paths` | generated config files |
 | `cache_paths` | Reproducible home paths restored through GitHub cache | editor/runtime caches |
 | `enable_et` | Enable ET-based resilient SSH transport | `true` |
+| `enable_proliferate` | Expose the Proliferate runtime gateway alongside the OpenCode app | `false` |
+| `proliferate_release_ref` | Proliferate runtime release tag | `coder-module-v0.1.0` |
+| `proliferate_gateway_url` | Optional Proliferate gateway URL | `""` |
 
 ## GitHub Actions Template Setup
+
+When `enable_proliferate = true`, the template imports the released Proliferate Coder module from the GitHub release tarball and exposes its Caddy-fronted app on port `20000` while keeping the standalone OpenCode app available on `4096`.
 
 - Install local tooling with `mise install` so `age` and `terraform` are available.
 - Generate the snapshot encryption key with `secret_key="$(mise exec -- age-keygen)"`.
