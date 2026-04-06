@@ -194,7 +194,7 @@ data "coder_parameter" "proliferate_release_ref" {
   display_name = "Proliferate Release Ref"
   description  = "Release tag that contains the Proliferate runtime assets."
   type         = "string"
-  default      = "coder-module-v0.1.6"
+  default      = "coder-module-v0.1.7"
   mutable      = true
   icon         = "https://d1uh4o7rpdqkkl.cloudfront.net/logo.webp"
   order        = 79
@@ -1452,7 +1452,7 @@ module "opencode" {
 
 module "proliferate" {
   count  = local.workspace_agent_count > 0 && local.proliferate_enabled ? 1 : 0
-  source = "https://github.com/shekohex/proliferate/releases/download/coder-module-v0.1.6/proliferate-terraform-module.tgz//coder/modules/proliferate"
+  source = "https://github.com/shekohex/proliferate/releases/download/coder-module-v0.1.7/proliferate-terraform-module.tgz//coder/modules/proliferate"
 
   agent_id                  = coder_agent.main[0].id
   workdir                   = local.project_dir
@@ -1463,7 +1463,7 @@ module "proliferate" {
   order                     = 999
   group                     = null
   subdomain                 = true
-  release_ref               = length(data.coder_parameter.proliferate_release_ref) > 0 ? data.coder_parameter.proliferate_release_ref[0].value : "coder-module-v0.1.6"
+  release_ref               = length(data.coder_parameter.proliferate_release_ref) > 0 ? data.coder_parameter.proliferate_release_ref[0].value : "coder-module-v0.1.7"
   github_repository         = "shekohex/proliferate"
   artifact_base_url         = ""
   sandbox_daemon_asset_name = "proliferate-sandbox-daemon.cjs"
