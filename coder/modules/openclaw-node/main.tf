@@ -45,7 +45,7 @@ variable "openclaw_version" {
   type        = string
   description = "The version of OpenClaw to install."
   # VERSION_UPDATE_BEGIN: openclaw
-  default     = "2026.4.15"
+  default     = "2026.4.20"
   # VERSION_UPDATE_END: openclaw
 }
 
