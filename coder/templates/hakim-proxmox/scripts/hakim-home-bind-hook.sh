@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-HOOK_VERSION="2026-05-17.3"
+HOOK_VERSION="2026-05-17.4"
 
 VMID="${1:-}"
 PHASE="${2:-}"
@@ -65,7 +65,33 @@ resize_home_volume_if_needed() {
   fi
 
   log "growing ${mount_key} home volume to ${requested_size_gb}G"
-  pct resize "${VMID}" "${mount_key}" "${requested_size_gb}G" >/dev/null
+  resize_output="$(pct resize "${VMID}" "${mount_key}" "${requested_size_gb}G" 2>&1)" || {
+    if [[ "${resize_output}" == *"already at specified size"* ]]; then
+      return
+    fi
+    printf '%s\n' "${resize_output}" >&2
+    return 1
+  }
+}
+
+prepare_home_volume() {
+  local volume_path="${1}"
+  local temp_mount
+
+  temp_mount="$(mktemp -d /tmp/hakim-home-prepare.XXXXXX)"
+  mount "${volume_path}" "${temp_mount}"
+  chown 100000:100000 "${temp_mount}"
+  install -d -o 100000 -g 100000 -m 0755 \
+    "${temp_mount}/project" \
+    "${temp_mount}/.config" \
+    "${temp_mount}/.config/mise" \
+    "${temp_mount}/.local" \
+    "${temp_mount}/.local/share" \
+    "${temp_mount}/.local/share/mise" \
+    "${temp_mount}/.local/share/docker"
+  sync
+  umount "${temp_mount}"
+  rmdir "${temp_mount}"
 }
 
 description="$(config_value description)"
@@ -180,6 +206,10 @@ if [[ -n "${home_spec}" ]]; then
       backup="1"
     fi
 
+    if [[ "${volume_id}" != /* ]]; then
+      prepare_home_volume "$(pvesm path "${volume_id}")"
+    fi
+
     existing_key="$(sed -n '/^mp[0-9]\+: /p' "${config_file}" | awk 'index($0, "mp=/home/coder,") || $0 ~ /mp=\/home\/coder$/ { sub(":", "", $1); print $1; exit }')"
     if [[ -n "${existing_key}" ]]; then
       existing_entry="$(sed -n "s/^${existing_key}: //p" "${config_file}")"
@@ -209,9 +239,11 @@ if [[ -n "${home_spec}" ]]; then
         done
       fi
       log "attaching ${volume_id} to /home/coder as ${target_key}"
-      set_mount_config "${target_key}" "${volume_id},mp=/home/coder,backup=${backup}"
       if [[ "${volume_id}" != /* ]]; then
+        set_mount_config "${target_key}" "${volume_id},mp=/home/coder,backup=${backup},size=${size_gb}G"
         resize_home_volume_if_needed "${target_key}" "${size_gb}"
+      else
+        set_mount_config "${target_key}" "${volume_id},mp=/home/coder,backup=${backup}"
       fi
     fi
   fi
