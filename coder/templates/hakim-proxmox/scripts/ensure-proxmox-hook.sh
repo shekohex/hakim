@@ -71,7 +71,7 @@ if [[ -n "${PVE_HOOKSCRIPT_SOURCE}" ]]; then
   upload_status="$(curl "${curl_flags[@]}" --output "${upload_file}" --write-out '%{http_code}' --request POST "${PVE_ENDPOINT}/api2/json/nodes/${PVE_NODE_NAME}/storage/${hook_storage}/upload" -b "PVEAuthCookie=${PVE_AUTH_COOKIE}" -H "CSRFPreventionToken: ${PVE_CSRF_TOKEN}" -F content=snippets -F "filename=@${PVE_HOOKSCRIPT_SOURCE};filename=${hook_name}")"
   upload_body="$(<"${upload_file}")"
   rm -f "${upload_file}"
-  if [[ "${upload_status}" -ge 400 && "${upload_body}" == *"value 'snippets' does not have a value in the enumeration"* ]]; then
+  if [[ "${upload_status}" -ge 400 && "${upload_body}" == *"value 'snippets'"* && "${upload_body}" == *"enumeration"* ]]; then
     printf 'hookscript upload skipped: storage upload API does not accept snippets\n' >&2
   elif [[ "${upload_status}" -ge 400 && "${upload_body}" != *"file already exists"* ]]; then
     printf 'HTTP POST hookscript upload failed: %s\n' "${upload_body}" >&2
