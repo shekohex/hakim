@@ -274,299 +274,6 @@ data "coder_parameter" "enable_et" {
   order        = 69
 }
 
-data "coder_parameter" "opencode_auth" {
-  name         = "opencode_auth"
-  display_name = "OpenCode Auth JSON"
-  description  = "Paste content of ~/.local/share/opencode/auth.json"
-  form_type    = "textarea"
-  type         = "string"
-  default      = "{}"
-  mutable      = true
-  styling      = jsonencode({ mask_input = true })
-  icon         = "https://opencode.ai/favicon.svg"
-  order        = 4
-}
-
-data "coder_parameter" "opencode_config" {
-  name         = "opencode_config"
-  display_name = "OpenCode Config JSON"
-  description  = "OpenCode JSON config. https://opencode.ai/docs/config/"
-  type         = "string"
-  form_type    = "textarea"
-  default      = "{}"
-  mutable      = true
-  icon         = "https://opencode.ai/favicon.svg"
-  order        = 5
-}
-
-data "coder_parameter" "openchamber_ui_password" {
-  name         = "openchamber_ui_password"
-  display_name = "OpenChamber UI Password"
-  description  = "Optional password for the OpenChamber UI."
-  type         = "string"
-  default      = ""
-  mutable      = true
-  styling      = jsonencode({ mask_input = true })
-  icon         = "https://raw.githubusercontent.com/btriapitsyn/openchamber/refs/heads/main/docs/references/badges/openchamber-logo-dark.svg"
-  order        = 6
-}
-
-data "coder_parameter" "openchamber_reuse_opencode" {
-  name         = "openchamber_reuse_opencode"
-  display_name = "OpenChamber: Reuse External OpenCode"
-  description  = "When enabled, OpenChamber will connect to an external OpenCode server instead of starting its own. All connections will share the same OpenCode state."
-  type         = "bool"
-  default      = true
-  mutable      = true
-  icon         = "https://opencode.ai/favicon.svg"
-  order        = 7
-}
-
-data "coder_parameter" "openchamber_opencode_port" {
-  name         = "openchamber_opencode_port"
-  display_name = "OpenChamber: OpenCode Server Port"
-  description  = "Port of the external OpenCode server to connect to (only used when 'Reuse External OpenCode' is enabled)."
-  type         = "number"
-  default      = 4096
-  mutable      = true
-  icon         = "https://opencode.ai/favicon.svg"
-  order        = 8
-}
-
-data "coder_parameter" "enable_proliferate" {
-  name         = "enable_proliferate"
-  display_name = "Enable Proliferate"
-  description  = "Run the Proliferate runtime bridge stack and expose it as the primary AI app."
-  type         = "bool"
-  default      = false
-  mutable      = true
-  icon         = "https://d1uh4o7rpdqkkl.cloudfront.net/logo.webp"
-  order        = 78
-}
-
-data "coder_parameter" "proliferate_release_ref" {
-  count        = data.coder_parameter.enable_proliferate.value ? 1 : 0
-  name         = "proliferate_release_ref"
-  display_name = "Proliferate Release Ref"
-  description  = "Release tag that contains the Proliferate runtime assets."
-  type         = "string"
-  default      = "coder-module-v0.1.8"
-  mutable      = true
-  icon         = "https://d1uh4o7rpdqkkl.cloudfront.net/logo.webp"
-  order        = 79
-}
-
-data "coder_parameter" "proliferate_gateway_url" {
-  count        = data.coder_parameter.enable_proliferate.value ? 1 : 0
-  name         = "proliferate_gateway_url"
-  display_name = "Proliferate Gateway URL"
-  description  = "Optional Proliferate gateway URL for session integrations."
-  type         = "string"
-  default      = ""
-  mutable      = true
-  icon         = "/icon/link.svg"
-  order        = 80
-}
-
-data "coder_parameter" "proliferate_session_id" {
-  count        = data.coder_parameter.enable_proliferate.value ? 1 : 0
-  name         = "proliferate_session_id"
-  display_name = "Proliferate Session ID"
-  description  = "Optional Proliferate session ID."
-  type         = "string"
-  default      = ""
-  mutable      = true
-  icon         = "/icon/tasks.svg"
-  order        = 81
-}
-
-data "coder_parameter" "proliferate_session_token" {
-  count        = data.coder_parameter.enable_proliferate.value ? 1 : 0
-  name         = "proliferate_session_token"
-  display_name = "Proliferate Session Token"
-  description  = "Optional auth token shared by Proliferate runtime services."
-  type         = "string"
-  default      = ""
-  mutable      = true
-  styling      = jsonencode({ mask_input = true })
-  icon         = "/icon/lock.svg"
-  order        = 82
-}
-
-data "coder_parameter" "enable_paseo" {
-  name         = "enable_paseo"
-  display_name = "Enable Paseo"
-  description  = "Install and start the Paseo daemon in this workspace."
-  type         = "bool"
-  default      = false
-  mutable      = true
-  icon         = "https://app.paseo.sh/favicon.ico"
-  order        = 9
-}
-
-data "coder_parameter" "paseo_version" {
-  name         = "paseo_version"
-  display_name = "Paseo Version"
-  description  = "The version of @getpaseo/cli to install."
-  type         = "string"
-  default      = "latest"
-  mutable      = true
-  icon         = "https://app.paseo.sh/favicon.ico"
-  order        = 10
-}
-
-data "coder_parameter" "paseo_tarball_url" {
-  name         = "paseo_tarball_url"
-  display_name = "Paseo Tarball URL"
-  description  = "Optional tarball URL for a built Paseo CLI package. When set, this overrides Paseo Version."
-  type         = "string"
-  default      = ""
-  mutable      = true
-  icon         = "https://app.paseo.sh/favicon.ico"
-  order        = 11
-}
-
-data "coder_parameter" "paseo_home_dir" {
-  name         = "paseo_home_dir"
-  display_name = "Paseo Home Dir"
-  description  = "Custom Paseo home directory. Supports ~ expansion."
-  type         = "string"
-  default      = "~/.paseo"
-  mutable      = true
-  icon         = "https://app.paseo.sh/favicon.ico"
-  order        = 12
-}
-
-data "coder_parameter" "paseo_config" {
-  name         = "paseo_config"
-  display_name = "Paseo Config JSON"
-  description  = "Paseo JSON config written to ~/.paseo/config.json before daemon start."
-  type         = "string"
-  form_type    = "textarea"
-  default      = <<-EOT
-{
-  "version": 1,
-  "daemon": {
-    "listen": "127.0.0.1:6767",
-    "cors": {
-      "allowedOrigins": [
-        "https://app.paseo.sh",
-        "https://paseo.0iq.xyz"
-      ]
-    },
-    "relay": {
-      "enabled": true
-    }
-  },
-  "app": {
-    "baseUrl": "https://paseo.0iq.xyz"
-  },
-  "features": {
-    "dictation": {
-      "enabled": false
-    },
-    "voiceMode": {
-      "enabled": false
-    }
-  },
-  "log": {
-    "level": "debug",
-    "format": "json"
-  }
-}
-EOT
-  mutable      = true
-  icon         = "https://app.paseo.sh/favicon.ico"
-  order        = 13
-}
-
-data "coder_parameter" "enable_happy" {
-  name         = "enable_happy"
-  display_name = "Enable Happy"
-  description  = "Install the Happy OpenCode manager in this workspace."
-  type         = "bool"
-  default      = false
-  icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 70
-}
-
-data "coder_parameter" "happy_coder_version" {
-  name         = "happy_coder_version"
-  display_name = "Happy Version"
-  description  = "The npm version or dist-tag of happy-coder to install."
-  type         = "string"
-  default      = "0.15.0-beta.0"
-  mutable      = true
-  icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 71
-}
-
-data "coder_parameter" "happy_server_url" {
-  name         = "happy_server_url"
-  display_name = "Happy Server URL"
-  description  = "Custom Happy server URL."
-  type         = "string"
-  default      = "https://api.cluster-fluster.com"
-  mutable      = true
-  icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 72
-}
-
-data "coder_parameter" "happy_webapp_url" {
-  name         = "happy_webapp_url"
-  display_name = "Happy Web App URL"
-  description  = "Custom Happy web app URL."
-  type         = "string"
-  default      = "https://app.happy.engineering"
-  mutable      = true
-  icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 73
-}
-
-data "coder_parameter" "happy_home_dir" {
-  name         = "happy_home_dir"
-  display_name = "Happy Home Dir"
-  description  = "Custom Happy home directory. Supports ~ expansion."
-  type         = "string"
-  default      = "~/.happy"
-  mutable      = true
-  icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 74
-}
-
-data "coder_parameter" "happy_disable_caffeinate" {
-  name         = "happy_disable_caffeinate"
-  display_name = "Happy Disable Caffeinate"
-  description  = "Disable Happy macOS sleep prevention."
-  type         = "bool"
-  default      = false
-  mutable      = true
-  icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 75
-}
-
-data "coder_parameter" "happy_experimental" {
-  name         = "happy_experimental"
-  display_name = "Happy Experimental"
-  description  = "Enable Happy experimental features."
-  type         = "bool"
-  default      = false
-  mutable      = true
-  icon         = "https://app.happy.engineering/favicon.ico"
-  order        = 76
-}
-
-data "coder_parameter" "happy_opencode_port" {
-  name         = "happy_opencode_port"
-  display_name = "Happy: OpenCode Server Port"
-  description  = "Port of the running OpenCode server Happy should attach to via ACP."
-  type         = "number"
-  default      = 4096
-  mutable      = true
-  icon         = "https://opencode.ai/favicon.svg"
-  order        = 77
-}
-
 data "coder_parameter" "enable_openclaw_node" {
   name         = "enable_openclaw_node"
   display_name = "Enable OpenClaw Node Host"
@@ -802,33 +509,20 @@ data "coder_parameter" "setup_script" {
 }
 
 locals {
-  user_env                  = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
-  secret_env                = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
-  happy_home_dir            = startswith(trimspace(data.coder_parameter.happy_home_dir.value), "~") ? "/home/coder${trimprefix(trimspace(data.coder_parameter.happy_home_dir.value), "~")}" : trimspace(data.coder_parameter.happy_home_dir.value)
-  proliferate_enabled       = data.coder_parameter.enable_proliferate.value
-  proliferate_port          = 20000
-  proliferate_opencode_port = 4096
+  user_env   = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
+  secret_env = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
   default_env = {
     MIX_HOME     = "/home/coder/.mix"
     HEX_HOME     = "/home/coder/.hex"
     MIX_ARCHIVES = "/home/coder/.mix/archives"
   }
-  happy_env = {
-    HAPPY_SERVER_URL         = data.coder_parameter.happy_server_url.value
-    HAPPY_WEBAPP_URL         = data.coder_parameter.happy_webapp_url.value
-    HAPPY_HOME_DIR           = local.happy_home_dir
-    HAPPY_DISABLE_CAFFEINATE = tostring(data.coder_parameter.happy_disable_caffeinate.value)
-    HAPPY_EXPERIMENTAL       = tostring(data.coder_parameter.happy_experimental.value)
-    HAPPY_OPENCODE_PORT      = tostring(local.proliferate_enabled ? local.proliferate_opencode_port : data.coder_parameter.happy_opencode_port.value)
-  }
-  combined_env             = merge(local.default_env, local.user_env, local.secret_env, local.happy_env)
+  combined_env             = merge(local.default_env, local.user_env, local.secret_env)
   container_memory_mb      = data.coder_parameter.enable_resource_limits.value && length(data.coder_parameter.container_memory) > 0 && data.coder_parameter.container_memory[0].value > 0 ? data.coder_parameter.container_memory[0].value : 0
   container_swap_enabled   = local.container_memory_mb > 0 && length(data.coder_parameter.enable_container_swap) > 0 ? data.coder_parameter.enable_container_swap[0].value : false
   container_swap_mb_input  = local.container_swap_enabled && length(data.coder_parameter.container_swap_mb) > 0 ? data.coder_parameter.container_swap_mb[0].value : 0
   container_swap_mb        = local.container_swap_enabled ? (local.container_swap_mb_input > 0 ? local.container_swap_mb_input : ceil(local.container_memory_mb * 0.5)) : 0
   container_memory_swap_mb = local.container_swap_enabled ? local.container_memory_mb + local.container_swap_mb : null
   project_dir              = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
-  opencode_attach_url      = local.proliferate_enabled ? "http://localhost:${local.proliferate_port}" : "http://localhost:4096"
   git_setup_script         = file("${path.module}/scripts/setup-git.sh")
   tmux_sessions_raw        = length(data.coder_parameter.tmux_sessions) > 0 ? data.coder_parameter.tmux_sessions[0].value : "default"
   tmux_sessions_clean      = [for session in split(",", local.tmux_sessions_raw) : trimspace(session) if trimspace(session) != ""]
@@ -883,17 +577,6 @@ EOF
     fi
 
     printf '\nalias vim=nvim\n' >> ~/.bashrc
-
-    cat > ~/.local/bin/oca <<'EOF'
-#!/usr/bin/env bash
-
-set -euo pipefail
-
-    exec opencode attach ${local.opencode_attach_url} --dir . "$@"
-
-# vim: set ft=sh
-EOF
-    chmod +x ~/.local/bin/oca
 
     lazyvim_seed_src="/opt/hakim/lazyvim/nvim"
     lazyvim_seed_lock="$HOME/.local/share/hakim/lazyvim.seeded"
@@ -961,130 +644,9 @@ EOF
   }
 }
 
-# Link OpenCode to Coder Tasks UI
-resource "coder_ai_task" "task" {
-  count  = data.coder_workspace.me.start_count
-  app_id = try(module.proliferate[count.index].task_app_id, module.opencode[count.index].task_app_id)
-}
-
-# You can read the task prompt from the `coder_task` data source.
-data "coder_task" "me" {}
-
 # ------------------------------------------------------------------------------
 # Modules (Apps & Tools)
 # ------------------------------------------------------------------------------
-
-module "opencode" {
-  count               = data.coder_workspace.me.start_count
-  source              = "github.com/shekohex/hakim//coder/modules/opencode?ref=main"
-  agent_id            = coder_agent.main.id
-  workdir             = local.project_dir
-  auth_json           = data.coder_parameter.opencode_auth.value
-  config_json         = data.coder_parameter.opencode_config.value
-  install_opencode    = true
-  order               = 999
-  cli_app             = true
-  report_tasks        = true
-  subdomain           = true
-  ai_prompt           = trimspace(data.coder_task.me.prompt) != "" ? trimspace("${data.coder_parameter.system_prompt.value}\n${data.coder_task.me.prompt}") : ""
-  post_install_script = data.coder_parameter.setup_script.value
-}
-
-module "proliferate" {
-  count  = data.coder_workspace.me.start_count > 0 && local.proliferate_enabled ? 1 : 0
-  source = "https://github.com/shekohex/proliferate/releases/download/coder-module-v0.1.8/proliferate-terraform-module.tgz//coder/modules/proliferate"
-
-  agent_id                  = coder_agent.main.id
-  workdir                   = local.project_dir
-  workspace_dir             = local.project_dir
-  display_name              = "Proliferate"
-  app_slug                  = "proliferate"
-  icon                      = "https://d1uh4o7rpdqkkl.cloudfront.net/logo.webp"
-  order                     = 999
-  group                     = null
-  subdomain                 = true
-  release_ref               = length(data.coder_parameter.proliferate_release_ref) > 0 ? data.coder_parameter.proliferate_release_ref[0].value : "coder-module-v0.1.8"
-  github_repository         = "shekohex/proliferate"
-  artifact_base_url         = ""
-  sandbox_daemon_asset_name = "proliferate-sandbox-daemon.cjs"
-  sandbox_mcp_asset_name    = "proliferate-sandbox-mcp.tgz"
-  install_sandbox_agent     = true
-  install_caddy             = true
-  install_opencode          = false
-  opencode_version          = "latest"
-  port                      = local.proliferate_port
-  opencode_port             = local.proliferate_opencode_port
-  sandbox_agent_port        = 2468
-  sandbox_daemon_port       = 8470
-  sandbox_mcp_port          = 4000
-  session_id                = length(data.coder_parameter.proliferate_session_id) > 0 ? data.coder_parameter.proliferate_session_id[0].value : ""
-  session_token             = length(data.coder_parameter.proliferate_session_token) > 0 ? data.coder_parameter.proliferate_session_token[0].value : ""
-  gateway_url               = length(data.coder_parameter.proliferate_gateway_url) > 0 ? data.coder_parameter.proliferate_gateway_url[0].value : ""
-  auth_json                 = data.coder_parameter.opencode_auth.value
-  config_json               = data.coder_parameter.opencode_config.value
-  pre_install_script        = null
-  post_install_script       = data.coder_parameter.setup_script.value != "" ? data.coder_parameter.setup_script.value : null
-}
-
-module "openchamber" {
-  count = data.coder_workspace.me.start_count > 0 && contains([
-    "php",
-    "dotnet",
-    "js",
-    "rust",
-    "android",
-    "elixir"
-  ], data.coder_parameter.image_variant.value) ? 1 : 0
-  source                = "github.com/shekohex/hakim//coder/modules/openchamber?ref=main"
-  agent_id              = coder_agent.main.id
-  workdir               = local.project_dir
-  ui_password           = data.coder_parameter.openchamber_ui_password.value
-  reuse_opencode_server = local.proliferate_enabled ? true : data.coder_parameter.openchamber_reuse_opencode.value
-  opencode_port         = local.proliferate_enabled ? local.proliferate_opencode_port : data.coder_parameter.openchamber_opencode_port.value
-  install_openchamber   = true
-  order                 = 998
-  subdomain             = true
-  depends_on            = [module.opencode, module.proliferate]
-}
-
-module "paseo" {
-  count = (
-    data.coder_workspace.me.start_count > 0 &&
-    data.coder_parameter.enable_paseo.value &&
-    contains(["php", "dotnet", "js", "rust", "android", "elixir"], data.coder_parameter.image_variant.value)
-  ) ? 1 : 0
-
-  source            = "github.com/shekohex/hakim//coder/modules/paseo?ref=main"
-  agent_id          = coder_agent.main.id
-  workdir           = local.project_dir
-  paseo_version     = data.coder_parameter.paseo_version.value
-  paseo_tarball_url = data.coder_parameter.paseo_tarball_url.value
-  paseo_home_dir    = data.coder_parameter.paseo_home_dir.value
-  config_json       = data.coder_parameter.paseo_config.value
-  install_paseo     = true
-  order             = 997
-}
-
-module "happy_coder" {
-  count = (
-    data.coder_workspace.me.start_count > 0 &&
-    data.coder_parameter.enable_happy.value &&
-    contains(["php", "dotnet", "js", "rust", "android", "elixir"], data.coder_parameter.image_variant.value)
-  ) ? 1 : 0
-  source                   = "github.com/shekohex/hakim//coder/modules/happy-coder?ref=main"
-  agent_id                 = coder_agent.main.id
-  workdir                  = local.project_dir
-  happy_coder_version      = data.coder_parameter.happy_coder_version.value
-  happy_server_url         = data.coder_parameter.happy_server_url.value
-  happy_webapp_url         = data.coder_parameter.happy_webapp_url.value
-  happy_home_dir           = data.coder_parameter.happy_home_dir.value
-  happy_disable_caffeinate = data.coder_parameter.happy_disable_caffeinate.value
-  happy_experimental       = data.coder_parameter.happy_experimental.value
-  opencode_port            = local.proliferate_enabled ? local.proliferate_opencode_port : data.coder_parameter.happy_opencode_port.value
-  install_happy_coder      = true
-  order                    = 996
-  depends_on               = [module.opencode, module.proliferate]
-}
 
 module "openclaw_node" {
   count = (
@@ -1111,8 +673,7 @@ module "openclaw_node" {
     length(data.coder_parameter.openclaw_gateway_token) > 0 &&
     trimspace(data.coder_parameter.openclaw_gateway_token[0].value) != ""
   )
-  order      = 997
-  depends_on = [module.opencode, module.proliferate]
+  order = 997
 }
 
 module "git-clone" {

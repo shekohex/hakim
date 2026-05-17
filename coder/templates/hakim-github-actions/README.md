@@ -13,8 +13,7 @@ Run Hakim workspaces inside GitHub Actions using the published GHCR images.
 ## What you get
 
 - Existing Hakim images (`ghcr.io/shekohex/hakim-<variant>:latest`)
-- OpenCode, OpenChamber, code-server, tmux, Zed, ET, and the existing Git helpers
-- Optional Proliferate runtime gateway imported from the released module tarball alongside the OpenCode app
+- code-server, tmux, Zed, ET, and the existing Git helpers
 - Encrypted allowlisted home snapshots restored from GitHub Actions artifacts
 - Reproducible cache paths restored through GitHub cache
 - `GH_TOKEN` injected from `secret_env.GITHUB_API_TOKEN` inside the workspace container

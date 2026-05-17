@@ -1,6 +1,6 @@
 # Hakim: Universal Coder Templates
 
-Hakim provides Coder templates and prebuilt DevContainer images for AI-assisted development across multiple language stacks.
+Hakim provides Coder templates and prebuilt DevContainer images across multiple language stacks.
 
 ## DevContainer Images
 
@@ -34,8 +34,6 @@ The Coder control plane for that template should run on the custom `hakim-coder`
 | `image_variant` | Workspace image variant | `base` |
 | `git_url` | Repository to clone on startup | `""` |
 | `git_branch` | Branch to clone and validate for yield flow | `"main"` |
-| `opencode_auth` | OpenCode auth JSON | `{}` |
-| `opencode_config` | OpenCode config JSON | `{}` |
 | `default_env` / `secret_env` | Environment variable injection | `{}` |
 | `preview_port` | Preview app port | `3000` |
 | `setup_script` | Startup shell script | `""` |
@@ -43,13 +41,8 @@ The Coder control plane for that template should run on the custom `hakim-coder`
 | `persist_excludes` | Gitignore-style exclusions for `persist_paths` | generated config files |
 | `cache_paths` | Reproducible home paths restored through GitHub cache | editor/runtime caches |
 | `enable_et` | Enable ET-based resilient SSH transport | `true` |
-| `enable_proliferate` | Expose the Proliferate runtime gateway alongside the OpenCode app | `false` |
-| `proliferate_release_ref` | Proliferate runtime release tag | `coder-module-v0.1.0` |
-| `proliferate_gateway_url` | Optional Proliferate gateway URL | `""` |
 
 ## GitHub Actions Template Setup
-
-When `enable_proliferate = true`, the template imports the released Proliferate Coder module from the GitHub release tarball and exposes its Caddy-fronted app on port `20000` while keeping the standalone OpenCode app available on `4096`.
 
 - Install local tooling with `mise install` so `age` and `terraform` are available.
 - Generate the snapshot encryption key with `secret_key="$(mise exec -- age-keygen)"`.
@@ -108,47 +101,6 @@ References:
 - ET docs/install: https://github.com/MisterTea/EternalTerminal
 - Coder docs: https://coder.com/docs
 - ET module details and FAQ: `coder/modules/et/README.md`
-
-## Local OpenCode Attach Helper
-
-Install on your developer machine:
-
-```bash
-mkdir -p ~/.local/bin
-curl -fsSL https://raw.githubusercontent.com/shekohex/hakim/main/scripts/oca.sh -o ~/.local/bin/oca
-chmod 0755 ~/.local/bin/oca
-```
-
-Local prerequisites:
-
-- `coder` CLI
-- `opencode`
-- `curl`
-
-Examples:
-
-```bash
-oca list
-oca list --verbose
-oca doctor
-oca doctor my-workspace
-oca status my-workspace
-oca --verbose my-workspace
-oca my-workspace
-oca my-workspace --dir api
-oca my-workspace --dir ~/project/foo --tcp 3000:3000
-oca my-workspace --dir services/api run "fix the failing tests"
-```
-
-Commands:
-
-- `oca list` proxies to `coder list`
-- `oca doctor [workspace]` checks local tooling, Coder auth, and optional workspace/OpenCode reachability
-- `oca status <workspace>` shows `coder show` output plus OpenCode health
-
-`--dir` maps to remote workspace paths: absolute paths stay absolute, `~/...` expands to `/home/coder/...`, and relative paths resolve from `/home/coder/project`.
-`--tcp` uses the same syntax and local:remote ordering as `coder port-forward --tcp`.
-`--verbose` prints wrapper steps and keeps temp logs/state for debugging.
 
 ## Build
 

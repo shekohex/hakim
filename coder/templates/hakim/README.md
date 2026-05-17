@@ -1,6 +1,6 @@
 ---
 display_name: Hakim AI
-description: Universal Coder template with OpenCode agent and multiple language variants
+description: Universal Coder template with multiple language variants
 icon: https://cdn.simpleicons.org/kongregate?viewbox=auto
 verified: true
 tags: [docker, container, ai]
@@ -13,9 +13,6 @@ Pre-built DevContainer images for AI-powered development.
 ## Features
 
 - **Variants**: Base, PHP (Laravel), .NET, Node.js/Bun, Rust, or Custom Image
-- **AI Integration**: OpenCode agent with embedded web UI (port 4096)
-- **Optional Proliferate Runtime**: Caddy-fronted ACP bridge app on port 20000 backed by the released Proliferate module, alongside the standard OpenCode app
-- **MCP Support**: Task reporting via Coder MCP server
 - **Security**: Optional Vault integration, masked secrets
 - **Persistence**: `/home/coder` volume persisted
 - **Resilient SSH (Optional)**: ET transport with loopback `etserver:2022` + internal `sshd:2244`
@@ -24,8 +21,7 @@ Pre-built DevContainer images for AI-powered development.
 
 1. Select "Hakim Universal" template
 2. Choose environment variant
-3. (Optional) Paste `auth.json` for OpenCode authentication
-4. (Optional) Provide Git URL to auto-clone
+3. (Optional) Provide Git URL to auto-clone
 
 ## ET SSH Mode
 
@@ -38,10 +34,6 @@ Pre-built DevContainer images for AI-powered development.
 - Node.js/Bun Quick Start
 - Rust Quick Start
 - Minimal Environment
-
-## OpenCode Integration
-
-This template always keeps the in-repo `opencode` module available. When `enable_proliferate` is enabled, it also imports the released Proliferate module from the GitHub release tarball and exposes the Proliferate gateway app in parallel.
 
 ## Docker Support (DooD)
 
