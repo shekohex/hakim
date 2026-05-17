@@ -27,6 +27,9 @@ config_value() {
 }
 
 description="$(config_value description)"
+if [[ -z "${description}" ]]; then
+  description="$(sed -n 's/^#//p' "${config_file}" | head -n 1)"
+fi
 home_spec="$(printf '%s' "${description}" | sed -n 's/.*hakim_home=\([^ ]*\).*/\1/p')"
 
 if [[ -n "${home_spec}" ]]; then
@@ -86,8 +89,9 @@ if [[ -n "${home_spec}" ]]; then
       volume_name="vm-${VMID}-hakim-home-${owner_slug}-${workspace_slug}"
       volume_name="$(printf '%s' "${volume_name}" | tr -c 'A-Za-z0-9_.-' '-')"
       volume_id="${datastore}:${volume_name}"
-      if ! pvesm path "${volume_id}" >/dev/null 2>&1; then
+      if ! pvesm path "${volume_id}" >/dev/null 2>&1 || [[ ! -e "$(pvesm path "${volume_id}" 2>/dev/null || true)" ]]; then
         log "allocating ${volume_id} size=${size_gb}G"
+        pvesm free "${volume_id}" >/dev/null 2>&1 || true
         pvesm alloc "${datastore}" "${VMID}" "${volume_name}" "${size_gb}G" >/dev/null
       fi
 
@@ -110,9 +114,9 @@ if [[ -n "${home_spec}" ]]; then
       if [[ -d "${legacy_source}" ]] && find "${legacy_source}" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
         log "copying legacy home ${legacy_source} to ${volume_id}; source stays untouched"
         if command -v rsync >/dev/null 2>&1; then
-          rsync -aHAX --numeric-ids "${legacy_source}/" "${temp_mount}/"
+          rsync -aHAX --numeric-ids --exclude='/.local/share/docker' --exclude='/.local/share/docker.old' "${legacy_source}/" "${temp_mount}/"
         else
-          cp -a "${legacy_source}/." "${temp_mount}/"
+          tar --exclude='./.local/share/docker' --exclude='./.local/share/docker.old' -C "${legacy_source}" -cf - . | tar -C "${temp_mount}" -xf -
         fi
         install -d -m 0755 "${registry_dir}"
         printf '%s\n' "${legacy_source}" >"${source_path_file}"
@@ -128,7 +132,7 @@ if [[ -n "${home_spec}" ]]; then
       backup="1"
     fi
 
-    existing_key="$(sed -n '/^mp[0-9]\+: /p' "${config_file}" | awk -v path='mp=/home/coder' 'index($0, path) { sub(":", "", $1); print $1; exit }')"
+    existing_key="$(sed -n '/^mp[0-9]\+: /p' "${config_file}" | awk 'index($0, "mp=/home/coder,") || $0 ~ /mp=\/home\/coder$/ { sub(":", "", $1); print $1; exit }')"
     if [[ -n "${existing_key}" ]]; then
       existing_entry="$(sed -n "s/^${existing_key}: //p" "${config_file}")"
       existing_source="${existing_entry%%,*}"
