@@ -962,7 +962,7 @@ data "coder_parameter" "container_disk_gb" {
 data "coder_parameter" "enable_home_disk" {
   name         = "enable_home_disk"
   display_name = "Enable Home Persistence"
-  description  = "Persist /home/coder using a host bind mount (includes Docker cache persistence)."
+  description  = "Persist /home/coder using lifecycle-safe Proxmox storage independent from CT replacement."
   type         = "bool"
   default      = false
   icon         = "https://esm.sh/lucide-static@latest/icons/hard-drive.svg"
@@ -972,8 +972,8 @@ data "coder_parameter" "enable_home_disk" {
 data "coder_parameter" "home_disk_gb" {
   count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
   name         = "home_disk_gb"
-  display_name = "Home Size Hint (GB)"
-  description  = "Used only when mounting an existing volume id; ignored for auto bind persistence."
+  display_name = "Home Size (GB)"
+  description  = "Initial size for auto-created lifecycle-safe home volumes. Existing volumes are not resized."
   type         = "number"
   default      = 30
   mutable      = true
@@ -984,10 +984,10 @@ data "coder_parameter" "home_disk_gb" {
 data "coder_parameter" "proxmox_home_datastore_id" {
   count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
   name         = "proxmox_home_datastore_id"
-  display_name = "Home Datastore (Legacy)"
-  description  = "Legacy compatibility only; auto bind persistence ignores this value."
+  display_name = "Home Datastore"
+  description  = "Proxmox storage used for persistent home volumes. Defaults to NVMe-backed local-lvm."
   type         = "string"
-  default      = ""
+  default      = "local-lvm"
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/database.svg"
   order        = 58
@@ -997,12 +997,39 @@ data "coder_parameter" "proxmox_home_volume_id" {
   count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
   name         = "proxmox_home_volume_id"
   display_name = "Existing Home Mount Source"
-  description  = "Optional existing mount source for /home/coder (volume id or absolute bind path)."
+  description  = "Optional existing mount source for /home/coder (Proxmox volume id or explicit absolute bind path). Empty creates/reuses lifecycle-safe local-lvm volume."
   type         = "string"
   default      = ""
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
   order        = 59
+}
+
+data "coder_parameter" "home_migration_mode" {
+  count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
+  name         = "home_migration_mode"
+  display_name = "Home Migration Mode"
+  description  = "Controls migration from legacy bind paths to local-lvm. Safe default copies data and keeps the old source."
+  type         = "string"
+  default      = "copy_keep_source"
+  mutable      = true
+  icon         = "https://esm.sh/lucide-static@latest/icons/copy.svg"
+  order        = 60
+
+  option {
+    name  = "Copy and keep source"
+    value = "copy_keep_source"
+  }
+
+  option {
+    name  = "Disabled"
+    value = "disabled"
+  }
+
+  option {
+    name  = "Fail if legacy source exists"
+    value = "fail_if_legacy_source_exists"
+  }
 }
 
 data "coder_parameter" "proxmox_home_bind_hook_script_id" {
@@ -1014,7 +1041,7 @@ data "coder_parameter" "proxmox_home_bind_hook_script_id" {
   default      = "local:snippets/hakim-home-bind-hook.sh"
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/file-code.svg"
-  order        = 60
+  order        = 64
 }
 
 data "coder_parameter" "enable_docker_data_offload" {
@@ -1135,14 +1162,12 @@ locals {
 
   home_disk_enabled          = data.coder_parameter.enable_home_disk.value
   home_volume_id             = length(data.coder_parameter.proxmox_home_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_home_volume_id[0].value) : ""
-  use_existing_home_volume   = local.home_volume_id != ""
-  home_bind_mount_enabled    = local.home_disk_enabled && !local.use_existing_home_volume
+  home_datastore_id          = length(data.coder_parameter.proxmox_home_datastore_id) > 0 && trimspace(data.coder_parameter.proxmox_home_datastore_id[0].value) != "" ? trimspace(data.coder_parameter.proxmox_home_datastore_id[0].value) : "local-lvm"
+  home_migration_mode        = length(data.coder_parameter.home_migration_mode) > 0 ? data.coder_parameter.home_migration_mode[0].value : "copy_keep_source"
   home_owner_slug            = replace(replace(replace(lower(trimspace(data.coder_workspace_owner.me.name)), "/", "-"), " ", "-"), ":", "-")
   home_workspace_slug        = replace(replace(replace(lower(trimspace(data.coder_workspace.me.name)), "/", "-"), " ", "-"), ":", "-")
-  home_bind_path             = "/var/lib/vz/hakim-homes/${local.home_owner_slug}/${local.home_workspace_slug}"
-  home_mount_source          = local.use_existing_home_volume ? local.home_volume_id : local.home_bind_path
-  home_mount_is_bind         = startswith(local.home_mount_source, "/")
-  home_requires_root_session = local.home_disk_enabled && local.home_mount_is_bind
+  home_mount_is_bind         = local.home_disk_enabled && startswith(local.home_volume_id, "/")
+  home_requires_root_session = false
 
   docker_data_offload_enabled  = data.coder_parameter.enable_docker_data_offload.value
   docker_volume_id             = length(data.coder_parameter.proxmox_docker_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_docker_volume_id[0].value) : ""
@@ -1154,7 +1179,7 @@ locals {
   docker_requires_root_session = local.docker_data_offload_enabled && local.docker_mount_is_bind
 
   requires_root_session   = local.home_requires_root_session || local.docker_requires_root_session
-  bind_mount_hook_enabled = local.home_bind_mount_enabled || local.docker_bind_mount_enabled
+  bind_mount_hook_enabled = local.home_mount_is_bind || local.docker_bind_mount_enabled
 
   project_dir         = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   opencode_attach_url = local.proliferate_enabled ? "http://localhost:${local.proliferate_port}" : "http://localhost:4096"
@@ -1319,13 +1344,13 @@ resource "proxmox_virtual_environment_container" "workspace" {
     }
 
     precondition {
-      condition     = !local.bind_mount_hook_enabled || trimspace(data.coder_parameter.proxmox_home_bind_hook_script_id[0].value) != ""
-      error_message = "Set proxmox_home_bind_hook_script_id to a valid Proxmox hookscript volume id when using auto bind persistence."
+      condition     = data.coder_parameter.image_variant.value != "custom" || trimspace(data.coder_parameter.custom_template_file_id[0].value) != ""
+      error_message = "custom_template_file_id must be set when image_variant is custom."
     }
 
     precondition {
-      condition     = data.coder_parameter.image_variant.value != "custom" || trimspace(data.coder_parameter.custom_template_file_id[0].value) != ""
-      error_message = "custom_template_file_id must be set when image_variant is custom."
+      condition     = !local.bind_mount_hook_enabled || trimspace(data.coder_parameter.proxmox_home_bind_hook_script_id[0].value) != ""
+      error_message = "Set proxmox_home_bind_hook_script_id to a valid Proxmox hookscript volume id when using auto bind persistence."
     }
 
   }
@@ -1341,28 +1366,6 @@ resource "proxmox_virtual_environment_container" "workspace" {
   disk {
     datastore_id = data.coder_parameter.proxmox_container_datastore_id.value
     size         = data.coder_parameter.container_disk_gb.value
-  }
-
-  dynamic "mount_point" {
-    for_each = local.home_disk_enabled && !local.home_mount_is_bind ? [1] : []
-
-    content {
-      path   = "/home/coder"
-      volume = local.home_mount_source
-      size   = null
-      backup = local.home_mount_is_bind ? false : true
-    }
-  }
-
-  dynamic "mount_point" {
-    for_each = local.docker_data_offload_enabled && !local.docker_mount_is_bind ? [1] : []
-
-    content {
-      path   = "/home/coder/.local/share/docker"
-      volume = local.docker_mount_source
-      size   = null
-      backup = local.docker_mount_is_bind ? false : true
-    }
   }
 
   operating_system {
@@ -1397,6 +1400,53 @@ resource "proxmox_virtual_environment_container" "workspace" {
 
 }
 
+resource "terraform_data" "home_volume_attach" {
+  count = local.home_disk_enabled ? 1 : 0
+
+  triggers_replace = {
+    node_name      = data.coder_parameter.proxmox_node_name.value
+    vm_id          = tostring(proxmox_virtual_environment_container.workspace.vm_id)
+    owner_slug     = local.home_owner_slug
+    workspace_slug = local.home_workspace_slug
+    datastore_id   = local.home_datastore_id
+    home_volume_id = local.home_volume_id
+    size_gb        = tostring(data.coder_parameter.home_disk_gb[0].value)
+    migration_mode = local.home_migration_mode
+  }
+
+  provisioner "local-exec" {
+    command = "bash ${path.module}/scripts/ensure-home-volume.sh"
+
+    environment = {
+      PVE_NODE_NAME             = data.coder_parameter.proxmox_node_name.value
+      PVE_VM_ID                 = tostring(proxmox_virtual_environment_container.workspace.vm_id)
+      PVE_HOME_DATASTORE        = local.home_datastore_id
+      PVE_HOME_VOLUME_ID        = local.home_volume_id
+      HAKIM_OWNER_SLUG          = local.home_owner_slug
+      HAKIM_WORKSPACE_SLUG      = local.home_workspace_slug
+      HAKIM_HOME_SIZE_GB        = tostring(data.coder_parameter.home_disk_gb[0].value)
+      HAKIM_REGISTRY_ROOT       = "/var/lib/hakim/workspace-volumes"
+      HAKIM_LEGACY_HOME_ROOT    = "/var/lib/vz/hakim-homes"
+      HAKIM_HOME_MIGRATION_MODE = local.home_migration_mode
+    }
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "bash ${path.module}/scripts/detach-home-volume.sh"
+
+    environment = {
+      PVE_NODE_NAME        = self.triggers_replace.node_name
+      PVE_VM_ID            = self.triggers_replace.vm_id
+      HAKIM_OWNER_SLUG     = self.triggers_replace.owner_slug
+      HAKIM_WORKSPACE_SLUG = self.triggers_replace.workspace_slug
+      HAKIM_REGISTRY_ROOT  = "/var/lib/hakim/workspace-volumes"
+    }
+  }
+
+  depends_on = [proxmox_virtual_environment_container.workspace]
+}
+
 resource "terraform_data" "workspace_agent_env" {
   count = local.workspace_agent_count
 
@@ -1407,7 +1457,7 @@ resource "terraform_data" "workspace_agent_env" {
     insecure        = tostring(data.coder_parameter.proxmox_insecure.value)
     agent_token_sha = sha256(coder_agent.main[0].token)
     env_sha         = local.container_runtime_env_sha
-    home_source     = local.home_mount_is_bind ? local.home_mount_source : ""
+    home_attached   = tostring(local.home_disk_enabled)
     docker_source   = local.docker_mount_is_bind ? local.docker_mount_source : ""
   }
 
@@ -1425,12 +1475,12 @@ resource "terraform_data" "workspace_agent_env" {
       CT_AGENT_BOOTSTRAP = local.container_agent_bootstrap
       CT_RUNTIME_ENV_B64 = local.container_runtime_env_b64
       CT_RUNTIME_ENV_SHA = local.container_runtime_env_sha
-      PVE_HOME_SOURCE    = local.home_mount_is_bind ? local.home_mount_source : ""
+      PVE_HOME_SOURCE    = ""
       PVE_DOCKER_SOURCE  = local.docker_mount_is_bind ? local.docker_mount_source : ""
     }
   }
 
-  depends_on = [proxmox_virtual_environment_container.workspace]
+  depends_on = [proxmox_virtual_environment_container.workspace, terraform_data.home_volume_attach]
 }
 
 module "opencode" {

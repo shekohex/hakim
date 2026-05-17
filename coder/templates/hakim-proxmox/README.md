@@ -18,7 +18,7 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 4. Provisioner-side post-create agent bootstrap is applied through `scripts/bootstrap-agent-env.sh` using bash+curl (no python dependency).
 5. Template runs the same module stack used by Docker template (`opencode`, optional `proliferate`, `openchamber`, `openclaw-node`, `code-server`, etc).
 6. ET mode (`enable_et`) is enabled by default and starts loopback `etserver:2022` plus hardened `sshd:2244` for resilient SSH transport.
-7. When `enable_home_disk = true`, Docker daemon data root is set to `/home/coder/.local/share/docker` so pulled images survive CT replacement.
+7. When `enable_home_disk = true`, `/home/coder` is mounted from a lifecycle-safe Proxmox volume on `local-lvm` by default.
 8. Runtime env updates preserve merged template env (`default_env` + `user_env` + `secret_env`) while injecting `CODER_AGENT_BOOTSTRAP`.
 
 ## Design Goals
@@ -45,9 +45,10 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 - Proxmox API endpoint/token
 - Optional root session credentials for bind mounts (`proxmox_username`, `proxmox_password`)
 - Node name, container datastore, template datastore
-- Optional `/home/coder` persistence (`enable_home_disk`)
+- Optional lifecycle-safe `/home/coder` persistence (`enable_home_disk`)
 - Optional existing home mount source override (`proxmox_home_volume_id`)
 - Optional bind pre-start hook id (`proxmox_home_bind_hook_script_id`)
+- Optional Docker data offload under `/tank` (`enable_docker_data_offload`)
 - Network bridge and optional VLAN
 - Variant selector (`image_variant`) + shared `template_tag` or custom `custom_template_file_id`
 - Optional forced rebuild counter (`workspace_rebuild_generation`)
@@ -130,8 +131,77 @@ This builds and publishes `hakim-base`, `hakim-tooling`, and all variants.
 2. Pull that tag into Proxmox templates (`TEMPLATE_TAG=<new-tag>`).
 3. Update workspace `template_tag` to the new tag and apply.
 4. If keeping same tag name (for example `latest`), increment `workspace_rebuild_generation` to force CT recreation.
-5. To preserve user data, enable home persistence so `/home/coder` is bind-mounted and survives CT replacement.
-6. Docker cache/images are persisted with home persistence via `DOCKER_DATA_ROOT=/home/coder/.local/share/docker`.
+5. To preserve user data, enable home persistence so `/home/coder` uses an external `local-lvm` volume and survives CT replacement.
+6. Docker cache/images persist with home persistence via `DOCKER_DATA_ROOT=/home/coder/.local/share/docker`.
+
+## Persistent Home and Docker Data
+
+Default persistent workspace data backend is now NVMe-backed Proxmox `local-lvm`.
+
+When `enable_home_disk = true`, Hakim creates or reuses a per-workspace Proxmox volume outside the CT lifecycle and attaches it to `/home/coder`. The CT may be stopped, rebuilt, replaced, or destroyed without deleting this volume.
+
+Registry location on the Proxmox host:
+
+```bash
+/var/lib/hakim/workspace-volumes/<owner>/<workspace>/
+```
+
+Common registry files:
+
+```bash
+home.volume
+home.migration-status
+home.source-path
+docker.volume
+docker.migration-status
+docker.source-path
+```
+
+Inspect workspace registry:
+
+```bash
+ls -la /var/lib/hakim/workspace-volumes/shekohex/hakim-dev
+cat /var/lib/hakim/workspace-volumes/shekohex/hakim-dev/home.volume
+cat /var/lib/hakim/workspace-volumes/shekohex/hakim-dev/home.migration-status
+```
+
+Inspect Proxmox volumes and CT mounts:
+
+```bash
+pvesm list local-lvm
+pct config <vmid>
+```
+
+Legacy home migration is automatic and conservative. If old home data exists under `/var/lib/vz/hakim-homes/<owner>/<workspace>`, `home_migration_mode = copy_keep_source` copies it into the new `local-lvm` home volume and leaves the old source untouched.
+
+No lifecycle script deletes old home data. Verify the mounted home and registry first, then delete old data manually only when certain:
+
+```bash
+du -sh /var/lib/vz/hakim-homes/shekohex/hakim-dev
+pct config <vmid> | grep -E '^mp[0-9]+:.*mp=/home/coder'
+```
+
+Manual deletion example after verification:
+
+```bash
+rm -rf /var/lib/vz/hakim-homes/shekohex/hakim-dev
+```
+
+Use care. This is intentionally manual and irreversible.
+
+Docker data defaults to `/home/coder/.local/share/docker` when home persistence is enabled, so it lives on the same `local-lvm` home volume.
+
+If `enable_docker_data_offload = true`, Docker behavior stays legacy-compatible: Hakim mounts `/tank/hakim-docker/<owner>/<workspace>` at `/home/coder/.local/share/docker` unless `proxmox_docker_volume_id` is set explicitly. This keeps Docker offload on `tank` by design.
+
+Manual persistent volume deletion is never part of workspace destroy. To intentionally delete a persistent local-lvm volume, first detach it from every CT and verify registry points to the intended volume:
+
+```bash
+cat /var/lib/hakim/workspace-volumes/shekohex/hakim-dev/home.volume
+pct config <vmid>
+pvesm free local-lvm:vm-<ctid>-hakim-home-<owner>-<workspace>
+```
+
+Run `pvesm free` only when you explicitly want permanent data deletion.
 
 ## Create a New Variant
 
@@ -197,16 +267,16 @@ Q: Does stopping a workspace delete the CT and disks?
 Q: How do I keep user data when rebuilding/replacing a workspace container?
 
 - Use `enable_home_disk = true`.
-- Default behavior creates a per-workspace bind mount at `/var/lib/vz/hakim-homes/<owner>/<workspace>` and mounts it to `/home/coder`.
-- Bind mounts require `proxmox_username = root@pam` and a non-empty `proxmox_password`.
-- The template creates CT first, then attaches bind mount via Proxmox API while CT is stopped.
-- Auto bind mode also requires a host hook script referenced by `proxmox_home_bind_hook_script_id` (default: `local:snippets/hakim-home-bind-hook.sh`) to create/chmod the bind path before container start.
-- You can set `proxmox_home_volume_id` explicitly to mount an existing source instead (volume id or absolute host path).
+- Default behavior creates or reuses a per-workspace `local-lvm` volume and mounts it to `/home/coder`.
+- The volume ID is recorded under `/var/lib/hakim/workspace-volumes/<owner>/<workspace>/home.volume`.
+- Legacy data under `/var/lib/vz/hakim-homes/<owner>/<workspace>` is copied to the new volume and left in place.
+- You can set `proxmox_home_volume_id` explicitly to mount an existing source instead (volume id or absolute host path). Explicit bind paths keep legacy bind behavior.
 
 Q: How do I keep Docker images after workspace reset/rebuild?
 
 - Enable `enable_home_disk = true` so `/home/coder` is persistent.
 - The template automatically sets `DOCKER_DATA_ROOT=/home/coder/.local/share/docker` when home persistence is enabled.
+- For legacy `/tank` Docker offload, enable `enable_docker_data_offload = true`.
 - Verify in workspace: `docker info | rg 'Docker Root Dir'` should show `/home/coder/.local/share/docker`.
 - Pull once (for example `docker pull alpine:latest`), recreate CT, and the image remains available.
 
@@ -227,6 +297,7 @@ Q: What does `proxmox_home_volume_id` look like?
 - It must be the mount source value Proxmox uses for `/home/coder`.
 - Volume example: `local-lvm:subvol-300-disk-1`.
 - Bind path example: `/var/lib/vz/hakim-homes/alice/my-workspace`.
+- Empty value means Hakim creates/reuses a lifecycle-safe registered `local-lvm` volume.
 
 Q: How do I get `proxmox_home_volume_id` from CLI (`pct config <ctid>`) ?
 
@@ -264,10 +335,11 @@ Q: How do I get `proxmox_home_volume_id` from Proxmox UI?
 
 Q: How do I clean up home data after deleting a workspace?
 
-- If you used a bind path, remove it explicitly on the Proxmox host (for example `rm -rf /path/to/home-bind`).
-- If you used an external volume id via `proxmox_home_volume_id`, remove it explicitly from Proxmox storage when you are sure the workspace is gone.
+- Workspace destroy detaches `/home/coder` but keeps persistent volume and registry.
+- Remove old legacy bind paths manually only after verifying migration.
+- Remove registered `local-lvm` volumes manually with `pvesm free <volume-id>` only when you intentionally want permanent deletion.
 
 Q: Is there a helper script for managed-volume cleanup?
 
-- Not in the default bind-mount flow.
-- If you use `proxmox_home_volume_id` with a storage volume id, clean it up directly in Proxmox when no longer needed.
+- No destructive cleanup helper is provided by default.
+- This is deliberate. Persistent data deletion must be human-initiated.
