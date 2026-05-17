@@ -1151,6 +1151,7 @@ locals {
   selected_template_file_id = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.custom_template_file_id[0].value : (
     "${data.coder_parameter.proxmox_template_datastore_id.value}:vztmpl/hakim-${data.coder_parameter.image_variant.value}_${local.selected_template_tag}.tar"
   )
+  proxmox_endpoint_host = regex("^https?://([^/:]+)", trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/"))[0]
 
   container_agent_bootstrap = local.workspace_agent_count > 0 ? base64encode("${data.coder_workspace.me.access_url}|${coder_agent.main[0].token}") : ""
   container_runtime_env_sha = local.workspace_agent_count > 0 ? sha256("${sha256(jsonencode(local.combined_env))}:${local.container_agent_bootstrap}") : sha256(jsonencode(local.combined_env))
@@ -1405,6 +1406,7 @@ resource "terraform_data" "home_volume_attach" {
 
   triggers_replace = {
     node_name      = data.coder_parameter.proxmox_node_name.value
+    ssh_host       = local.proxmox_endpoint_host
     vm_id          = tostring(proxmox_virtual_environment_container.workspace.vm_id)
     owner_slug     = local.home_owner_slug
     workspace_slug = local.home_workspace_slug
@@ -1419,6 +1421,7 @@ resource "terraform_data" "home_volume_attach" {
 
     environment = {
       PVE_NODE_NAME             = data.coder_parameter.proxmox_node_name.value
+      PVE_SSH_HOST              = local.proxmox_endpoint_host
       PVE_VM_ID                 = tostring(proxmox_virtual_environment_container.workspace.vm_id)
       PVE_HOME_DATASTORE        = local.home_datastore_id
       PVE_HOME_VOLUME_ID        = local.home_volume_id
@@ -1437,6 +1440,7 @@ resource "terraform_data" "home_volume_attach" {
 
     environment = {
       PVE_NODE_NAME        = self.triggers_replace.node_name
+      PVE_SSH_HOST         = self.triggers_replace.ssh_host
       PVE_VM_ID            = self.triggers_replace.vm_id
       HAKIM_OWNER_SLUG     = self.triggers_replace.owner_slug
       HAKIM_WORKSPACE_SLUG = self.triggers_replace.workspace_slug
