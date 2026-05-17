@@ -92,6 +92,30 @@ json_exitstatus_value() {
   sed -n 's/.*"exitstatus":"\([^"]*\)".*/\1/p'
 }
 
+urlencode() {
+  local value="$1"
+  local length="${#value}"
+  local index char
+
+  for ((index = 0; index < length; index++)); do
+    char="${value:index:1}"
+    case "${char}" in
+      [a-zA-Z0-9.~_-]) printf '%s' "${char}" ;;
+      *) printf '%%%02X' "'${char}" ;;
+    esac
+  done
+}
+
+print_task_log() {
+  local upid="$1"
+  local encoded_upid log_payload
+  encoded_upid="$(urlencode "${upid}")"
+  log_payload="$(api_call GET "/api2/json/nodes/${PVE_NODE_NAME}/tasks/${encoded_upid}/log?limit=200" 2>/dev/null || true)"
+  if [[ -n "${log_payload}" ]]; then
+    printf '%s' "${log_payload}" | sed -n 's/.*"t":"\([^"]*\)".*/\1/p' >&2
+  fi
+}
+
 json_field_value() {
   local key="$1"
   sed -n "s/.*\"${key}\":\"\([^\"]*\)\".*/\1/p"
@@ -329,6 +353,7 @@ wait_task() {
         return 0
       fi
       printf 'task %s failed: %s\n' "${upid}" "${exitstatus}" >&2
+      print_task_log "${upid}"
       return 1
     fi
 
@@ -447,12 +472,6 @@ if [[ "${needs_env_update}" != "true" && "${needs_home_upsert}" != "true" && "${
   exit 0
 fi
 
-if [[ "${needs_env_update}" == "true" ]]; then
-  build_runtime_env_file "${CT_RUNTIME_ENV_B64}"
-  api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
-    --data-urlencode "env@${RUNTIME_ENV_FILE}" >/dev/null
-fi
-
 was_running=false
 if container_is_running; then
   was_running=true
@@ -460,6 +479,12 @@ fi
 
 if [[ "${was_running}" == "true" ]]; then
   stop_container
+fi
+
+if [[ "${needs_env_update}" == "true" ]]; then
+  build_runtime_env_file "${CT_RUNTIME_ENV_B64}"
+  api_call PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" \
+    --data-urlencode "env@${RUNTIME_ENV_FILE}" >/dev/null
 fi
 
 if [[ "${needs_home_upsert}" == "true" ]]; then
@@ -474,4 +499,6 @@ if [[ "${needs_docker_remove}" == "true" ]]; then
   remove_mount_point_by_path "/home/coder/.local/share/docker"
 fi
 
-start_container
+if [[ "${was_running}" == "true" ]]; then
+  start_container
+fi

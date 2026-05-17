@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+HOOK_VERSION="2026-05-17.3"
+
 VMID="${1:-}"
 PHASE="${2:-}"
 
@@ -88,6 +90,7 @@ if [[ -n "${home_spec}" ]]; then
     size_gb="${spec[size]:-}"
     explicit_source="$(decode_base64 "${spec[volume]:-}")"
     migration_mode="${spec[migration]:-copy_keep_source}"
+    expected_hook_version="${spec[hook_version]:-}"
     registry_dir="/var/lib/hakim/workspace-volumes/${owner_slug}/${workspace_slug}"
     registry_file="${registry_dir}/home.volume"
     migration_status_file="${registry_dir}/home.migration-status"
@@ -95,6 +98,11 @@ if [[ -n "${home_spec}" ]]; then
     legacy_source="/var/lib/vz/hakim-homes/${owner_slug}/${workspace_slug}"
 
     [[ -n "${datastore}" ]] || datastore="local-lvm"
+
+    if [[ -n "${expected_hook_version}" && "${HOOK_VERSION}" != "${expected_hook_version}" ]]; then
+      log "host hook version ${HOOK_VERSION} does not match template hook version ${expected_hook_version}; update ${0}"
+      exit 1
+    fi
 
     if [[ -n "${explicit_source}" ]]; then
       volume_id="${explicit_source}"

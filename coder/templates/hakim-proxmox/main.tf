@@ -865,7 +865,8 @@ locals {
   home_workspace_slug        = replace(replace(replace(lower(trimspace(data.coder_workspace.me.name)), "/", "-"), " ", "-"), ":", "-")
   home_mount_is_bind         = local.home_disk_enabled && startswith(local.home_volume_id, "/")
   home_requires_root_session = false
-  home_hook_spec             = local.home_disk_enabled ? "hakim_home=enabled,datastore=${base64encode(local.home_datastore_id)},owner=${local.home_owner_slug},workspace=${local.home_workspace_slug},size=${data.coder_parameter.home_disk_gb[0].value},volume=${base64encode(local.home_volume_id)},migration=${local.home_migration_mode}" : ""
+  home_hook_version          = "2026-05-17.3"
+  home_hook_spec             = local.home_disk_enabled ? "hakim_home=enabled,datastore=${base64encode(local.home_datastore_id)},owner=${local.home_owner_slug},workspace=${local.home_workspace_slug},size=${data.coder_parameter.home_disk_gb[0].value},volume=${base64encode(local.home_volume_id)},migration=${local.home_migration_mode},hook_version=${local.home_hook_version}" : ""
 
   docker_data_offload_enabled  = data.coder_parameter.enable_docker_data_offload.value
   docker_volume_id             = length(data.coder_parameter.proxmox_docker_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_docker_volume_id[0].value) : ""
