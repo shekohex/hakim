@@ -1358,7 +1358,6 @@ resource "proxmox_virtual_environment_file" "home_bind_hook" {
   node_name    = data.coder_parameter.proxmox_node_name.value
   datastore_id = local.hookscript_storage_id
   content_type = "snippets"
-  file_mode    = "0755"
   overwrite    = true
 
   source_file {
