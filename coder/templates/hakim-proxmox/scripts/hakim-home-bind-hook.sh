@@ -26,6 +26,26 @@ config_value() {
   sed -n "s/^${key}: //p" "${config_file}" | tail -n 1
 }
 
+delete_mount_config() {
+  local mount_key="$1"
+  local temp_config
+  temp_config="$(mktemp)"
+  grep -v "^${mount_key}: " "${config_file}" >"${temp_config}"
+  cp "${temp_config}" "${config_file}"
+  rm -f "${temp_config}"
+}
+
+set_mount_config() {
+  local mount_key="$1"
+  local mount_value="$2"
+  local temp_config
+  temp_config="$(mktemp)"
+  grep -v "^${mount_key}: " "${config_file}" >"${temp_config}"
+  printf '%s: %s\n' "${mount_key}" "${mount_value}" >>"${temp_config}"
+  cp "${temp_config}" "${config_file}"
+  rm -f "${temp_config}"
+}
+
 resize_home_volume_if_needed() {
   local mount_key="$1"
   local requested_size_gb="$2"
@@ -159,7 +179,7 @@ if [[ -n "${home_spec}" ]]; then
       if [[ "${existing_source}" != "${volume_id}" ]]; then
         if [[ "${existing_source}" == "${legacy_source}" ]]; then
           log "detaching legacy home mount ${legacy_source}"
-          pct set "${VMID}" -delete "${existing_key}"
+          delete_mount_config "${existing_key}"
           existing_key=""
         else
           log "/home/coder already mounted from ${existing_source}; refusing to replace with ${volume_id}"
@@ -181,7 +201,7 @@ if [[ -n "${home_spec}" ]]; then
         done
       fi
       log "attaching ${volume_id} to /home/coder as ${target_key}"
-      pct set "${VMID}" -"${target_key}" "${volume_id},mp=/home/coder,backup=${backup}"
+      set_mount_config "${target_key}" "${volume_id},mp=/home/coder,backup=${backup}"
       if [[ "${volume_id}" != /* ]]; then
         resize_home_volume_if_needed "${target_key}" "${size_gb}"
       fi
