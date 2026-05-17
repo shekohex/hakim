@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+for required in curl sed mktemp; do
+  command -v "$required" >/dev/null 2>&1 || {
+    printf 'missing required command: %s\n' "$required" >&2
+    exit 1
+  }
+done
+
+PVE_ENDPOINT="${PVE_ENDPOINT%/}"
+PVE_NODE_NAME="${PVE_NODE_NAME:?PVE_NODE_NAME is required}"
+PVE_VM_ID="${PVE_VM_ID:?PVE_VM_ID is required}"
+PVE_USERNAME="${PVE_USERNAME:?PVE_USERNAME is required}"
+PVE_PASSWORD="${PVE_PASSWORD:?PVE_PASSWORD is required}"
+PVE_INSECURE="${PVE_INSECURE:-true}"
+PVE_HOOKSCRIPT_ID="${PVE_HOOKSCRIPT_ID:?PVE_HOOKSCRIPT_ID is required}"
+
+curl_flags=(--silent --show-error)
+if [[ "${PVE_INSECURE,,}" == "true" || "${PVE_INSECURE}" == "1" ]]; then
+  curl_flags+=(--insecure)
+fi
+
+api_call_with_status() {
+  local method="$1"
+  local path="$2"
+  shift 2
+  local response_file status body
+  response_file="$(mktemp)"
+  status="$(curl "${curl_flags[@]}" --output "${response_file}" --write-out '%{http_code}' --request "${method}" "${PVE_ENDPOINT}${path}" -b "PVEAuthCookie=${PVE_AUTH_COOKIE}" -H "CSRFPreventionToken: ${PVE_CSRF_TOKEN}" "$@")"
+  body="$(<"${response_file}")"
+  rm -f "${response_file}"
+  printf '%s\n%s' "${status}" "${body}"
+}
+
+json_data_value() {
+  sed -n 's/.*"data":"\([^"]*\)".*/\1/p'
+}
+
+json_field_value() {
+  local key="$1"
+  sed -n "s/.*\"${key}\":\"\([^\"]*\)\".*/\1/p"
+}
+
+ticket_file="$(mktemp)"
+ticket_status="$(curl "${curl_flags[@]}" --output "${ticket_file}" --write-out '%{http_code}' --request POST "${PVE_ENDPOINT}/api2/json/access/ticket" --data-urlencode "username=${PVE_USERNAME}" --data-urlencode "password=${PVE_PASSWORD}")"
+ticket_body="$(<"${ticket_file}")"
+rm -f "${ticket_file}"
+if [[ "${ticket_status}" -ge 400 ]]; then
+  printf 'HTTP POST access/ticket failed: %s\n' "${ticket_body}" >&2
+  exit 1
+fi
+
+PVE_AUTH_COOKIE="$(printf '%s' "${ticket_body}" | json_field_value ticket)"
+PVE_CSRF_TOKEN="$(printf '%s' "${ticket_body}" | json_field_value CSRFPreventionToken)"
+if [[ -z "${PVE_AUTH_COOKIE}" || -z "${PVE_CSRF_TOKEN}" ]]; then
+  printf 'failed to parse Proxmox session auth response\n' >&2
+  exit 1
+fi
+
+config_result="$(api_call_with_status GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config")"
+config_status="$(printf '%s' "${config_result}" | sed -n '1p')"
+config_body="$(printf '%s' "${config_result}" | sed -n '2,$p')"
+if [[ "${config_status}" -ge 400 ]]; then
+  printf 'HTTP GET config failed: %s\n' "${config_body}" >&2
+  exit 1
+fi
+
+if [[ "${config_body}" == *"\"hookscript\":\"${PVE_HOOKSCRIPT_ID}\""* ]]; then
+  exit 0
+fi
+
+status_result="$(api_call_with_status GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/current")"
+status_body="$(printf '%s' "${status_result}" | sed -n '2,$p')"
+was_running=false
+if [[ "${status_body}" == *'"status":"running"'* ]]; then
+  was_running=true
+fi
+
+if [[ "${was_running}" == "true" ]]; then
+  stop_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/stop")"
+  stop_status="$(printf '%s' "${stop_result}" | sed -n '1p')"
+  stop_body="$(printf '%s' "${stop_result}" | sed -n '2,$p')"
+  if [[ "${stop_status}" -lt 400 ]]; then
+    sleep 3
+  elif [[ "${stop_body}" != *"not running"* ]]; then
+    printf 'HTTP POST stop failed: %s\n' "${stop_body}" >&2
+    exit 1
+  fi
+fi
+
+hook_result="$(api_call_with_status PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" --data-urlencode "hookscript=${PVE_HOOKSCRIPT_ID}")"
+hook_status="$(printf '%s' "${hook_result}" | sed -n '1p')"
+hook_body="$(printf '%s' "${hook_result}" | sed -n '2,$p')"
+if [[ "${hook_status}" -ge 400 ]]; then
+  printf 'HTTP PUT hookscript failed: %s\n' "${hook_body}" >&2
+  exit 1
+fi
+
+if [[ "${was_running}" == "true" ]]; then
+  start_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/start")"
+  start_status="$(printf '%s' "${start_result}" | sed -n '1p')"
+  start_body="$(printf '%s' "${start_result}" | sed -n '2,$p')"
+  if [[ "${start_status}" -ge 400 && "${start_body}" != *"already running"* ]]; then
+    printf 'HTTP POST start failed: %s\n' "${start_body}" >&2
+    exit 1
+  fi
+fi

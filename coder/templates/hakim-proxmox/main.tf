@@ -1151,7 +1151,6 @@ locals {
   selected_template_file_id = data.coder_parameter.image_variant.value == "custom" ? data.coder_parameter.custom_template_file_id[0].value : (
     "${data.coder_parameter.proxmox_template_datastore_id.value}:vztmpl/hakim-${data.coder_parameter.image_variant.value}_${local.selected_template_tag}.tar"
   )
-  proxmox_endpoint_host = regex("^https?://([^/:]+)", trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/"))[0]
 
   container_agent_bootstrap = local.workspace_agent_count > 0 ? base64encode("${data.coder_workspace.me.access_url}|${coder_agent.main[0].token}") : ""
   container_runtime_env_sha = local.workspace_agent_count > 0 ? sha256("${sha256(jsonencode(local.combined_env))}:${local.container_agent_bootstrap}") : sha256(jsonencode(local.combined_env))
@@ -1169,6 +1168,7 @@ locals {
   home_workspace_slug        = replace(replace(replace(lower(trimspace(data.coder_workspace.me.name)), "/", "-"), " ", "-"), ":", "-")
   home_mount_is_bind         = local.home_disk_enabled && startswith(local.home_volume_id, "/")
   home_requires_root_session = false
+  home_hook_spec = local.home_disk_enabled ? "hakim_home=enabled,datastore=${base64encode(local.home_datastore_id)},owner=${local.home_owner_slug},workspace=${local.home_workspace_slug},size=${data.coder_parameter.home_disk_gb[0].value},volume=${base64encode(local.home_volume_id)},migration=${local.home_migration_mode}" : ""
 
   docker_data_offload_enabled  = data.coder_parameter.enable_docker_data_offload.value
   docker_volume_id             = length(data.coder_parameter.proxmox_docker_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_docker_volume_id[0].value) : ""
@@ -1180,7 +1180,7 @@ locals {
   docker_requires_root_session = local.docker_data_offload_enabled && local.docker_mount_is_bind
 
   requires_root_session   = local.home_requires_root_session || local.docker_requires_root_session
-  bind_mount_hook_enabled = local.home_mount_is_bind || local.docker_bind_mount_enabled
+  bind_mount_hook_enabled = local.home_disk_enabled || local.docker_bind_mount_enabled
 
   project_dir         = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   opencode_attach_url = local.proliferate_enabled ? "http://localhost:${local.proliferate_port}" : "http://localhost:4096"
@@ -1323,11 +1323,11 @@ resource "terraform_data" "workspace_rebuild_generation" {
 }
 
 resource "proxmox_virtual_environment_container" "workspace" {
-  hook_script_file_id   = local.bind_mount_hook_enabled ? data.coder_parameter.proxmox_home_bind_hook_script_id[0].value : null
+  hook_script_file_id   = null
   node_name             = data.coder_parameter.proxmox_node_name.value
   vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
   pool_id               = trimspace(data.coder_parameter.proxmox_pool_id.value) != "" ? data.coder_parameter.proxmox_pool_id.value : null
-  description           = "Coder workspace ${data.coder_workspace_owner.me.name}/${data.coder_workspace.me.name} [${data.coder_workspace.me.transition}]"
+  description           = trimspace("Coder workspace ${data.coder_workspace_owner.me.name}/${data.coder_workspace.me.name} [${data.coder_workspace.me.transition}] ${local.home_hook_spec}")
   unprivileged          = true
   started               = data.coder_workspace.me.transition == "start"
   start_on_boot         = false
@@ -1335,7 +1335,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
   environment_variables = local.container_environment_variables
 
   lifecycle {
-    ignore_changes = [environment_variables, console, mount_point]
+    ignore_changes = [environment_variables, console, mount_point, hook_script_file_id]
 
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
@@ -1402,49 +1402,32 @@ resource "proxmox_virtual_environment_container" "workspace" {
 }
 
 resource "terraform_data" "home_volume_attach" {
-  count = local.home_disk_enabled ? 1 : 0
+  count = local.bind_mount_hook_enabled ? 1 : 0
 
   triggers_replace = {
     node_name      = data.coder_parameter.proxmox_node_name.value
-    ssh_host       = local.proxmox_endpoint_host
     vm_id          = tostring(proxmox_virtual_environment_container.workspace.vm_id)
     owner_slug     = local.home_owner_slug
     workspace_slug = local.home_workspace_slug
     datastore_id   = local.home_datastore_id
     home_volume_id = local.home_volume_id
-    size_gb        = tostring(data.coder_parameter.home_disk_gb[0].value)
+    size_gb        = length(data.coder_parameter.home_disk_gb) > 0 ? tostring(data.coder_parameter.home_disk_gb[0].value) : "0"
     migration_mode = local.home_migration_mode
+    hookscript_id  = data.coder_parameter.proxmox_home_bind_hook_script_id[0].value
+    transition     = data.coder_workspace.me.transition
   }
 
   provisioner "local-exec" {
-    command = "bash ${path.module}/scripts/ensure-home-volume.sh"
+    command = "bash ${path.module}/scripts/ensure-proxmox-hook.sh"
 
     environment = {
-      PVE_NODE_NAME             = data.coder_parameter.proxmox_node_name.value
-      PVE_SSH_HOST              = local.proxmox_endpoint_host
-      PVE_VM_ID                 = tostring(proxmox_virtual_environment_container.workspace.vm_id)
-      PVE_HOME_DATASTORE        = local.home_datastore_id
-      PVE_HOME_VOLUME_ID        = local.home_volume_id
-      HAKIM_OWNER_SLUG          = local.home_owner_slug
-      HAKIM_WORKSPACE_SLUG      = local.home_workspace_slug
-      HAKIM_HOME_SIZE_GB        = tostring(data.coder_parameter.home_disk_gb[0].value)
-      HAKIM_REGISTRY_ROOT       = "/var/lib/hakim/workspace-volumes"
-      HAKIM_LEGACY_HOME_ROOT    = "/var/lib/vz/hakim-homes"
-      HAKIM_HOME_MIGRATION_MODE = local.home_migration_mode
-    }
-  }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = "bash ${path.module}/scripts/detach-home-volume.sh"
-
-    environment = {
-      PVE_NODE_NAME        = self.triggers_replace.node_name
-      PVE_SSH_HOST         = self.triggers_replace.ssh_host
-      PVE_VM_ID            = self.triggers_replace.vm_id
-      HAKIM_OWNER_SLUG     = self.triggers_replace.owner_slug
-      HAKIM_WORKSPACE_SLUG = self.triggers_replace.workspace_slug
-      HAKIM_REGISTRY_ROOT  = "/var/lib/hakim/workspace-volumes"
+      PVE_ENDPOINT      = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
+      PVE_NODE_NAME     = data.coder_parameter.proxmox_node_name.value
+      PVE_VM_ID         = tostring(proxmox_virtual_environment_container.workspace.vm_id)
+      PVE_USERNAME      = data.coder_parameter.proxmox_username.value
+      PVE_PASSWORD      = data.coder_parameter.proxmox_password.value
+      PVE_INSECURE      = tostring(data.coder_parameter.proxmox_insecure.value)
+      PVE_HOOKSCRIPT_ID = data.coder_parameter.proxmox_home_bind_hook_script_id[0].value
     }
   }
 
@@ -1484,7 +1467,7 @@ resource "terraform_data" "workspace_agent_env" {
     }
   }
 
-  depends_on = [proxmox_virtual_environment_container.workspace, terraform_data.home_volume_attach]
+  depends_on = [proxmox_virtual_environment_container.workspace]
 }
 
 module "opencode" {
