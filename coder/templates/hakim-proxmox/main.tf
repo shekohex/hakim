@@ -1348,7 +1348,7 @@ resource "terraform_data" "proxmox_hook_script" {
 }
 
 resource "proxmox_virtual_environment_container" "workspace" {
-  hook_script_file_id   = local.bind_mount_hook_enabled ? data.coder_parameter.proxmox_home_bind_hook_script_id[0].value : null
+  hook_script_file_id   = null
   node_name             = data.coder_parameter.proxmox_node_name.value
   vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
   pool_id               = trimspace(data.coder_parameter.proxmox_pool_id.value) != "" ? data.coder_parameter.proxmox_pool_id.value : null
@@ -1360,7 +1360,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
   environment_variables = local.container_environment_variables
 
   lifecycle {
-    ignore_changes = [environment_variables, console, mount_point]
+    ignore_changes = [environment_variables, console, mount_point, hook_script_file_id]
 
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
