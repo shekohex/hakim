@@ -1169,7 +1169,7 @@ locals {
   home_workspace_slug        = replace(replace(replace(lower(trimspace(data.coder_workspace.me.name)), "/", "-"), " ", "-"), ":", "-")
   home_mount_is_bind         = local.home_disk_enabled && startswith(local.home_volume_id, "/")
   home_requires_root_session = false
-  home_hook_spec = local.home_disk_enabled ? "hakim_home=enabled,datastore=${base64encode(local.home_datastore_id)},owner=${local.home_owner_slug},workspace=${local.home_workspace_slug},size=${data.coder_parameter.home_disk_gb[0].value},volume=${base64encode(local.home_volume_id)},migration=${local.home_migration_mode}" : ""
+  home_hook_spec             = local.home_disk_enabled ? "hakim_home=enabled,datastore=${base64encode(local.home_datastore_id)},owner=${local.home_owner_slug},workspace=${local.home_workspace_slug},size=${data.coder_parameter.home_disk_gb[0].value},volume=${base64encode(local.home_volume_id)},migration=${local.home_migration_mode}" : ""
 
   docker_data_offload_enabled  = data.coder_parameter.enable_docker_data_offload.value
   docker_volume_id             = length(data.coder_parameter.proxmox_docker_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_docker_volume_id[0].value) : ""
@@ -1447,13 +1447,14 @@ resource "terraform_data" "home_volume_attach" {
     command = "bash ${path.module}/scripts/ensure-proxmox-hook.sh"
 
     environment = {
-      PVE_ENDPOINT      = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
-      PVE_NODE_NAME     = data.coder_parameter.proxmox_node_name.value
-      PVE_VM_ID         = tostring(proxmox_virtual_environment_container.workspace.vm_id)
-      PVE_USERNAME      = data.coder_parameter.proxmox_username.value
-      PVE_PASSWORD      = data.coder_parameter.proxmox_password.value
-      PVE_INSECURE      = tostring(data.coder_parameter.proxmox_insecure.value)
-      PVE_HOOKSCRIPT_ID = data.coder_parameter.proxmox_home_bind_hook_script_id[0].value
+      PVE_ENDPOINT          = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
+      PVE_NODE_NAME         = data.coder_parameter.proxmox_node_name.value
+      PVE_VM_ID             = tostring(proxmox_virtual_environment_container.workspace.vm_id)
+      PVE_USERNAME          = data.coder_parameter.proxmox_username.value
+      PVE_PASSWORD          = data.coder_parameter.proxmox_password.value
+      PVE_INSECURE          = tostring(data.coder_parameter.proxmox_insecure.value)
+      PVE_HOOKSCRIPT_ID     = data.coder_parameter.proxmox_home_bind_hook_script_id[0].value
+      PVE_HOOKSCRIPT_SOURCE = "${path.module}/scripts/hakim-home-bind-hook.sh"
     }
   }
 
