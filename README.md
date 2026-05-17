@@ -34,6 +34,7 @@ The Coder control plane for that template should run on the custom `hakim-coder`
 | `image_variant` | Workspace image variant | `base` |
 | `git_url` | Repository to clone on startup | `""` |
 | `git_branch` | Branch to clone and validate for yield flow | `"main"` |
+| `shekohex_agent_auth` | Shekohex Agent auth JSON | `{}` |
 | `default_env` / `secret_env` | Environment variable injection | `{}` |
 | `preview_port` | Preview app port | `3000` |
 | `setup_script` | Startup shell script | `""` |

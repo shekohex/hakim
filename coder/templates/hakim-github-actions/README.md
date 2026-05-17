@@ -13,7 +13,7 @@ Run Hakim workspaces inside GitHub Actions using the published GHCR images.
 ## What you get
 
 - Existing Hakim images (`ghcr.io/shekohex/hakim-<variant>:latest`)
-- code-server, tmux, Zed, ET, and the existing Git helpers
+- Shekohex Agent, code-server, tmux, Zed, ET, and the existing Git helpers
 - Encrypted allowlisted home snapshots restored from GitHub Actions artifacts
 - Reproducible cache paths restored through GitHub cache
 - `GH_TOKEN` injected from `secret_env.GITHUB_API_TOKEN` inside the workspace container

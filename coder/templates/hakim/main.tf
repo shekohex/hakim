@@ -274,6 +274,19 @@ data "coder_parameter" "enable_et" {
   order        = 69
 }
 
+data "coder_parameter" "shekohex_agent_auth" {
+  name         = "shekohex_agent_auth"
+  display_name = "Shekohex Agent Auth JSON"
+  description  = "Paste content of ~/.pi/agent/auth.json"
+  form_type    = "textarea"
+  type         = "string"
+  default      = "{}"
+  mutable      = true
+  styling      = jsonencode({ mask_input = true })
+  icon         = "/icon/terminal.svg"
+  order        = 4
+}
+
 data "coder_parameter" "enable_openclaw_node" {
   name         = "enable_openclaw_node"
   display_name = "Enable OpenClaw Node Host"
@@ -647,6 +660,13 @@ EOF
 # ------------------------------------------------------------------------------
 # Modules (Apps & Tools)
 # ------------------------------------------------------------------------------
+
+module "shekohex_agent" {
+  count     = data.coder_workspace.me.start_count
+  source    = "github.com/shekohex/hakim//coder/modules/shekohex-agent?ref=main"
+  agent_id  = coder_agent.main.id
+  auth_json = data.coder_parameter.shekohex_agent_auth.value
+}
 
 module "openclaw_node" {
   count = (

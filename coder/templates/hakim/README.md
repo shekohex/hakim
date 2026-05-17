@@ -13,6 +13,7 @@ Pre-built DevContainer images for AI-powered development.
 ## Features
 
 - **Variants**: Base, PHP (Laravel), .NET, Node.js/Bun, Rust, or Custom Image
+- **AI CLI**: Shekohex Agent (`pi`) installed with Bun
 - **Security**: Optional Vault integration, masked secrets
 - **Persistence**: `/home/coder` volume persisted
 - **Resilient SSH (Optional)**: ET transport with loopback `etserver:2022` + internal `sshd:2244`
@@ -21,7 +22,8 @@ Pre-built DevContainer images for AI-powered development.
 
 1. Select "Hakim Universal" template
 2. Choose environment variant
-3. (Optional) Provide Git URL to auto-clone
+3. (Optional) Paste `auth.json` for Shekohex Agent authentication
+4. (Optional) Provide Git URL to auto-clone
 
 ## ET SSH Mode
 

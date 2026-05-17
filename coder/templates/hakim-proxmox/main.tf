@@ -373,6 +373,19 @@ data "coder_parameter" "enable_et" {
   order        = 69
 }
 
+data "coder_parameter" "shekohex_agent_auth" {
+  name         = "shekohex_agent_auth"
+  display_name = "Shekohex Agent Auth JSON"
+  description  = "Paste content of ~/.pi/agent/auth.json"
+  form_type    = "textarea"
+  type         = "string"
+  default      = "{}"
+  mutable      = true
+  styling      = jsonencode({ mask_input = true })
+  icon         = "/icon/terminal.svg"
+  order        = 4
+}
+
 data "coder_parameter" "user_env" {
   name         = "user_env"
   display_name = "Environment Variables (JSON)"
@@ -1159,6 +1172,13 @@ resource "terraform_data" "workspace_agent_env" {
   }
 
   depends_on = [proxmox_virtual_environment_container.workspace]
+}
+
+module "shekohex_agent" {
+  count     = local.workspace_agent_count
+  source    = "github.com/shekohex/hakim//coder/modules/shekohex-agent?ref=main"
+  agent_id  = coder_agent.main[0].id
+  auth_json = data.coder_parameter.shekohex_agent_auth.value
 }
 
 module "openclaw_node" {
