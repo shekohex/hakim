@@ -1182,6 +1182,11 @@ locals {
 
   requires_root_session   = local.home_requires_root_session || local.docker_requires_root_session
   bind_mount_hook_enabled = local.home_disk_enabled || local.docker_bind_mount_enabled
+  hookscript_id           = local.bind_mount_hook_enabled ? data.coder_parameter.proxmox_home_bind_hook_script_id[0].value : ""
+  hookscript_parts        = local.bind_mount_hook_enabled ? split(":", local.hookscript_id) : []
+  hookscript_storage_id   = local.bind_mount_hook_enabled ? try(local.hookscript_parts[0], "") : ""
+  hookscript_path         = local.bind_mount_hook_enabled ? try(local.hookscript_parts[1], "") : ""
+  hookscript_file_name    = local.bind_mount_hook_enabled ? basename(local.hookscript_path) : ""
 
   project_dir         = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   opencode_attach_url = local.proliferate_enabled ? "http://localhost:${local.proliferate_port}" : "http://localhost:4096"
@@ -1347,6 +1352,22 @@ resource "terraform_data" "proxmox_hook_script" {
   }
 }
 
+resource "proxmox_virtual_environment_file" "home_bind_hook" {
+  count = local.bind_mount_hook_enabled ? 1 : 0
+
+  node_name    = data.coder_parameter.proxmox_node_name.value
+  datastore_id = local.hookscript_storage_id
+  content_type = "snippets"
+  file_mode    = "0755"
+  overwrite    = true
+
+  source_file {
+    path      = "${path.module}/scripts/hakim-home-bind-hook.sh"
+    file_name = local.hookscript_file_name
+    checksum  = filesha256("${path.module}/scripts/hakim-home-bind-hook.sh")
+  }
+}
+
 resource "proxmox_virtual_environment_container" "workspace" {
   hook_script_file_id   = local.bind_mount_hook_enabled ? data.coder_parameter.proxmox_home_bind_hook_script_id[0].value : null
   node_name             = data.coder_parameter.proxmox_node_name.value
@@ -1375,7 +1396,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
     }
 
     precondition {
-      condition     = !local.bind_mount_hook_enabled || trimspace(data.coder_parameter.proxmox_home_bind_hook_script_id[0].value) != ""
+      condition     = !local.bind_mount_hook_enabled || (length(local.hookscript_parts) == 2 && trimspace(local.hookscript_storage_id) != "" && startswith(local.hookscript_path, "snippets/") && trimspace(local.hookscript_file_name) != "")
       error_message = "Set proxmox_home_bind_hook_script_id to a valid Proxmox hookscript volume id when using auto bind persistence."
     }
 
@@ -1424,7 +1445,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
     ipv4 = true
   }
 
-  depends_on = [terraform_data.proxmox_hook_script]
+  depends_on = [terraform_data.proxmox_hook_script, proxmox_virtual_environment_file.home_bind_hook]
 }
 
 resource "terraform_data" "home_volume_attach" {
