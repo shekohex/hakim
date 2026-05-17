@@ -26,6 +26,26 @@ config_value() {
   sed -n "s/^${key}: //p" "${config_file}" | tail -n 1
 }
 
+resize_home_volume_if_needed() {
+  local mount_key="$1"
+  local requested_size_gb="$2"
+
+  if [[ -z "${mount_key}" || ! "${requested_size_gb}" =~ ^[0-9]+$ || "${requested_size_gb}" -le 0 ]]; then
+    return
+  fi
+
+  local existing_entry existing_size_gb
+  existing_entry="$(sed -n "s/^${mount_key}: //p" "${config_file}")"
+  existing_size_gb="$(printf '%s' "${existing_entry}" | sed -n 's/.*size=\([0-9]\+\)G.*/\1/p')"
+
+  if [[ -n "${existing_size_gb}" && "${existing_size_gb}" =~ ^[0-9]+$ && "${existing_size_gb}" -ge "${requested_size_gb}" ]]; then
+    return
+  fi
+
+  log "growing ${mount_key} home volume to ${requested_size_gb}G"
+  pct resize "${VMID}" "${mount_key}" "${requested_size_gb}G" >/dev/null
+}
+
 description="$(config_value description)"
 if [[ -z "${description}" ]]; then
   description="$(sed -n 's/^#//p' "${config_file}" | head -n 1)"
@@ -145,6 +165,8 @@ if [[ -n "${home_spec}" ]]; then
           log "/home/coder already mounted from ${existing_source}; refusing to replace with ${volume_id}"
           exit 1
         fi
+      elif [[ "${volume_id}" != /* ]]; then
+        resize_home_volume_if_needed "${existing_key}" "${size_gb}"
       fi
     fi
 
@@ -160,6 +182,9 @@ if [[ -n "${home_spec}" ]]; then
       fi
       log "attaching ${volume_id} to /home/coder as ${target_key}"
       pct set "${VMID}" -"${target_key}" "${volume_id},mp=/home/coder,backup=${backup}"
+      if [[ "${volume_id}" != /* ]]; then
+        resize_home_volume_if_needed "${target_key}" "${size_gb}"
+      fi
     fi
   fi
 fi

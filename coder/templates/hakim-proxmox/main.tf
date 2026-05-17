@@ -974,7 +974,7 @@ data "coder_parameter" "home_disk_gb" {
   count        = data.coder_parameter.enable_home_disk.value ? 1 : 0
   name         = "home_disk_gb"
   display_name = "Home Size (GB)"
-  description  = "Initial size for auto-created lifecycle-safe home volumes. Existing volumes are not resized."
+  description  = "Size for lifecycle-safe home volumes. Existing volumes are grown when this value increases."
   type         = "number"
   default      = 30
   mutable      = true
