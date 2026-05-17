@@ -10,11 +10,12 @@ done
 
 PVE_ENDPOINT="${PVE_ENDPOINT%/}"
 PVE_NODE_NAME="${PVE_NODE_NAME:?PVE_NODE_NAME is required}"
-PVE_VM_ID="${PVE_VM_ID:?PVE_VM_ID is required}"
+PVE_VM_ID="${PVE_VM_ID:-}"
 PVE_USERNAME="${PVE_USERNAME:?PVE_USERNAME is required}"
 PVE_PASSWORD="${PVE_PASSWORD:?PVE_PASSWORD is required}"
 PVE_INSECURE="${PVE_INSECURE:-true}"
 PVE_HOOKSCRIPT_ID="${PVE_HOOKSCRIPT_ID:?PVE_HOOKSCRIPT_ID is required}"
+PVE_HOOKSCRIPT_SOURCE="${PVE_HOOKSCRIPT_SOURCE:-}"
 
 curl_flags=(--silent --show-error)
 if [[ "${PVE_INSECURE,,}" == "true" || "${PVE_INSECURE}" == "1" ]]; then
@@ -56,6 +57,30 @@ PVE_CSRF_TOKEN="$(printf '%s' "${ticket_body}" | json_field_value CSRFPrevention
 if [[ -z "${PVE_AUTH_COOKIE}" || -z "${PVE_CSRF_TOKEN}" ]]; then
   printf 'failed to parse Proxmox session auth response\n' >&2
   exit 1
+fi
+
+if [[ -n "${PVE_HOOKSCRIPT_SOURCE}" ]]; then
+  hook_storage="${PVE_HOOKSCRIPT_ID%%:*}"
+  hook_path="${PVE_HOOKSCRIPT_ID#*:}"
+  hook_name="${hook_path##*/}"
+  if [[ ! -f "${PVE_HOOKSCRIPT_SOURCE}" ]]; then
+    printf 'hookscript source not found: %s\n' "${PVE_HOOKSCRIPT_SOURCE}" >&2
+    exit 1
+  fi
+  upload_file="$(mktemp)"
+  upload_status="$(curl "${curl_flags[@]}" --output "${upload_file}" --write-out '%{http_code}' --request POST "${PVE_ENDPOINT}/api2/json/nodes/${PVE_NODE_NAME}/storage/${hook_storage}/upload" -b "PVEAuthCookie=${PVE_AUTH_COOKIE}" -H "CSRFPreventionToken: ${PVE_CSRF_TOKEN}" -F content=snippets -F "filename=@${PVE_HOOKSCRIPT_SOURCE};filename=${hook_name}")"
+  upload_body="$(<"${upload_file}")"
+  rm -f "${upload_file}"
+  if [[ "${upload_status}" -ge 400 && "${upload_body}" == *"value 'snippets' does not have a value in the enumeration"* ]]; then
+    printf 'hookscript upload skipped: storage upload API does not accept snippets\n' >&2
+  elif [[ "${upload_status}" -ge 400 && "${upload_body}" != *"file already exists"* ]]; then
+    printf 'HTTP POST hookscript upload failed: %s\n' "${upload_body}" >&2
+    exit 1
+  fi
+fi
+
+if [[ -z "${PVE_VM_ID}" ]]; then
+  exit 0
 fi
 
 config_result="$(api_call_with_status GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config")"

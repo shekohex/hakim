@@ -965,6 +965,7 @@ data "coder_parameter" "enable_home_disk" {
   description  = "Persist /home/coder using lifecycle-safe Proxmox storage independent from CT replacement."
   type         = "bool"
   default      = false
+  mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/hard-drive.svg"
   order        = 56
 }
@@ -1322,8 +1323,32 @@ resource "terraform_data" "workspace_rebuild_generation" {
   ]
 }
 
+resource "terraform_data" "proxmox_hook_script" {
+  count = local.bind_mount_hook_enabled ? 1 : 0
+
+  triggers_replace = {
+    node_name     = data.coder_parameter.proxmox_node_name.value
+    hookscript_id = data.coder_parameter.proxmox_home_bind_hook_script_id[0].value
+    script_sha    = filesha256("${path.module}/scripts/hakim-home-bind-hook.sh")
+  }
+
+  provisioner "local-exec" {
+    command = "bash ${path.module}/scripts/ensure-proxmox-hook.sh"
+
+    environment = {
+      PVE_ENDPOINT          = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
+      PVE_NODE_NAME         = data.coder_parameter.proxmox_node_name.value
+      PVE_USERNAME          = data.coder_parameter.proxmox_username.value
+      PVE_PASSWORD          = data.coder_parameter.proxmox_password.value
+      PVE_INSECURE          = tostring(data.coder_parameter.proxmox_insecure.value)
+      PVE_HOOKSCRIPT_ID     = data.coder_parameter.proxmox_home_bind_hook_script_id[0].value
+      PVE_HOOKSCRIPT_SOURCE = "${path.module}/scripts/hakim-home-bind-hook.sh"
+    }
+  }
+}
+
 resource "proxmox_virtual_environment_container" "workspace" {
-  hook_script_file_id   = null
+  hook_script_file_id   = local.bind_mount_hook_enabled ? data.coder_parameter.proxmox_home_bind_hook_script_id[0].value : null
   node_name             = data.coder_parameter.proxmox_node_name.value
   vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
   pool_id               = trimspace(data.coder_parameter.proxmox_pool_id.value) != "" ? data.coder_parameter.proxmox_pool_id.value : null
@@ -1335,7 +1360,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
   environment_variables = local.container_environment_variables
 
   lifecycle {
-    ignore_changes = [environment_variables, console, mount_point, hook_script_file_id]
+    ignore_changes = [environment_variables, console, mount_point]
 
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
@@ -1399,6 +1424,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
     ipv4 = true
   }
 
+  depends_on = [terraform_data.proxmox_hook_script]
 }
 
 resource "terraform_data" "home_volume_attach" {
