@@ -62,7 +62,7 @@ FROM base-system AS code-server-downloader
 
 ARG TARGETARCH=amd64
 # VERSION_UPDATE_BEGIN: code-server
-ARG CODE_SERVER_VERSION=4.118.0
+ARG CODE_SERVER_VERSION=4.121.0
 # VERSION_UPDATE_END: code-server
 
 WORKDIR /downloads
@@ -117,7 +117,7 @@ FROM base-system AS chrome-for-testing-downloader
 
 ARG TARGETARCH=amd64
 # VERSION_UPDATE_BEGIN: chrome
-ARG GOOGLE_CHROME_VERSION=148.0.7778.178
+ARG GOOGLE_CHROME_VERSION=149.0.7827.22
 # VERSION_UPDATE_END: chrome
 
 WORKDIR /downloads
