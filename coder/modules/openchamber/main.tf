@@ -75,7 +75,7 @@ variable "openchamber_version" {
   type        = string
   description = "The version of OpenChamber to install."
   # VERSION_UPDATE_BEGIN: openchamber
-  default     = "1.11.6"
+  default     = "1.11.7"
   # VERSION_UPDATE_END: openchamber
 }
 
