@@ -99,7 +99,7 @@ variable "opencode_version" {
   type        = string
   description = "The version of OpenCode to install."
   # VERSION_UPDATE_BEGIN: opencode
-  default     = "1.16.2"
+  default     = "1.17.0"
   # VERSION_UPDATE_END: opencode
 }
 
