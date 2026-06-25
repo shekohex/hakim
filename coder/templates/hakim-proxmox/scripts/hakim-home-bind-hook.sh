@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-HOOK_VERSION="2026-05-17.4"
+HOOK_VERSION="2026-06-25.1"
 
 VMID="${1:-}"
 PHASE="${2:-}"
@@ -141,11 +141,15 @@ if [[ -n "${home_spec}" ]]; then
         pvesm path "${volume_id}" >/dev/null
         backup="1"
       fi
-    elif [[ -f "${registry_file}" ]]; then
-      volume_id="$(tr -d '\r\n' <"${registry_file}")"
-      pvesm path "${volume_id}" >/dev/null
+    elif [[ -f "${registry_file}" ]] \
+      && volume_id="$(tr -d '\r\n' <"${registry_file}")" \
+      && volume_path="$(pvesm path "${volume_id}" 2>/dev/null)" \
+      && [[ -e "${volume_path}" ]]; then
       backup="1"
     else
+      if [[ -f "${registry_file}" ]]; then
+        log "registered home volume $(tr -d '\r\n' <"${registry_file}") is missing; reallocating"
+      fi
       [[ "${size_gb}" =~ ^[0-9]+$ && "${size_gb}" -gt 0 ]] || size_gb="30"
       if [[ "${migration_mode}" == "disabled" && -d "${legacy_source}" ]]; then
         log "legacy home source exists and migration is disabled: ${legacy_source}"
