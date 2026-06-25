@@ -18,5 +18,12 @@
       ]
     }
   },
+  "runArgs": [
+    "--privileged",
+    "--cgroupns=host",
+    "--tmpfs=/run",
+    "--tmpfs=/run/lock",
+    "--volume=/sys/fs/cgroup:/sys/fs/cgroup:rw"
+  ],
   "remoteUser": "coder"
 }

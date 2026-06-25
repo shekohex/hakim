@@ -7,14 +7,40 @@ CODER_GID="${CODER_GID:-}"
 CODER_HOME="${CODER_HOME:-/home/${CODER_USER}}"
 PROJECT_DIR="${CODER_PROJECT_DIR:-${CODER_HOME}/project}"
 
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+export PATH="/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export MISE_INSTALL_PATH="/usr/local/bin/mise"
 export LANG="${LANG:-C.UTF-8}"
 export LANGUAGE="${LANGUAGE:-C.UTF-8}"
 export LC_ALL="${LC_ALL:-C.UTF-8}"
 
 DOCKER_DAEMON_PID=""
+NIX_DAEMON_PID=""
+DBUS_DAEMON_PID=""
 AGENT_PID=""
+
+write_systemd_environment_file() {
+  local env_file="/etc/hakim/agent.env"
+  local entry name value escaped
+
+  mkdir -p "$(dirname "${env_file}")"
+  : > "${env_file}"
+  chmod 0600 "${env_file}"
+  while IFS= read -r -d '' entry; do
+    name="${entry%%=*}"
+    value="${entry#*=}"
+    [[ "${name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    escaped="${value//\\/\\\\}"
+    escaped="${escaped//\"/\\\"}"
+    escaped="${escaped//$'\r'/\\r}"
+    escaped="${escaped//$'\n'/\\n}"
+    printf '%s="%s"\n' "${name}" "${escaped}" >> "${env_file}"
+  done < <(env -0)
+}
+
+if [[ "$$" == "1" && -x /sbin/init ]]; then
+  write_systemd_environment_file
+  exec /sbin/init
+fi
 
 if id -u "${CODER_USER}" >/dev/null 2>&1; then
   CODER_UID="$(id -u "${CODER_USER}")"
@@ -99,6 +125,20 @@ if [[ "${START_DOCKER_DAEMON:-1}" == "1" || "${START_DOCKER_DAEMON:-}" == "true"
   fi
 fi
 
+if [[ ! -d /run/systemd/system && ("${START_NIX_DAEMON:-1}" == "1" || "${START_NIX_DAEMON:-}" == "true") ]]; then
+  if [[ -x /nix/var/nix/profiles/default/bin/nix-daemon ]] && [[ ! -S /nix/var/nix/daemon-socket/socket ]] && ! pgrep -x nix-daemon >/dev/null 2>&1; then
+    mkdir -p /nix/var/nix/daemon-socket /var/log
+    nohup /nix/var/nix/profiles/default/bin/nix-daemon >/var/log/nix-daemon.log 2>&1 &
+    NIX_DAEMON_PID="$!"
+  fi
+fi
+
+if [[ ! -d /run/systemd/system ]] && command -v dbus-daemon >/dev/null 2>&1 && [[ ! -S /run/dbus/system_bus_socket ]]; then
+  mkdir -p /run/dbus /var/log
+  nohup dbus-daemon --system --nofork >/var/log/dbus-system.log 2>&1 &
+  DBUS_DAEMON_PID="$!"
+fi
+
 stop_docker_daemon() {
   if [[ -z "${DOCKER_DAEMON_PID}" ]]; then
     return 0
@@ -118,6 +158,61 @@ stop_docker_daemon() {
   done
 
   kill -KILL "${DOCKER_DAEMON_PID}" >/dev/null 2>&1 || true
+}
+
+stop_nix_daemon() {
+  if [[ -z "${NIX_DAEMON_PID}" ]]; then
+    return 0
+  fi
+
+  if ! kill -0 "${NIX_DAEMON_PID}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  kill -TERM "${NIX_DAEMON_PID}" >/dev/null 2>&1 || true
+
+  for _ in $(seq 1 20); do
+    if ! kill -0 "${NIX_DAEMON_PID}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  kill -KILL "${NIX_DAEMON_PID}" >/dev/null 2>&1 || true
+}
+
+stop_dbus_daemon() {
+  if [[ -z "${DBUS_DAEMON_PID}" ]]; then
+    return 0
+  fi
+
+  if ! kill -0 "${DBUS_DAEMON_PID}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  kill -TERM "${DBUS_DAEMON_PID}" >/dev/null 2>&1 || true
+}
+
+start_user_secret_service() {
+  if ! command -v dbus-daemon >/dev/null 2>&1 || ! command -v gnome-keyring-daemon >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local runtime_dir="/run/user/${CODER_UID}"
+  mkdir -p "${runtime_dir}"
+  chown "${CODER_UID}:${CODER_GID}" "${runtime_dir}"
+  chmod 0700 "${runtime_dir}"
+
+  local session_env
+  session_env="$(su -s /bin/bash "${CODER_USER}" -c "XDG_RUNTIME_DIR='${runtime_dir}' dbus-launch --sh-syntax")" || return 0
+  eval "${session_env}"
+  export DBUS_SESSION_BUS_ADDRESS DBUS_SESSION_BUS_PID
+
+  local keyring_env
+  keyring_env="$(su -s /bin/bash "${CODER_USER}" -c "XDG_RUNTIME_DIR='${runtime_dir}' DBUS_SESSION_BUS_ADDRESS='${DBUS_SESSION_BUS_ADDRESS}' gnome-keyring-daemon --start --components=secrets,ssh")" || return 0
+  eval "${keyring_env}"
+  su -s /bin/bash "${CODER_USER}" -c "printf '' | XDG_RUNTIME_DIR='${runtime_dir}' DBUS_SESSION_BUS_ADDRESS='${DBUS_SESSION_BUS_ADDRESS}' gnome-keyring-daemon --unlock" >/dev/null 2>&1 || true
+  export SSH_AUTH_SOCK GNOME_KEYRING_CONTROL
 }
 
 stop_agent() {
@@ -145,6 +240,8 @@ stop_agent() {
 
 shutdown_services() {
   stop_agent
+  stop_nix_daemon
+  stop_dbus_daemon
   stop_docker_daemon
 }
 
@@ -161,12 +258,15 @@ if [[ -n "${CODER_AGENT_BOOTSTRAP:-}" && ( -z "${CODER_AGENT_URL:-}" || -z "${CO
 fi
 
 if [[ -n "${CODER_AGENT_URL:-}" && -n "${CODER_AGENT_TOKEN:-}" ]]; then
+  start_user_secret_service
+
   export HOME="${CODER_HOME}"
   export USER="${CODER_USER}"
   export LOGNAME="${CODER_USER}"
   export CODER_PROJECT_DIR="${PROJECT_DIR}"
+  export XDG_RUNTIME_DIR="/run/user/${CODER_UID}"
 
-  su -s /bin/bash "${CODER_USER}" -c 'cd "$CODER_PROJECT_DIR" && exec coder agent' &
+  su -s /bin/bash "${CODER_USER}" -c 'cd "$CODER_PROJECT_DIR" && exec env PATH="$PATH" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-}" GNOME_KEYRING_CONTROL="${GNOME_KEYRING_CONTROL:-}" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" coder agent' &
   AGENT_PID="$!"
 
   trap 'shutdown_services; exit 0' TERM INT HUP
@@ -178,6 +278,8 @@ if [[ -n "${CODER_AGENT_URL:-}" && -n "${CODER_AGENT_TOKEN:-}" ]]; then
 
   AGENT_PID=""
   trap - TERM INT HUP
+  stop_nix_daemon
+  stop_dbus_daemon
   stop_docker_daemon
 
   exit "${agent_exit_code}"

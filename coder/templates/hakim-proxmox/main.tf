@@ -790,9 +790,9 @@ data "coder_parameter" "workspace_rebuild_generation" {
 data "coder_parameter" "enable_nesting" {
   name         = "enable_nesting"
   display_name = "Enable Nesting"
-  description  = "Enable LXC nesting. Disabled by default."
+  description  = "Enable LXC nesting for systemd, Docker, and nested runtime support."
   type         = "bool"
-  default      = false
+  default      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/shield.svg"
   order        = 46
 }
@@ -823,7 +823,7 @@ locals {
   user_env   = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
   secret_env = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
   default_env = {
-    PATH                  = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims"
+    PATH                  = "/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims"
     LANG                  = "C.UTF-8"
     LANGUAGE              = "C.UTF-8"
     LC_ALL                = "C.UTF-8"
@@ -1078,6 +1078,8 @@ resource "proxmox_virtual_environment_container" "workspace" {
   }
 
   features {
+    fuse    = true
+    keyctl  = true
     nesting = data.coder_parameter.enable_nesting.value
   }
 

@@ -158,7 +158,7 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
 # =============================================================================
 FROM base-system AS final
 
-ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims" \
+ENV PATH="/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims" \
   STARSHIP_CONFIG=/etc/starship.toml
 
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/
@@ -180,7 +180,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get update && \
   select_package() { for pkg in "$@"; do if apt-cache show "$pkg" >/dev/null 2>&1; then echo "$pkg"; return 0; fi; done; return 1; } && \
   apt_packages=( \
-    ca-certificates docker.io fonts-liberation libsecret-1-0 xdg-utils \
+    ca-certificates docker.io systemd systemd-sysv systemd-container dbus dbus-user-session dbus-x11 \
+    gnome-keyring libsecret-1-0 libsecret-tools pass pinentry-curses \
+    xfsprogs e2fsprogs btrfs-progs fuse-overlayfs uidmap slirp4netns iptables nftables cgroup-tools cgroupfs-mount \
+    fonts-liberation xdg-utils \
     libc6 libcairo2 libcups2 libdbus-1-3 libdrm2 libexpat1 libfontconfig1 \
     libgbm1 libgcc-s1 libgdk-pixbuf-2.0-0 libnspr4 libnss3 libstdc++6 libu2f-udev \
     libvulkan1 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 \
@@ -218,6 +221,16 @@ RUN chmod +x /usr/local/bin/coder /usr/local/bin/git-credential-libsecret && \
 COPY --from=mise-installer /usr/local/bin/mise /usr/local/bin/mise
 COPY --from=mise-installer /usr/local/share/mise /usr/local/share/mise
 COPY --from=mise-installer /etc/profile.d/mise.sh /etc/profile.d/mise.sh
+
+RUN curl -fsSL https://install.determinate.systems/nix | \
+  sh -s -- install --no-confirm --diagnostic-endpoint "" \
+  --extra-conf "experimental-features = nix-command flakes" && \
+  ln -sf /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh /etc/profile.d/nix.sh
+
+RUN systemctl enable dbus >/dev/null 2>&1 || true && \
+  printf '[Unit]\nDescription=Hakim workspace agent\nAfter=network-online.target dbus.service nix-daemon.socket\nWants=network-online.target dbus.service nix-daemon.socket\n\n[Service]\nEnvironmentFile=-/etc/hakim/agent.env\nExecStart=/usr/local/bin/hakim-entrypoint\nRestart=always\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n' >/etc/systemd/system/hakim-agent.service && \
+  systemctl enable hakim-agent.service >/dev/null && \
+  truncate -s 0 /etc/machine-id
 
 RUN mkdir -p /etc/mise && printf "[settings]\nexperimental = true\n" > /etc/mise/config.toml
 COPY mise.toml /etc/mise/tools.toml
