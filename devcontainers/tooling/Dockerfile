@@ -17,6 +17,7 @@ ARG NODE_GYP_VERSION=12.2.0
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   source /etc/profile.d/mise.sh && \
   mise use --global node@${NODE_VERSION} && \
+  export PATH="/usr/local/share/mise/installs/node/${NODE_VERSION}/bin:${PATH}" && \
   export NPM_CONFIG_CACHE=/tmp/.npm && \
   success=0 && \
   for attempt in 1 2 3 4 5; do \
@@ -38,6 +39,7 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   --mount=type=cache,target=/root/.cache/uv,sharing=locked \
   source /etc/profile.d/mise.sh && \
   mise use --global uv@${UV_VERSION} && \
+  export PATH="/usr/local/share/mise/installs/uv/${UV_VERSION}/bin:${PATH}" && \
   uv python install "${UV_PYTHON_VERSION}" && \
   uv python list
 
