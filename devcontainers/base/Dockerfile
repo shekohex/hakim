@@ -182,7 +182,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt_packages=( \
     ca-certificates docker.io systemd systemd-sysv systemd-container dbus dbus-user-session dbus-x11 \
     gnome-keyring libsecret-1-0 libsecret-tools pass pinentry-curses \
-    xfsprogs e2fsprogs btrfs-progs fuse-overlayfs uidmap slirp4netns iptables nftables cgroup-tools cgroupfs-mount \
+    xfsprogs e2fsprogs btrfs-progs fuse-overlayfs uidmap slirp4netns iptables nftables cgroup-tools \
     fonts-liberation xdg-utils \
     libc6 libcairo2 libcups2 libdbus-1-3 libdrm2 libexpat1 libfontconfig1 \
     libgbm1 libgcc-s1 libgdk-pixbuf-2.0-0 libnspr4 libnss3 libstdc++6 libu2f-udev \
