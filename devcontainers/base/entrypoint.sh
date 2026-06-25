@@ -7,7 +7,7 @@ CODER_GID="${CODER_GID:-}"
 CODER_HOME="${CODER_HOME:-/home/${CODER_USER}}"
 PROJECT_DIR="${CODER_PROJECT_DIR:-${CODER_HOME}/project}"
 
-export PATH="/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+export PATH="/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims"
 export MISE_INSTALL_PATH="/usr/local/bin/mise"
 export LANG="${LANG:-C.UTF-8}"
 export LANGUAGE="${LANGUAGE:-C.UTF-8}"

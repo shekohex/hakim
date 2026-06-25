@@ -15,12 +15,13 @@ RUN chmod -R 777 /usr/local/share/mise
 ARG NODE_VERSION=24.12.0
 ARG NODE_GYP_VERSION=12.2.0
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
+  source /etc/profile.d/mise.sh && \
   mise use --global node@${NODE_VERSION} && \
   export NPM_CONFIG_CACHE=/tmp/.npm && \
   success=0 && \
   for attempt in 1 2 3 4 5; do \
-    if mise exec node@${NODE_VERSION} -- npm install -g "node-gyp@${NODE_GYP_VERSION}"; then success=1; break; fi; \
-    mise exec node@${NODE_VERSION} -- npm cache clean --force >/dev/null 2>&1 || true; \
+    if npm install -g "node-gyp@${NODE_GYP_VERSION}"; then success=1; break; fi; \
+    npm cache clean --force >/dev/null 2>&1 || true; \
     sleep "$((attempt * 2))"; \
   done && \
   [ "$success" -eq 1 ] && \
@@ -28,17 +29,27 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
 
 ARG BUN_VERSION=1.3.9
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
+  source /etc/profile.d/mise.sh && \
   mise use --global bun@${BUN_VERSION}
 
 ARG UV_VERSION=0.9.24
 ARG UV_PYTHON_VERSION=3.12.12
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+  source /etc/profile.d/mise.sh && \
   mise use --global uv@${UV_VERSION} && \
-  mise exec uv@${UV_VERSION} -- uv python install "${UV_PYTHON_VERSION}" && \
-  mise exec uv@${UV_VERSION} -- uv python list
+  uv python install "${UV_PYTHON_VERSION}" && \
+  uv python list
 
-RUN /usr/local/bin/hakim-expose-mise-tools
+RUN for bin in node npm npx corepack pnpm yarn bun bunx uv uvx; do \
+  path="/usr/local/bin/${bin}"; \
+  if [ -L "$path" ]; then \
+    target="$(readlink -f "$path" 2>/dev/null || true)"; \
+    case "$target" in \
+      /usr/local/share/mise/installs/*) rm -f "$path" ;; \
+    esac; \
+  fi; \
+done
 
 RUN printf "[settings]\nexperimental = true\n" > /etc/mise/config.toml
 

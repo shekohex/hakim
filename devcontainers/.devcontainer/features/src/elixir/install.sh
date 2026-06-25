@@ -61,7 +61,7 @@ fi
 echo "Ensuring Erlang ${ERLANG_VERSION} is configured..."
 mise use --global "erlang@${ERLANG_VERSION}"
 
-INSTALLED_OTP_MAJOR=$(mise exec "erlang@${ERLANG_VERSION}" -- erl -noshell -eval 'io:format("~s", [erlang:system_info(otp_release)]), halt().' 2>/dev/null || true)
+INSTALLED_OTP_MAJOR=$(erl -noshell -eval 'io:format("~s", [erlang:system_info(otp_release)]), halt().' 2>/dev/null || true)
 if [ -z "$INSTALLED_OTP_MAJOR" ]; then
     echo "Could not determine installed Erlang OTP major version" >&2
     exit 1
@@ -78,11 +78,11 @@ fi
 
 echo "Ensuring Elixir ${ELIXIR_SPEC} is configured..."
 mise use --global "elixir@${ELIXIR_SPEC}"
-hakim-expose-mise-tools
 
 rm -rf /root/.cache/mise
 
 echo "Verifying installations..."
+source /etc/profile.d/mise.sh
 erl -version || true
 elixir --version
 
@@ -127,7 +127,7 @@ if [ "$SEED_USER_HOME" = "true" ]; then
             echo "Installing Hex package manager for ${_REMOTE_USER}..."
             hex_ok=false
             for attempt in 1 2; do
-                if su -s /bin/bash "${_REMOTE_USER}" -c "PATH=\"/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin\" MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix local.hex --force"; then
+                if su -s /bin/bash "${_REMOTE_USER}" -c "MISE_DATA_DIR=\"${MISE_DATA_DIR}\" MISE_CONFIG_DIR=\"${MISE_CONFIG_DIR}\" MISE_GLOBAL_CONFIG_FILE=\"${MISE_GLOBAL_CONFIG_FILE}\" PATH=\"/usr/local/bin:/usr/local/share/mise/shims:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin\" MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix local.hex --force"; then
                     hex_ok=true
                     break
                 fi
@@ -146,7 +146,7 @@ if [ "$SEED_USER_HOME" = "true" ]; then
             echo "Installing Rebar build tool for ${_REMOTE_USER}..."
             rebar_ok=false
             for attempt in 1 2; do
-                if su -s /bin/bash "${_REMOTE_USER}" -c "PATH=\"/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin\" MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix local.rebar --force"; then
+                if su -s /bin/bash "${_REMOTE_USER}" -c "MISE_DATA_DIR=\"${MISE_DATA_DIR}\" MISE_CONFIG_DIR=\"${MISE_CONFIG_DIR}\" MISE_GLOBAL_CONFIG_FILE=\"${MISE_GLOBAL_CONFIG_FILE}\" PATH=\"/usr/local/bin:/usr/local/share/mise/shims:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin\" MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix local.rebar --force"; then
                     rebar_ok=true
                     break
                 fi

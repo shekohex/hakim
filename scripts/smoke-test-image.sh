@@ -74,12 +74,12 @@ function log() {
 
 function docker_root() {
   local cmd="$1"
-  docker run --rm --pull never --entrypoint bash "$IMAGE" -lc "set -euo pipefail; case \":\$PATH:\" in *:/usr/local/share/mise/shims:*) echo 'system mise shims must not be in PATH' >&2; exit 1 ;; esac; $cmd"
+  docker run --rm --pull never --entrypoint bash "$IMAGE" -lc "set -euo pipefail; export PATH=\"\$PATH:/usr/local/share/mise/shims:/usr/local/bin:/usr/local/sbin\"; $cmd"
 }
 
 function docker_coder() {
   local cmd="$1"
-  docker run --rm --pull never --entrypoint bash --user coder --workdir /home/coder "$IMAGE" -lc "set -euo pipefail; export HOME=/home/coder; case \":\$PATH:\" in *:/usr/local/share/mise/shims:*) echo 'system mise shims must not be in PATH' >&2; exit 1 ;; esac; $cmd"
+  docker run --rm --pull never --entrypoint bash --user coder --workdir /home/coder "$IMAGE" -lc "set -euo pipefail; export HOME=/home/coder; export PATH=\"\$PATH:/usr/local/share/mise/shims:/usr/local/bin:/usr/local/sbin\"; $cmd"
 }
 
 function assert_contains() {
@@ -176,6 +176,10 @@ function check_tooling() {
 
   node_version="$(docker_coder 'node --version')"
   assert_contains "$node_version" "v${node_expected}" "node version"
+
+  docker_coder 'npm --version'
+  docker_coder 'npx --version'
+  docker_coder 'corepack --version'
 
   bun_version="$(docker_coder 'bun --version')"
   assert_contains "$bun_version" "$bun_expected" "bun version"
