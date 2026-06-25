@@ -61,7 +61,7 @@ if [ "$SEED_USER_HOME" = "true" ]; then
             echo "Installing latest phx_new for ${_REMOTE_USER}..."
             phx_ok=false
             for attempt in 1 2; do
-                if su -s /bin/bash "${_REMOTE_USER}" -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix archive.install hex phx_new --force"; then
+                if su -s /bin/bash "${_REMOTE_USER}" -c "PATH=\"/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin\" MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix archive.install hex phx_new --force"; then
                     phx_ok=true
                     break
                 fi
@@ -72,7 +72,7 @@ if [ "$SEED_USER_HOME" = "true" ]; then
             echo "Installing phx_new ${VERSION} for ${_REMOTE_USER}..."
             phx_ok=false
             for attempt in 1 2; do
-                if su -s /bin/bash "${_REMOTE_USER}" -c "MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix archive.install hex phx_new ${VERSION} --force"; then
+                if su -s /bin/bash "${_REMOTE_USER}" -c "PATH=\"/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin\" MIX_HOME=\"${USER_HOME}/.mix\" HEX_HOME=\"${USER_HOME}/.hex\" MIX_ARCHIVES=\"${USER_HOME}/.mix/archives\" ${MIX_TIMEOUT_CMD} mix archive.install hex phx_new ${VERSION} --force"; then
                     phx_ok=true
                     break
                 fi

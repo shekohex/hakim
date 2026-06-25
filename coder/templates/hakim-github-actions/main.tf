@@ -219,11 +219,11 @@ data "coder_parameter" "git_global_gitconfig" {
 
 [credential "https://gist.github.com"]
         helper = ""
-        helper = "/usr/local/share/mise/shims/gh auth git-credential"
+        helper = "/usr/local/bin/gh auth git-credential"
 
 [credential "https://github.com"]
         helper = ""
-        helper = "/usr/local/share/mise/shims/gh auth git-credential"
+        helper = "/usr/local/bin/gh auth git-credential"
 
 [filter "lfs"]
         clean = "git-lfs clean -- %f"

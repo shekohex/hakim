@@ -2,7 +2,7 @@
 set -euo pipefail
 
 LAZYVIM_REPO="https://github.com/LazyVim/starter.git"
-DEFAULT_PATH="/usr/local/share/mise/shims:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"
+DEFAULT_PATH="/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"
 SYSTEM_LAZYVIM_DIR="/opt/hakim/lazyvim/nvim"
 
 if ! command -v git >/dev/null 2>&1; then

@@ -74,12 +74,12 @@ function log() {
 
 function docker_root() {
   local cmd="$1"
-  docker run --rm --pull never --entrypoint bash "$IMAGE" -lc "set -euo pipefail; export PATH=\"\$PATH:/usr/local/share/mise/shims:/usr/local/bin:/usr/local/sbin\"; $cmd"
+  docker run --rm --pull never --entrypoint bash "$IMAGE" -lc "set -euo pipefail; case \":\$PATH:\" in *:/usr/local/share/mise/shims:*) echo 'system mise shims must not be in PATH' >&2; exit 1 ;; esac; $cmd"
 }
 
 function docker_coder() {
   local cmd="$1"
-  docker run --rm --pull never --entrypoint bash --user coder --workdir /home/coder "$IMAGE" -lc "set -euo pipefail; export HOME=/home/coder; export PATH=\"\$PATH:/usr/local/share/mise/shims:/usr/local/bin:/usr/local/sbin\"; $cmd"
+  docker run --rm --pull never --entrypoint bash --user coder --workdir /home/coder "$IMAGE" -lc "set -euo pipefail; export HOME=/home/coder; case \":\$PATH:\" in *:/usr/local/share/mise/shims:*) echo 'system mise shims must not be in PATH' >&2; exit 1 ;; esac; $cmd"
 }
 
 function assert_contains() {

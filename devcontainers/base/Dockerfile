@@ -237,6 +237,8 @@ RUN mkdir -p /etc/mise && printf "[settings]\nexperimental = true\n" > /etc/mise
 COPY mise.toml /etc/mise/tools.toml
 COPY starship.toml /etc/starship.toml
 COPY tasks /etc/mise/tasks
+COPY tasks/expose-tools /usr/local/bin/hakim-expose-mise-tools
+RUN chmod +x /usr/local/bin/hakim-expose-mise-tools
 
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   --mount=type=secret,id=github_token \
