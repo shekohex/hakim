@@ -49,7 +49,15 @@ RUN for bin in node npm npx corepack pnpm yarn bun uv uvx; do \
       /usr/local/share/mise/installs/*/bin/*) rm -f "$path" ;; \
     esac; \
   fi; \
-done
+done && \
+  while IFS= read -r bin_path; do \
+    [ -d "$bin_path" ] || continue; \
+    for bin_file in "$bin_path"/*; do \
+      if [ -f "$bin_file" ] && [ -x "$bin_file" ]; then \
+        ln -sf "$bin_file" "/usr/local/bin/$(basename "$bin_file")"; \
+      fi; \
+    done; \
+  done < <(/usr/local/bin/mise bin-paths)
 
 RUN printf "[settings]\nexperimental = true\n" > /etc/mise/config.toml
 

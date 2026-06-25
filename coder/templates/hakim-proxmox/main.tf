@@ -256,11 +256,11 @@ data "coder_parameter" "git_global_gitconfig" {
 
 [credential "https://gist.github.com"]
         helper = ""
-        helper = "/usr/local/share/mise/shims/gh auth git-credential"
+        helper = "/usr/local/bin/gh auth git-credential"
 
 [credential "https://github.com"]
         helper = ""
-        helper = "/usr/local/share/mise/shims/gh auth git-credential"
+        helper = "/usr/local/bin/gh auth git-credential"
 
 [filter "lfs"]
         clean = "git-lfs clean -- %f"
@@ -823,7 +823,7 @@ locals {
   user_env   = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
   secret_env = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
   default_env = {
-    PATH                  = "/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims"
+    PATH                  = "/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     LANG                  = "C.UTF-8"
     LANGUAGE              = "C.UTF-8"
     LC_ALL                = "C.UTF-8"

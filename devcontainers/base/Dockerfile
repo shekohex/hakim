@@ -158,7 +158,7 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
 # =============================================================================
 FROM base-system AS final
 
-ENV PATH="/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims" \
+ENV PATH="/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
   STARSHIP_CONFIG=/etc/starship.toml
 
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/
@@ -230,6 +230,7 @@ RUN curl -fsSL https://install.determinate.systems/nix | \
 RUN systemctl enable dbus >/dev/null 2>&1 || true && \
   printf '[Unit]\nDescription=Hakim workspace agent\nAfter=network-online.target dbus.service nix-daemon.socket\nWants=network-online.target dbus.service nix-daemon.socket\n\n[Service]\nEnvironmentFile=-/etc/hakim/agent.env\nExecStart=/usr/local/bin/hakim-entrypoint\nRestart=always\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n' >/etc/systemd/system/hakim-agent.service && \
   systemctl enable hakim-agent.service >/dev/null && \
+  systemctl mask sys-kernel-config.mount sys-kernel-debug.mount systemd-networkd-wait-online.service >/dev/null && \
   truncate -s 0 /etc/machine-id
 
 RUN mkdir -p /etc/mise && printf "[settings]\nexperimental = true\n" > /etc/mise/config.toml
