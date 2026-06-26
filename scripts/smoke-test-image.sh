@@ -79,7 +79,7 @@ function docker_root() {
 
 function docker_coder() {
   local cmd="$1"
-  docker run --rm --pull never --entrypoint bash --user coder --workdir /home/coder "$IMAGE" -lc "set -euo pipefail; export HOME=/home/coder; export PATH=\"\$PATH:/usr/local/share/mise/shims:/usr/local/bin:/usr/local/sbin\"; $cmd"
+  docker run --rm --pull never --entrypoint bash --user coder --workdir /home/coder "$IMAGE" -lc "set -euo pipefail; export HOME=/home/coder; export PATH=\"/home/coder/.local/share/mise/shims:\$PATH:/usr/local/share/mise/shims:/usr/local/bin:/usr/local/sbin\"; $cmd"
 }
 
 function assert_contains() {
@@ -177,6 +177,7 @@ function check_tooling() {
   check_coder_runtime
 
   docker_coder 'case "${MISE_DATA_DIR:-}" in ""|"$HOME/.local/share/mise") ;; *) echo "unexpected MISE_DATA_DIR=${MISE_DATA_DIR}" >&2; exit 1 ;; esac'
+  docker_coder 'case ":$PATH:" in *":$HOME/.local/share/mise/shims:"*) ;; *) echo "missing user mise shims in PATH=$PATH" >&2; exit 1 ;; esac'
   docker_coder 'test "$(command -v node)" = /usr/local/bin/node'
 
   node_version="$(docker_coder 'node --version')"

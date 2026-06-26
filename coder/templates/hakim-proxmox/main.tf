@@ -823,7 +823,7 @@ locals {
   user_env   = try(jsondecode(trimspace(data.coder_parameter.user_env.value)), {})
   secret_env = try(jsondecode(trimspace(data.coder_parameter.secret_env.value)), {})
   default_env = {
-    PATH                  = "/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims"
+    PATH                  = "/home/coder/.local/share/mise/shims:/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/share/mise/shims"
     LANG                  = "C.UTF-8"
     LANGUAGE              = "C.UTF-8"
     LC_ALL                = "C.UTF-8"
@@ -919,16 +919,21 @@ resource "coder_agent" "main" {
     sed -i '/^export PATH="\$HOME\/\.local\/bin:\$PATH"$/d' ~/.bashrc ~/.profile 2>/dev/null || true
     sed -i '/^alias vim=nvim$/d' ~/.bashrc 2>/dev/null || true
 
-    if ! grep -Fq 'if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then' ~/.bashrc; then
+    if ! grep -Fq 'if [[ ":$PATH:" != *":$HOME/.local/share/mise/shims:"* ]]; then' ~/.bashrc; then
       cat >> ~/.bashrc <<'EOF'
+if [[ ":$PATH:" != *":$HOME/.local/share/mise/shims:"* ]]; then
+  export PATH="$HOME/.local/share/mise/shims:$PATH"
+fi
+
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 EOF
     fi
 
-    if ! grep -Fq 'export PATH="$HOME/.local/bin:$PATH"' ~/.profile; then
-      printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> ~/.profile
+    if ! grep -Fq 'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"' ~/.profile; then
+      sed -i '/^export PATH="\$HOME\/\.local\/bin:\$PATH"$/d' ~/.profile 2>/dev/null || true
+      printf '\nexport PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"\n' >> ~/.profile
     fi
 
     printf '\nalias vim=nvim\n' >> ~/.bashrc
