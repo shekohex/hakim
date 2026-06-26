@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-HOOK_VERSION="2026-06-26.1"
+HOOK_VERSION="2026-06-26.2"
 
 VMID="${1:-}"
 PHASE="${2:-}"
