@@ -742,7 +742,7 @@ data "coder_parameter" "home_migration_mode" {
 }
 
 data "coder_parameter" "proxmox_home_bind_hook_script_id" {
-  count        = (data.coder_parameter.enable_home_disk.value || data.coder_parameter.enable_docker_data_offload.value) ? 1 : 0
+  count        = (data.coder_parameter.enable_home_disk.value || data.coder_parameter.enable_docker_data_offload.value || data.coder_parameter.enable_nix_store_offload.value) ? 1 : 0
   name         = "proxmox_home_bind_hook_script_id"
   display_name = "Home Bind Hook Script ID"
   description  = "Proxmox hookscript volume id used to auto-create bind paths, e.g. local:snippets/hakim-home-bind-hook.sh"
@@ -774,6 +774,29 @@ data "coder_parameter" "proxmox_docker_volume_id" {
   mutable      = true
   icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
   order        = 62
+}
+
+data "coder_parameter" "enable_nix_store_offload" {
+  name         = "enable_nix_store_offload"
+  display_name = "Enable Nix Store Offload"
+  description  = "Persist Nix state under /nix using a deterministic host bind mount under /tank. Fresh mounts bootstrap Nix instead of copying the baked store."
+  type         = "bool"
+  default      = false
+  mutable      = true
+  icon         = "https://esm.sh/lucide-static@latest/icons/package-open.svg"
+  order        = 65
+}
+
+data "coder_parameter" "proxmox_nix_store_volume_id" {
+  count        = data.coder_parameter.enable_nix_store_offload.value ? 1 : 0
+  name         = "proxmox_nix_store_volume_id"
+  display_name = "Existing Nix Mount Source"
+  description  = "Optional existing absolute bind path for /nix. Empty uses /tank/hakim-nix-store/<owner>/<workspace>."
+  type         = "string"
+  default      = ""
+  mutable      = true
+  icon         = "https://esm.sh/lucide-static@latest/icons/link.svg"
+  order        = 66
 }
 
 data "coder_parameter" "workspace_rebuild_generation" {
@@ -838,7 +861,10 @@ locals {
   docker_data_root_env = (data.coder_parameter.enable_home_disk.value || data.coder_parameter.enable_docker_data_offload.value) ? {
     DOCKER_DATA_ROOT = "/home/coder/.local/share/docker"
   } : {}
-  combined_env            = merge(local.default_env, local.docker_data_root_env, local.user_env, local.secret_env)
+  nix_offload_env = data.coder_parameter.enable_nix_store_offload.value ? {
+    BOOTSTRAP_NIX_IF_MISSING = "1"
+  } : {}
+  combined_env            = merge(local.default_env, local.docker_data_root_env, local.nix_offload_env, local.user_env, local.secret_env)
   container_swap_enabled  = data.coder_parameter.enable_container_swap.value
   container_swap_mb_input = local.container_swap_enabled && length(data.coder_parameter.container_swap_mb) > 0 ? data.coder_parameter.container_swap_mb[0].value : 0
   container_swap_mb       = local.container_swap_enabled ? (local.container_swap_mb_input > 0 ? local.container_swap_mb_input : ceil(data.coder_parameter.container_memory_mb.value * 0.5)) : 0
@@ -877,8 +903,15 @@ locals {
   docker_mount_is_bind         = local.docker_data_offload_enabled && startswith(local.docker_mount_source, "/")
   docker_requires_root_session = local.docker_data_offload_enabled && local.docker_mount_is_bind
 
-  requires_root_session   = local.home_requires_root_session || local.docker_requires_root_session
-  bind_mount_hook_enabled = local.home_disk_enabled || local.docker_bind_mount_enabled
+  nix_store_offload_enabled = data.coder_parameter.enable_nix_store_offload.value
+  nix_store_volume_id       = length(data.coder_parameter.proxmox_nix_store_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_nix_store_volume_id[0].value) : ""
+  use_existing_nix_store    = local.nix_store_volume_id != ""
+  nix_store_bind_path       = "/tank/hakim-nix-store/${local.home_owner_slug}/${local.home_workspace_slug}"
+  nix_store_mount_source    = local.nix_store_offload_enabled ? (local.use_existing_nix_store ? local.nix_store_volume_id : local.nix_store_bind_path) : ""
+  nix_store_mount_is_bind   = local.nix_store_offload_enabled && startswith(local.nix_store_mount_source, "/")
+
+  requires_root_session   = local.home_requires_root_session || local.docker_requires_root_session || local.nix_store_mount_is_bind
+  bind_mount_hook_enabled = local.home_disk_enabled || local.docker_bind_mount_enabled || local.nix_store_mount_is_bind
 
   project_dir         = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script    = file("${path.module}/scripts/setup-git.sh")
@@ -1159,6 +1192,7 @@ resource "terraform_data" "workspace_agent_env" {
     env_sha         = local.container_runtime_env_sha
     home_attached   = tostring(local.home_disk_enabled)
     docker_source   = local.docker_mount_is_bind ? local.docker_mount_source : ""
+    nix_source      = local.nix_store_mount_is_bind ? local.nix_store_mount_source : ""
   }
 
   provisioner "local-exec" {
@@ -1177,6 +1211,7 @@ resource "terraform_data" "workspace_agent_env" {
       CT_RUNTIME_ENV_SHA = local.container_runtime_env_sha
       PVE_HOME_SOURCE    = ""
       PVE_DOCKER_SOURCE  = local.docker_mount_is_bind ? local.docker_mount_source : ""
+      PVE_NIX_SOURCE     = local.nix_store_mount_is_bind ? local.nix_store_mount_source : ""
     }
   }
 

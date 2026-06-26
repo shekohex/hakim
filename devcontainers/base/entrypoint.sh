@@ -18,6 +18,28 @@ NIX_DAEMON_PID=""
 DBUS_DAEMON_PID=""
 AGENT_PID=""
 
+bootstrap_nix_if_missing() {
+  case "${BOOTSTRAP_NIX_IF_MISSING:-}" in
+    1|true|TRUE|yes|YES) ;;
+    *) return 0 ;;
+  esac
+
+  if [[ -x /nix/var/nix/profiles/default/bin/nix-daemon ]]; then
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "BOOTSTRAP_NIX_IF_MISSING is enabled but curl is missing" >&2
+    return 1
+  fi
+
+  mkdir -p /nix
+  curl -fsSL https://install.determinate.systems/nix | \
+    sh -s -- install --no-confirm --diagnostic-endpoint "" \
+      --extra-conf "experimental-features = nix-command flakes"
+  ln -sf /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh /etc/profile.d/nix.sh
+}
+
 write_systemd_environment_file() {
   local env_file="/etc/hakim/agent.env"
   local entry name value escaped
@@ -36,6 +58,8 @@ write_systemd_environment_file() {
     printf '%s="%s"\n' "${name}" "${escaped}" >> "${env_file}"
   done < <(env -0)
 }
+
+bootstrap_nix_if_missing
 
 if [[ "$$" == "1" && -x /sbin/init ]]; then
   write_systemd_environment_file

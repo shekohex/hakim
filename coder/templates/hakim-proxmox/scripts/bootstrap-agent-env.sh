@@ -20,6 +20,7 @@ CT_RUNTIME_ENV_B64="${CT_RUNTIME_ENV_B64:-}"
 CT_RUNTIME_ENV_SHA="${CT_RUNTIME_ENV_SHA:-}"
 PVE_HOME_SOURCE="${PVE_HOME_SOURCE:-}"
 PVE_DOCKER_SOURCE="${PVE_DOCKER_SOURCE:-}"
+PVE_NIX_SOURCE="${PVE_NIX_SOURCE:-}"
 TASK_TIMEOUT_SEC="${TASK_TIMEOUT_SEC:-180}"
 
 if [[ -z "${CT_AGENT_BOOTSTRAP}" ]]; then
@@ -468,7 +469,21 @@ if [[ -z "${PVE_DOCKER_SOURCE}" && -n "${PVE_USERNAME}" && -n "${PVE_PASSWORD}" 
   fi
 fi
 
-if [[ "${needs_env_update}" != "true" && "${needs_home_upsert}" != "true" && "${needs_docker_upsert}" != "true" && "${needs_docker_remove}" != "true" ]]; then
+needs_nix_upsert=false
+if [[ -n "${PVE_NIX_SOURCE}" ]]; then
+  if ! mount_point_matches "${config_body}" "${PVE_NIX_SOURCE}" "/nix" "0"; then
+    needs_nix_upsert=true
+  fi
+fi
+
+needs_nix_remove=false
+if [[ -z "${PVE_NIX_SOURCE}" && -n "${PVE_USERNAME}" && -n "${PVE_PASSWORD}" ]]; then
+  if mount_point_exists "${config_body}" "/nix"; then
+    needs_nix_remove=true
+  fi
+fi
+
+if [[ "${needs_env_update}" != "true" && "${needs_home_upsert}" != "true" && "${needs_docker_upsert}" != "true" && "${needs_docker_remove}" != "true" && "${needs_nix_upsert}" != "true" && "${needs_nix_remove}" != "true" ]]; then
   exit 0
 fi
 
@@ -495,8 +510,16 @@ if [[ "${needs_docker_upsert}" == "true" ]]; then
   upsert_mount_point "${PVE_DOCKER_SOURCE}" "/home/coder/.local/share/docker" "0"
 fi
 
+if [[ "${needs_nix_upsert}" == "true" ]]; then
+  upsert_mount_point "${PVE_NIX_SOURCE}" "/nix" "0"
+fi
+
 if [[ "${needs_docker_remove}" == "true" ]]; then
   remove_mount_point_by_path "/home/coder/.local/share/docker"
+fi
+
+if [[ "${needs_nix_remove}" == "true" ]]; then
+  remove_mount_point_by_path "/nix"
 fi
 
 if [[ "${was_running}" == "true" ]]; then

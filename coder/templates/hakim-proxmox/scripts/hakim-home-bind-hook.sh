@@ -279,11 +279,19 @@ while IFS= read -r line; do
     continue
   fi
 
-  if [[ "${mount_path}" != "/home/coder" && "${mount_path}" != "/home/coder/.local/share/docker" ]]; then
-    continue
-  fi
-
-  install -d -m 0777 "${source_path}"
-  chown 100000:100000 "${source_path}"
-  chmod 0777 "${source_path}"
+  case "${mount_path}" in
+    /home/coder|/home/coder/.local/share/docker)
+      install -d -m 0777 "${source_path}"
+      chown 100000:100000 "${source_path}"
+      chmod 0777 "${source_path}"
+      ;;
+    /nix)
+      install -d -m 0755 "${source_path}"
+      chown 100000:100000 "${source_path}"
+      chmod 0755 "${source_path}"
+      ;;
+    *)
+      continue
+      ;;
+  esac
 done < <(sed -n '/^mp[0-9]\+: /p' "${config_file}")
