@@ -5,17 +5,16 @@ FROM ${BASE_IMAGE}
 
 USER root
 SHELL ["/bin/bash", "-c"]
-ENV MISE_YES=1 \
-  MISE_DATA_DIR=/usr/local/share/mise \
-  MISE_CONFIG_DIR=/etc/mise \
-  MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml
+ENV MISE_YES=1
 
 RUN chmod -R 777 /usr/local/share/mise
 
 ARG NODE_VERSION=24.12.0
 ARG NODE_GYP_VERSION=12.2.0
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
-  source /etc/profile.d/mise.sh && \
+  export MISE_DATA_DIR=/usr/local/share/mise \
+  MISE_CONFIG_DIR=/etc/mise \
+  MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && \
   mise use --global node@${NODE_VERSION} && \
   export NPM_CONFIG_CACHE=/tmp/.npm && \
   success=0 && \
@@ -29,27 +28,23 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
 
 ARG BUN_VERSION=1.3.9
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
-  source /etc/profile.d/mise.sh && \
+  export MISE_DATA_DIR=/usr/local/share/mise \
+  MISE_CONFIG_DIR=/etc/mise \
+  MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && \
   mise use --global bun@${BUN_VERSION}
 
 ARG UV_VERSION=0.9.24
 ARG UV_PYTHON_VERSION=3.12.12
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   --mount=type=cache,target=/root/.cache/uv,sharing=locked \
-  source /etc/profile.d/mise.sh && \
+  export MISE_DATA_DIR=/usr/local/share/mise \
+  MISE_CONFIG_DIR=/etc/mise \
+  MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && \
   mise use --global uv@${UV_VERSION} && \
   uv python install "${UV_PYTHON_VERSION}" && \
   uv python list
 
-RUN for bin in node npm npx corepack pnpm yarn bun bunx uv uvx; do \
-  path="/usr/local/bin/${bin}"; \
-  if [ -L "$path" ]; then \
-    target="$(readlink -f "$path" 2>/dev/null || true)"; \
-    case "$target" in \
-      /usr/local/share/mise/installs/*) rm -f "$path" ;; \
-    esac; \
-  fi; \
-done
+RUN /usr/local/bin/hakim-expose-mise-tools
 
 RUN printf "[settings]\nexperimental = true\n" > /etc/mise/config.toml
 

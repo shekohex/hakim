@@ -174,6 +174,9 @@ function check_tooling() {
 
   check_coder_runtime
 
+  docker_coder 'case "${MISE_DATA_DIR:-}" in ""|"$HOME/.local/share/mise") ;; *) echo "unexpected MISE_DATA_DIR=${MISE_DATA_DIR}" >&2; exit 1 ;; esac'
+  docker_coder 'test "$(command -v node)" = /usr/local/bin/node'
+
   node_version="$(docker_coder 'node --version')"
   assert_contains "$node_version" "v${node_expected}" "node version"
 

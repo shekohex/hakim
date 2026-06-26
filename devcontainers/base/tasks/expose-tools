@@ -7,7 +7,7 @@ export MISE_CONFIG_DIR=${MISE_CONFIG_DIR:-/etc/mise}
 export MISE_GLOBAL_CONFIG_FILE=${MISE_GLOBAL_CONFIG_FILE:-/etc/mise/tools.toml}
 MISE_BIN=${MISE_INSTALL_PATH:-/usr/local/bin/mise}
 
-should_skip() {
+should_wrap_system_tool() {
     case "$1" in
         node|npm|npx|corepack|pnpm|yarn|bun|bunx|uv|uvx)
             return 0
@@ -18,20 +18,28 @@ should_skip() {
     esac
 }
 
+write_system_tool_wrapper() {
+    local name="$1"
+    local path="/usr/local/bin/$name"
+
+    cat > "$path" <<EOF
+#!/bin/sh
+export MISE_DATA_DIR=/usr/local/share/mise
+export MISE_CONFIG_DIR=/etc/mise
+export MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml
+exec /usr/local/share/mise/shims/$name "\$@"
+EOF
+    chmod 0755 "$path"
+}
+
 while IFS= read -r bin_path; do
     [ -d "$bin_path" ] || continue
     echo "Linking binaries from $bin_path..."
     for bin_file in "$bin_path"/*; do
         if [ -f "$bin_file" ] && [ -x "$bin_file" ]; then
             name=$(basename "$bin_file")
-            if should_skip "$name"; then
-                path="/usr/local/bin/$name"
-                if [ -L "$path" ]; then
-                    target=$(readlink -f "$path" 2>/dev/null || true)
-                    case "$target" in
-                        /usr/local/share/mise/installs/*) rm -f "$path" ;;
-                    esac
-                fi
+            if should_wrap_system_tool "$name"; then
+                write_system_tool_wrapper "$name"
                 continue
             fi
             ln -sf "$bin_file" "/usr/local/bin/$name"
