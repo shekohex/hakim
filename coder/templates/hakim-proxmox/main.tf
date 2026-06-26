@@ -1132,14 +1132,15 @@ resource "terraform_data" "home_volume_attach" {
     command = "bash ${path.module}/scripts/ensure-proxmox-hook.sh"
 
     environment = {
-      PVE_ENDPOINT          = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
-      PVE_NODE_NAME         = data.coder_parameter.proxmox_node_name.value
-      PVE_VM_ID             = tostring(proxmox_virtual_environment_container.workspace.vm_id)
-      PVE_USERNAME          = data.coder_parameter.proxmox_username.value
-      PVE_PASSWORD          = data.coder_parameter.proxmox_password.value
-      PVE_INSECURE          = tostring(data.coder_parameter.proxmox_insecure.value)
-      PVE_HOOKSCRIPT_ID     = data.coder_parameter.proxmox_home_bind_hook_script_id[0].value
-      PVE_HOOKSCRIPT_SOURCE = "${path.module}/scripts/hakim-home-bind-hook.sh"
+      PVE_ENDPOINT             = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
+      PVE_NODE_NAME            = data.coder_parameter.proxmox_node_name.value
+      PVE_VM_ID                = tostring(proxmox_virtual_environment_container.workspace.vm_id)
+      PVE_USERNAME             = data.coder_parameter.proxmox_username.value
+      PVE_PASSWORD             = data.coder_parameter.proxmox_password.value
+      PVE_INSECURE             = tostring(data.coder_parameter.proxmox_insecure.value)
+      PVE_HOOKSCRIPT_ID        = data.coder_parameter.proxmox_home_bind_hook_script_id[0].value
+      PVE_HOOKSCRIPT_SOURCE    = "${path.module}/scripts/hakim-home-bind-hook.sh"
+      PVE_WORKSPACE_TRANSITION = data.coder_workspace.me.transition
     }
   }
 
@@ -1179,7 +1180,10 @@ resource "terraform_data" "workspace_agent_env" {
     }
   }
 
-  depends_on = [proxmox_virtual_environment_container.workspace]
+  depends_on = [
+    proxmox_virtual_environment_container.workspace,
+    terraform_data.home_volume_attach,
+  ]
 }
 
 module "shekohex_agent" {

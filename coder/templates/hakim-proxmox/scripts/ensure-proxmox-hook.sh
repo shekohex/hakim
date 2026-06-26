@@ -16,6 +16,7 @@ PVE_PASSWORD="${PVE_PASSWORD:?PVE_PASSWORD is required}"
 PVE_INSECURE="${PVE_INSECURE:-true}"
 PVE_HOOKSCRIPT_ID="${PVE_HOOKSCRIPT_ID:?PVE_HOOKSCRIPT_ID is required}"
 PVE_HOOKSCRIPT_SOURCE="${PVE_HOOKSCRIPT_SOURCE:-}"
+PVE_WORKSPACE_TRANSITION="${PVE_WORKSPACE_TRANSITION:-start}"
 
 curl_flags=(--silent --show-error)
 if [[ "${PVE_INSECURE,,}" == "true" || "${PVE_INSECURE}" == "1" ]]; then
@@ -91,8 +92,9 @@ if [[ "${config_status}" -ge 400 ]]; then
   exit 1
 fi
 
+hookscript_present=false
 if [[ "${config_body}" == *"\"hookscript\":\"${PVE_HOOKSCRIPT_ID}\""* ]]; then
-  exit 0
+  hookscript_present=true
 fi
 
 status_result="$(api_call_with_status GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/current")"
@@ -102,7 +104,7 @@ if [[ "${status_body}" == *'"status":"running"'* ]]; then
   was_running=true
 fi
 
-if [[ "${was_running}" == "true" ]]; then
+if [[ "${hookscript_present}" == "false" && "${was_running}" == "true" ]]; then
   stop_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/stop")"
   stop_status="$(printf '%s' "${stop_result}" | sed -n '1p')"
   stop_body="$(printf '%s' "${stop_result}" | sed -n '2,$p')"
@@ -114,15 +116,48 @@ if [[ "${was_running}" == "true" ]]; then
   fi
 fi
 
-hook_result="$(api_call_with_status PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" --data-urlencode "hookscript=${PVE_HOOKSCRIPT_ID}")"
-hook_status="$(printf '%s' "${hook_result}" | sed -n '1p')"
-hook_body="$(printf '%s' "${hook_result}" | sed -n '2,$p')"
-if [[ "${hook_status}" -ge 400 ]]; then
-  printf 'HTTP PUT hookscript failed: %s\n' "${hook_body}" >&2
+if [[ "${hookscript_present}" == "false" ]]; then
+  hook_result="$(api_call_with_status PUT "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config" --data-urlencode "hookscript=${PVE_HOOKSCRIPT_ID}")"
+  hook_status="$(printf '%s' "${hook_result}" | sed -n '1p')"
+  hook_body="$(printf '%s' "${hook_result}" | sed -n '2,$p')"
+  if [[ "${hook_status}" -ge 400 ]]; then
+    printf 'HTTP PUT hookscript failed: %s\n' "${hook_body}" >&2
+    exit 1
+  fi
+fi
+
+if [[ "${hookscript_present}" == "false" && "${was_running}" == "true" ]]; then
+  start_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/start")"
+  start_status="$(printf '%s' "${start_result}" | sed -n '1p')"
+  start_body="$(printf '%s' "${start_result}" | sed -n '2,$p')"
+  if [[ "${start_status}" -ge 400 && "${start_body}" != *"already running"* ]]; then
+    printf 'HTTP POST start failed: %s\n' "${start_body}" >&2
+    exit 1
+  fi
+fi
+
+config_result="$(api_call_with_status GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config")"
+config_status="$(printf '%s' "${config_result}" | sed -n '1p')"
+config_body="$(printf '%s' "${config_result}" | sed -n '2,$p')"
+if [[ "${config_status}" -ge 400 ]]; then
+  printf 'HTTP GET config failed: %s\n' "${config_body}" >&2
   exit 1
 fi
 
-if [[ "${was_running}" == "true" ]]; then
+if [[ "${PVE_WORKSPACE_TRANSITION}" == "start" && "${config_body}" == *"hakim_home=enabled"* && "${config_body}" != *"mp=/home/coder"* ]]; then
+  status_result="$(api_call_with_status GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/current")"
+  status_body="$(printf '%s' "${status_result}" | sed -n '2,$p')"
+  if [[ "${status_body}" == *'"status":"running"'* ]]; then
+    stop_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/stop")"
+    stop_status="$(printf '%s' "${stop_result}" | sed -n '1p')"
+    stop_body="$(printf '%s' "${stop_result}" | sed -n '2,$p')"
+    if [[ "${stop_status}" -ge 400 && "${stop_body}" != *"not running"* ]]; then
+      printf 'HTTP POST stop failed: %s\n' "${stop_body}" >&2
+      exit 1
+    fi
+    sleep 3
+  fi
+
   start_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/start")"
   start_status="$(printf '%s' "${start_result}" | sed -n '1p')"
   start_body="$(printf '%s' "${start_result}" | sed -n '2,$p')"
