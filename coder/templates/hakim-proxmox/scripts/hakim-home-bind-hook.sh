@@ -1,12 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-HOOK_VERSION="2026-06-25.1"
+HOOK_VERSION="2026-06-26.1"
 
 VMID="${1:-}"
 PHASE="${2:-}"
 
-if [[ -z "${VMID}" || "${PHASE}" != "pre-start" ]]; then
+if [[ -z "${VMID}" ]]; then
   exit 0
 fi
 
@@ -28,6 +28,10 @@ config_value() {
   sed -n "s/^${key}: //p" "${config_file}" | tail -n 1
 }
 
+home_mount_key() {
+  sed -n '/^mp[0-9]\+: /p' "${config_file}" | awk 'index($0, "mp=/home/coder,") || $0 ~ /mp=\/home\/coder$/ { sub(":", "", $1); print $1; exit }'
+}
+
 delete_mount_config() {
   local mount_key="$1"
   local temp_config
@@ -47,6 +51,19 @@ set_mount_config() {
   cp "${temp_config}" "${config_file}"
   rm -f "${temp_config}"
 }
+
+if [[ "${PHASE}" == "pre-stop" ]]; then
+  existing_key="$(home_mount_key)"
+  if [[ -n "${existing_key}" ]]; then
+    log "detaching /home/coder mount ${existing_key} before stop"
+    delete_mount_config "${existing_key}"
+  fi
+  exit 0
+fi
+
+if [[ "${PHASE}" != "pre-start" ]]; then
+  exit 0
+fi
 
 resize_home_volume_if_needed() {
   local mount_key="$1"
@@ -214,7 +231,7 @@ if [[ -n "${home_spec}" ]]; then
       prepare_home_volume "$(pvesm path "${volume_id}")"
     fi
 
-    existing_key="$(sed -n '/^mp[0-9]\+: /p' "${config_file}" | awk 'index($0, "mp=/home/coder,") || $0 ~ /mp=\/home\/coder$/ { sub(":", "", $1); print $1; exit }')"
+    existing_key="$(home_mount_key)"
     if [[ -n "${existing_key}" ]]; then
       existing_entry="$(sed -n "s/^${existing_key}: //p" "${config_file}")"
       existing_source="${existing_entry%%,*}"
