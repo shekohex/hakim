@@ -151,6 +151,8 @@ function check_base() {
   docker_root 'docker compose version'
   docker_root 'docker buildx version'
   docker_root 'mise --version'
+  docker_root 'usage --version'
+  docker_root 'MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml mise i'
   docker_root 'nvim --version | head -n1'
   docker_root 'rg --version | head -n1'
   docker_root 'fd --version'

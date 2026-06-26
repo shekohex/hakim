@@ -5,6 +5,8 @@ set -euo pipefail
 export MISE_DATA_DIR=${MISE_DATA_DIR:-/usr/local/share/mise}
 export MISE_CONFIG_DIR=${MISE_CONFIG_DIR:-/etc/mise}
 export MISE_GLOBAL_CONFIG_FILE=${MISE_GLOBAL_CONFIG_FILE:-/etc/mise/tools.toml}
+export MISE_YES=1
+export HOME=/root
 MISE_BIN=${MISE_INSTALL_PATH:-/usr/local/bin/mise}
 
 should_wrap_system_tool() {
@@ -48,4 +50,4 @@ while IFS= read -r bin_path; do
             fi
         fi
     done
-done < <("$MISE_BIN" bin-paths)
+done < <(cd / && "$MISE_BIN" bin-paths)
