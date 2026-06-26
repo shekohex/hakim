@@ -44,6 +44,39 @@ json_field_value() {
   sed -n "s/.*\"${key}\":\"\([^\"]*\)\".*/\1/p"
 }
 
+wait_task() {
+  local upid="$1"
+  local escaped_upid task_result task_status task_body task_state task_exitstatus
+  if [[ -z "${upid}" ]]; then
+    return 0
+  fi
+
+  escaped_upid="${upid//:/%3A}"
+  for _ in {1..120}; do
+    task_result="$(api_call_with_status GET "/api2/json/nodes/${PVE_NODE_NAME}/tasks/${escaped_upid}/status")"
+    task_status="$(printf '%s' "${task_result}" | sed -n '1p')"
+    task_body="$(printf '%s' "${task_result}" | sed -n '2,$p')"
+    if [[ "${task_status}" -ge 400 ]]; then
+      printf 'HTTP GET task status failed: %s\n' "${task_body}" >&2
+      exit 1
+    fi
+
+    task_state="$(printf '%s' "${task_body}" | json_field_value status)"
+    if [[ "${task_state}" == "stopped" ]]; then
+      task_exitstatus="$(printf '%s' "${task_body}" | json_field_value exitstatus)"
+      if [[ -n "${task_exitstatus}" && "${task_exitstatus}" != "OK" ]]; then
+        printf 'Proxmox task failed: %s\n' "${task_body}" >&2
+        exit 1
+      fi
+      return 0
+    fi
+    sleep 1
+  done
+
+  printf 'timed out waiting for Proxmox task: %s\n' "${upid}" >&2
+  exit 1
+}
+
 ticket_file="$(mktemp)"
 ticket_status="$(curl "${curl_flags[@]}" --output "${ticket_file}" --write-out '%{http_code}' --request POST "${PVE_ENDPOINT}/api2/json/access/ticket" --data-urlencode "username=${PVE_USERNAME}" --data-urlencode "password=${PVE_PASSWORD}")"
 ticket_body="$(<"${ticket_file}")"
@@ -109,7 +142,7 @@ if [[ "${hookscript_present}" == "false" && "${was_running}" == "true" ]]; then
   stop_status="$(printf '%s' "${stop_result}" | sed -n '1p')"
   stop_body="$(printf '%s' "${stop_result}" | sed -n '2,$p')"
   if [[ "${stop_status}" -lt 400 ]]; then
-    sleep 3
+    wait_task "$(printf '%s' "${stop_body}" | json_data_value)"
   elif [[ "${stop_body}" != *"not running"* ]]; then
     printf 'HTTP POST stop failed: %s\n' "${stop_body}" >&2
     exit 1
@@ -134,6 +167,9 @@ if [[ "${hookscript_present}" == "false" && "${was_running}" == "true" ]]; then
     printf 'HTTP POST start failed: %s\n' "${start_body}" >&2
     exit 1
   fi
+  if [[ "${start_status}" -lt 400 ]]; then
+    wait_task "$(printf '%s' "${start_body}" | json_data_value)"
+  fi
 fi
 
 config_result="$(api_call_with_status GET "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/config")"
@@ -155,7 +191,9 @@ if [[ "${PVE_WORKSPACE_TRANSITION}" == "start" && "${config_body}" == *"hakim_ho
       printf 'HTTP POST stop failed: %s\n' "${stop_body}" >&2
       exit 1
     fi
-    sleep 3
+    if [[ "${stop_status}" -lt 400 ]]; then
+      wait_task "$(printf '%s' "${stop_body}" | json_data_value)"
+    fi
   fi
 
   start_result="$(api_call_with_status POST "/api2/json/nodes/${PVE_NODE_NAME}/lxc/${PVE_VM_ID}/status/start")"
@@ -164,5 +202,8 @@ if [[ "${PVE_WORKSPACE_TRANSITION}" == "start" && "${config_body}" == *"hakim_ho
   if [[ "${start_status}" -ge 400 && "${start_body}" != *"already running"* ]]; then
     printf 'HTTP POST start failed: %s\n' "${start_body}" >&2
     exit 1
+  fi
+  if [[ "${start_status}" -lt 400 ]]; then
+    wait_task "$(printf '%s' "${start_body}" | json_data_value)"
   fi
 fi
