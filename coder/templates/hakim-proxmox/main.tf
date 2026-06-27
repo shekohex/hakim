@@ -1076,7 +1076,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
   environment_variables = local.container_environment_variables
 
   lifecycle {
-    ignore_changes = [environment_variables, console, mount_point, hook_script_file_id]
+    ignore_changes = [environment_variables, console, mount_point, hook_script_file_id, features]
 
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
@@ -1116,8 +1116,6 @@ resource "proxmox_virtual_environment_container" "workspace" {
   }
 
   features {
-    fuse    = true
-    keyctl  = true
     nesting = data.coder_parameter.enable_nesting.value
   }
 
