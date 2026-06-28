@@ -51,6 +51,11 @@ setup_auth() {
   mkdir -p "$(dirname "$auth_json_file")"
 
   if [ -n "$ARG_AUTH_JSON" ]; then
+    if [ -f "$auth_json_file" ]; then
+      printf 'auth json already exists at %s, skipping\n' "$auth_json_file"
+      return 0
+    fi
+
     echo "$ARG_AUTH_JSON" > "$auth_json_file"
     chmod 600 "$auth_json_file"
     printf 'added auth json to %s\n' "$auth_json_file"

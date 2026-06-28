@@ -22,7 +22,7 @@ module "shekohex_agent" {
 
 | Name | Description | Default |
 |------|-------------|---------|
-| `auth_json` | Pi auth JSON written to `~/.pi/agent/auth.json` | `{}` |
+| `auth_json` | Pi auth JSON written to `~/.pi/agent/auth.json` when file does not exist | `{}` |
 | `install_shekohex_agent` | Install the CLI | `true` |
 | `pre_install_script` | Custom script before install | `null` |
 | `post_install_script` | Custom script after install | `null` |
