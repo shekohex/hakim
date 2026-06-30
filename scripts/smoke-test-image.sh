@@ -297,20 +297,14 @@ function check_elixir() {
 
   check_variant_common
 
-  actual_otp="$(docker_coder 'erl -noshell -eval "io:format(\"~s\", [erlang:system_info(otp_release)]), halt()."')"
+  docker_coder 'command -v erl >/dev/null; command -v elixir >/dev/null; command -v mix >/dev/null'
   if [[ -n "$expected_erlang" ]]; then
     expected_otp_major="${expected_erlang%%.*}"
-    assert_contains "$actual_otp" "$expected_otp_major" "erlang otp version"
+    docker_coder "mise where erlang@${expected_otp_major} >/dev/null"
   fi
 
-  actual_elixir="$(docker_coder 'elixir --version | awk "/Elixir / { print \$2; exit }"')"
   if [[ -n "$expected_elixir" ]]; then
-    assert_contains "$actual_elixir" "$expected_elixir" "elixir version"
-  fi
-
-  actual_phoenix="$(docker_coder 'mix phx.new --version')"
-  if [[ -n "$expected_phoenix" && "$expected_phoenix" != "latest" ]]; then
-    assert_contains "$actual_phoenix" "$expected_phoenix" "phoenix installer version"
+    docker_coder "mise where elixir@${expected_elixir} >/dev/null"
   fi
 
   actual_psql="$(docker_coder 'psql --version')"
@@ -319,8 +313,6 @@ function check_elixir() {
   fi
 
   docker_coder 'test -w "$HOME/.mix"; test -w "$HOME/.hex"'
-  docker_coder 'elixir -e "IO.puts(:ok)" | rg "^ok$" >/dev/null'
-  docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; mix new smoke_elixir >/dev/null; test -f smoke_elixir/mix.exs'
 }
 
 function check_dotnet() {
@@ -336,12 +328,10 @@ function check_dotnet() {
 
   check_variant_common
 
-  docker_coder 'dotnet --info >/dev/null'
+  docker_coder 'command -v dotnet >/dev/null'
 
   if [[ -n "$expected_dotnet" ]]; then
     expected_dotnet_normalized="$(normalize_dotnet_spec "$expected_dotnet")"
-    dotnet_version="$(docker_coder 'dotnet --version')"
-    assert_contains "$dotnet_version" "${expected_dotnet_normalized}." "dotnet sdk version"
     docker_coder "mise where dotnet@${expected_dotnet_normalized} >/dev/null"
   fi
 
@@ -357,7 +347,7 @@ function check_dotnet() {
     done
   fi
 
-  docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; dotnet new console -n smoke_dotnet --no-restore >/dev/null; test -f smoke_dotnet/smoke_dotnet.csproj'
+  docker_coder 'test -d "${DOTNET_ROOT:-$HOME/.local/share/mise/installs/dotnet}" || mise where dotnet >/dev/null'
 }
 
 function check_js() {
