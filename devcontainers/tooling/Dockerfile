@@ -18,6 +18,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY mise.toml /etc/mise/tooling.toml
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
+  --mount=type=secret,id=github_token \
+  if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi && \
   MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tooling.toml \
   mise install --yes && \
   MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tooling.toml \
@@ -27,6 +29,8 @@ ARG NODE_VERSION=24.18.0
 ARG NODE_GYP_VERSION=13.0.0
 ARG PNPM_VERSION=11.9.0
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
+  --mount=type=secret,id=github_token \
+  if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi && \
   export MISE_DATA_DIR=/usr/local/share/mise \
   MISE_CONFIG_DIR=/etc/mise \
   MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && \
@@ -45,6 +49,8 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
 
 ARG BUN_VERSION=1.3.9
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
+  --mount=type=secret,id=github_token \
+  if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi && \
   export MISE_DATA_DIR=/usr/local/share/mise \
   MISE_CONFIG_DIR=/etc/mise \
   MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && \
@@ -53,7 +59,9 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
 ARG UV_VERSION=0.9.24
 ARG UV_PYTHON_VERSION=3.12.12
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
+  --mount=type=secret,id=github_token \
   --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+  if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi && \
   export MISE_DATA_DIR=/usr/local/share/mise \
   MISE_CONFIG_DIR=/etc/mise \
   MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && \
