@@ -172,7 +172,7 @@ function check_base() {
   docker_root 'command -v xdotool >/dev/null'
   docker_root 'scrot --version | head -n1'
   docker_root 'xclip -version 2>&1 | head -n1'
-  docker_root 'wmctrl -V 2>&1 | head -n1'
+  docker_root 'command -v wmctrl >/dev/null'
 }
 
 function check_tooling() {
