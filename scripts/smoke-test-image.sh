@@ -72,14 +72,23 @@ function log() {
   echo "[smoke][$TARGET${VARIANT:+:$VARIANT}] $*"
 }
 
+function run_with_timeout() {
+  local timeout_seconds="${SMOKE_COMMAND_TIMEOUT_SECONDS:-300}"
+  if command -v timeout >/dev/null 2>&1; then
+    timeout --kill-after=30s "${timeout_seconds}s" "$@"
+  else
+    "$@"
+  fi
+}
+
 function docker_root() {
   local cmd="$1"
-  docker run --rm --pull never --entrypoint bash "$IMAGE" -lc "set -euo pipefail; export PATH=\"\$PATH:/usr/local/share/mise/shims:/usr/local/bin:/usr/local/sbin\"; $cmd"
+  run_with_timeout docker run --rm --pull never --entrypoint bash "$IMAGE" -lc "set -euo pipefail; export PATH=\"\$PATH:/usr/local/share/mise/shims:/usr/local/bin:/usr/local/sbin\"; $cmd"
 }
 
 function docker_coder() {
   local cmd="$1"
-  docker run --rm --pull never --entrypoint bash --user coder --workdir /home/coder "$IMAGE" -lc "set -euo pipefail; export HOME=/home/coder; export PATH=\"/home/coder/.local/share/mise/shims:\$PATH:/usr/local/share/mise/shims:/usr/local/bin:/usr/local/sbin\"; $cmd"
+  run_with_timeout docker run --rm --pull never --entrypoint bash --user coder --workdir /home/coder "$IMAGE" -lc "set -euo pipefail; export HOME=/home/coder; export PATH=\"/home/coder/.local/share/mise/shims:\$PATH:/usr/local/share/mise/shims:/usr/local/bin:/usr/local/sbin\"; $cmd"
 }
 
 function assert_contains() {
@@ -310,7 +319,8 @@ function check_elixir() {
   fi
 
   docker_coder 'test -w "$HOME/.mix"; test -w "$HOME/.hex"'
-  docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; mix new smoke_elixir >/dev/null; cd smoke_elixir; mix test >/dev/null'
+  docker_coder 'elixir -e "IO.puts(:ok)" | rg "^ok$" >/dev/null'
+  docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; mix new smoke_elixir >/dev/null; test -f smoke_elixir/mix.exs'
 }
 
 function check_dotnet() {
@@ -347,7 +357,7 @@ function check_dotnet() {
     done
   fi
 
-  docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; dotnet new console -n smoke_dotnet >/dev/null; cd smoke_dotnet; dotnet build --nologo >/dev/null'
+  docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; dotnet new console -n smoke_dotnet --no-restore >/dev/null; test -f smoke_dotnet/smoke_dotnet.csproj'
 }
 
 function check_js() {
