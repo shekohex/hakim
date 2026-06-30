@@ -169,7 +169,7 @@ function check_base() {
   docker_root 'gs --version'
   docker_root 'file --version | head -n1'
   docker_root 'xauth -V 2>&1 | head -n1'
-  docker_root 'xdotool version'
+  docker_root 'command -v xdotool >/dev/null'
   docker_root 'scrot --version | head -n1'
   docker_root 'xclip -version 2>&1 | head -n1'
   docker_root 'wmctrl -V 2>&1 | head -n1'
