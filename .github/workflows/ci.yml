@@ -111,13 +111,20 @@ jobs:
               docker/coder/*|scripts/build-coder-image.sh|scripts/build-terraform-provider-hakim.sh|providers/hakim/*)
                 coder_changed=true
                 ;;
+              scripts/smoke-test-image.sh)
+                build_all=true
+                base_changed=true
+                tooling_changed=true
+                ;;
               devcontainers/tooling/*)
                 build_all=true
                 tooling_changed=true
                 ;;
               .github/workflows/ci.yml)
                 build_all=true
+                base_changed=true
                 coder_changed=true
+                tooling_changed=true
                 ;;
               devcontainers/.devcontainer/images/*)
                 variant="$(echo "${file}" | cut -d/ -f4)"
