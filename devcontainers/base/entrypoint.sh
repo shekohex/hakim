@@ -12,10 +12,20 @@ export MISE_INSTALL_PATH="/usr/local/bin/mise"
 export LANG="${LANG:-C.UTF-8}"
 export LANGUAGE="${LANGUAGE:-C.UTF-8}"
 export LC_ALL="${LC_ALL:-C.UTF-8}"
+export DISPLAY="${DISPLAY:-:99}"
+export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
+export PAGER="${PAGER:-less}"
+export LESS="${LESS:--R}"
+
+if command -v nvim >/dev/null 2>&1; then
+  export EDITOR="${EDITOR:-nvim}"
+  export VISUAL="${VISUAL:-nvim}"
+fi
 
 DOCKER_DAEMON_PID=""
 NIX_DAEMON_PID=""
 DBUS_DAEMON_PID=""
+XVFB_PID=""
 AGENT_PID=""
 
 bootstrap_nix_if_missing() {
@@ -163,6 +173,26 @@ if [[ ! -d /run/systemd/system ]] && command -v dbus-daemon >/dev/null 2>&1 && [
   DBUS_DAEMON_PID="$!"
 fi
 
+if [[ ! -d /run/systemd/system && "${DISPLAY}" == ":99" && ("${START_XVFB:-1}" == "1" || "${START_XVFB:-}" == "true") ]]; then
+  if command -v Xvfb >/dev/null 2>&1 && ! pgrep -f "Xvfb :99" >/dev/null 2>&1; then
+    xvfb_screen="${XVFB_SCREEN:-1280x1024x24}"
+    mkdir -p /var/log
+    nohup Xvfb :99 -screen 0 "${xvfb_screen}" -nolisten tcp >/var/log/xvfb.log 2>&1 &
+    XVFB_PID="$!"
+    xvfb_ready=false
+    for _ in $(seq 1 10); do
+      if xdpyinfo -display :99 >/dev/null 2>&1; then
+        xvfb_ready=true
+        break
+      fi
+      sleep 1
+    done
+    if [[ "${xvfb_ready}" != "true" ]]; then
+      echo "Xvfb did not become ready on ${DISPLAY}; see /var/log/xvfb.log" >&2
+    fi
+  fi
+fi
+
 stop_docker_daemon() {
   if [[ -z "${DOCKER_DAEMON_PID}" ]]; then
     return 0
@@ -217,6 +247,27 @@ stop_dbus_daemon() {
   kill -TERM "${DBUS_DAEMON_PID}" >/dev/null 2>&1 || true
 }
 
+stop_xvfb() {
+  if [[ -z "${XVFB_PID}" ]]; then
+    return 0
+  fi
+
+  if ! kill -0 "${XVFB_PID}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  kill -TERM "${XVFB_PID}" >/dev/null 2>&1 || true
+
+  for _ in $(seq 1 20); do
+    if ! kill -0 "${XVFB_PID}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  kill -KILL "${XVFB_PID}" >/dev/null 2>&1 || true
+}
+
 start_user_secret_service() {
   if ! command -v dbus-daemon >/dev/null 2>&1 || ! command -v gnome-keyring-daemon >/dev/null 2>&1; then
     return 0
@@ -264,6 +315,7 @@ stop_agent() {
 
 shutdown_services() {
   stop_agent
+  stop_xvfb
   stop_nix_daemon
   stop_dbus_daemon
   stop_docker_daemon
@@ -290,7 +342,7 @@ if [[ -n "${CODER_AGENT_URL:-}" && -n "${CODER_AGENT_TOKEN:-}" ]]; then
   export CODER_PROJECT_DIR="${PROJECT_DIR}"
   export XDG_RUNTIME_DIR="/run/user/${CODER_UID}"
 
-  su -s /bin/bash "${CODER_USER}" -c 'cd "$CODER_PROJECT_DIR" && exec env PATH="$PATH" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-}" GNOME_KEYRING_CONTROL="${GNOME_KEYRING_CONTROL:-}" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" coder agent' &
+  su -s /bin/bash "${CODER_USER}" -c 'cd "$CODER_PROJECT_DIR" && exec env PATH="$PATH" DISPLAY="$DISPLAY" LIBGL_ALWAYS_SOFTWARE="$LIBGL_ALWAYS_SOFTWARE" PAGER="$PAGER" LESS="$LESS" EDITOR="${EDITOR:-}" VISUAL="${VISUAL:-}" DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-}" GNOME_KEYRING_CONTROL="${GNOME_KEYRING_CONTROL:-}" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" coder agent' &
   AGENT_PID="$!"
 
   trap 'shutdown_services; exit 0' TERM INT HUP
@@ -302,6 +354,8 @@ if [[ -n "${CODER_AGENT_URL:-}" && -n "${CODER_AGENT_TOKEN:-}" ]]; then
 
   AGENT_PID=""
   trap - TERM INT HUP
+  stop_xvfb
+  XVFB_PID=""
   stop_nix_daemon
   stop_dbus_daemon
   stop_docker_daemon

@@ -9,13 +9,30 @@ ENV MISE_YES=1
 
 RUN chmod -R 777 /usr/local/share/mise
 
-ARG NODE_VERSION=24.12.0
-ARG NODE_GYP_VERSION=12.2.0
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  apt-get update && apt-get install -y --no-install-recommends \
+  binutils dnsutils elfutils gdb iproute2 iputils-ping ltrace mtr-tiny netcat-openbsd \
+  patchelf socat strace tcpdump traceroute && \
+  rm -rf /var/lib/apt/lists/*
+
+COPY mise.toml /etc/mise/tooling.toml
+RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
+  MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tooling.toml \
+  mise install --yes && \
+  MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tooling.toml \
+  /usr/local/bin/hakim-expose-mise-tools
+
+ARG NODE_VERSION=24.18.0
+ARG NODE_GYP_VERSION=13.0.0
+ARG PNPM_VERSION=11.9.0
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   export MISE_DATA_DIR=/usr/local/share/mise \
   MISE_CONFIG_DIR=/etc/mise \
   MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && \
   mise use --global node@${NODE_VERSION} && \
+  corepack enable pnpm && \
+  COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare "pnpm@${PNPM_VERSION}" --activate && \
   export NPM_CONFIG_CACHE=/tmp/.npm && \
   success=0 && \
   for attempt in 1 2 3 4 5; do \

@@ -1,8 +1,8 @@
 {
     "name": "Node.js (via Mise)",
     "id": "nodejs",
-    "version": "1.0.1",
-    "description": "Installs Node.js using Mise.",
+    "version": "1.1.0",
+    "description": "Installs Node.js and enables pnpm using Mise.",
     "options": {
         "version": {
             "type": "string",
@@ -14,13 +14,18 @@
                 "20",
                 "18"
             ],
-            "default": "24.13.0",
+            "default": "24.18.0",
             "description": "Select the version of Node.js to install."
         },
         "nodeGypVersion": {
             "type": "string",
-            "default": "12.2.0",
+            "default": "13.0.0",
             "description": "Select the version of node-gyp to install."
+        },
+        "pnpmVersion": {
+            "type": "string",
+            "default": "11.9.0",
+            "description": "Select the version of pnpm to activate with Corepack."
         }
     },
     "installsAfter": [

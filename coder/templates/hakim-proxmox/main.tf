@@ -1116,6 +1116,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
   }
 
   features {
+    fuse    = true
     nesting = data.coder_parameter.enable_nesting.value
   }
 

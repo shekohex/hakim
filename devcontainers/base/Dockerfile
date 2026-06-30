@@ -31,7 +31,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   printf "deb http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}/ trixie-updates main\n" >> /etc/apt/sources.list && \
   printf "deb http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}/ trixie-security main\n" >> /etc/apt/sources.list && \
   apt-get update && apt-get install -y --no-install-recommends \
-  age curl wget jq unzip sudo bash bash-completion htop locales \
+  age curl wget jq unzip sudo bash bash-completion htop less locales \
   ca-certificates gnupg lsb-release git lsof \
   build-essential gawk procps openssh-client && \
   sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
@@ -183,9 +183,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     ca-certificates docker.io systemd systemd-sysv systemd-container dbus dbus-user-session dbus-x11 \
     gnome-keyring libsecret-1-0 libsecret-tools pass pinentry-curses \
     xfsprogs e2fsprogs btrfs-progs fuse-overlayfs uidmap slirp4netns iptables nftables cgroup-tools \
-    fonts-liberation xdg-utils \
+    fonts-liberation fonts-noto fonts-noto-color-emoji fontconfig xdg-utils xdg-user-dirs \
+    xvfb xauth x11-utils xdotool scrot xclip wmctrl ffmpeg imagemagick webp librsvg2-bin \
+    poppler-utils qpdf ghostscript desktop-file-utils shared-mime-info file at-spi2-core \
     libc6 libcairo2 libcups2 libdbus-1-3 libdrm2 libexpat1 libfontconfig1 \
-    libgbm1 libgcc-s1 libgdk-pixbuf-2.0-0 libnspr4 libnss3 libstdc++6 libu2f-udev \
+    libegl1 libgbm1 libgcc-s1 libgdk-pixbuf-2.0-0 libgl1 libglx-mesa0 libgtk-3-0 \
+    libnotify4 libnspr4 libnss3 libstdc++6 libu2f-udev \
     libvulkan1 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 \
     libxext6 libxfixes3 libxi6 libxkbcommon0 libxrandr2 libxrender1 libxshmfence1 \
     libxss1 libxtst6 \
@@ -193,6 +196,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt_packages+=("$(select_package libasound2t64 libasound2)") && \
   apt_packages+=("$(select_package libatk-bridge2.0-0t64 libatk-bridge2.0-0)") && \
   apt_packages+=("$(select_package libatk1.0-0t64 libatk1.0-0)") && \
+  apt_packages+=("$(select_package libayatana-appindicator3-1 libappindicator3-1)") && \
+  apt_packages+=("$(select_package libfuse2t64 libfuse2)") && \
   apt_packages+=("$(select_package libglib2.0-0t64 libglib2.0-0)") && \
   apt_packages+=("$(select_package libpango-1.0-0t64 libpango-1.0-0)") && \
   apt-get install -y --no-install-recommends "${apt_packages[@]}" && \
@@ -227,7 +232,11 @@ RUN curl -fsSL https://install.determinate.systems/nix | \
   --extra-conf "experimental-features = nix-command flakes" && \
   ln -sf /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh /etc/profile.d/nix.sh
 
-RUN systemctl enable dbus >/dev/null 2>&1 || true && \
+RUN printf 'DISPLAY=:99\nLIBGL_ALWAYS_SOFTWARE=1\nPAGER=less\nLESS=-R\n' >> /etc/environment && \
+  printf 'export DISPLAY="${DISPLAY:-:99}"\nexport LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"\nexport PAGER="${PAGER:-less}"\nexport LESS="${LESS:--R}"\nif command -v nvim >/dev/null 2>&1; then\n  export EDITOR="${EDITOR:-nvim}"\n  export VISUAL="${VISUAL:-nvim}"\nfi\n' > /etc/profile.d/hakim-headless-display.sh && \
+  printf '[Unit]\nDescription=Hakim virtual X display\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nEnvironment=LIBGL_ALWAYS_SOFTWARE=1\nEnvironment=XVFB_SCREEN=1280x1024x24\nEnvironmentFile=-/etc/hakim/xvfb.env\nExecStart=/bin/bash -lc '\''exec /usr/bin/Xvfb :99 -screen 0 "${XVFB_SCREEN}" -nolisten tcp'\''\nRestart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n' >/etc/systemd/system/hakim-xvfb.service && \
+  systemctl enable dbus >/dev/null 2>&1 || true && \
+  systemctl enable hakim-xvfb.service >/dev/null || true && \
   printf '[Unit]\nDescription=Hakim workspace agent\nAfter=network-online.target dbus.service nix-daemon.socket\nWants=network-online.target dbus.service nix-daemon.socket\n\n[Service]\nEnvironmentFile=-/etc/hakim/agent.env\nExecStart=/usr/local/bin/hakim-entrypoint\nRestart=always\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n' >/etc/systemd/system/hakim-agent.service && \
   systemctl enable hakim-agent.service >/dev/null && \
   systemctl mask sys-kernel-config.mount sys-kernel-debug.mount systemd-networkd-wait-online.service >/dev/null && \
@@ -249,7 +258,8 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
 RUN groupadd -f docker && \
   useradd -m -s /bin/bash coder --groups=docker --user-group --uid=1000 && \
   echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/coder && \
-  echo 'alias google-chrome=/usr/bin/google-chrome-stable' > /etc/profile.d/google-chrome.sh
+  echo 'alias google-chrome=/usr/bin/google-chrome-stable' > /etc/profile.d/google-chrome.sh && \
+  printf 'if command -v nvim >/dev/null 2>&1; then alias vim=nvim; fi\n' > /etc/profile.d/hakim-editor-aliases.sh
 
 COPY entrypoint.sh /usr/local/bin/hakim-entrypoint
 RUN chmod +x /usr/local/bin/hakim-entrypoint

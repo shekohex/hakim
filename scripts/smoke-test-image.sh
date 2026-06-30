@@ -152,10 +152,27 @@ function check_base() {
   docker_root 'docker buildx version'
   docker_root 'mise --version'
   docker_root 'usage --version'
+  docker_root 'less --version | head -n1'
+  docker_root 'bash -lc "source /etc/profile.d/hakim-headless-display.sh; test \"$DISPLAY\" = :99; test \"$LIBGL_ALWAYS_SOFTWARE\" = 1; test \"$PAGER\" = less; test \"$LESS\" = -R; test \"$EDITOR\" = nvim; test \"$VISUAL\" = nvim"'
+  docker_root 'bash -lc "source /etc/profile.d/hakim-editor-aliases.sh; alias vim | rg nvim >/dev/null"'
   docker_root 'MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml mise i'
   docker_root 'nvim --version | head -n1'
   docker_root 'rg --version | head -n1'
   docker_root 'fd --version'
+  docker_root 'tmp_display=:98; Xvfb "$tmp_display" -screen 0 "${XVFB_SCREEN:-1280x1024x24}" -nolisten tcp >/tmp/xvfb-smoke.log 2>&1 & pid=$!; trap "kill $pid >/dev/null 2>&1 || true" EXIT; for _ in $(seq 1 10); do xdpyinfo -display "$tmp_display" >/dev/null 2>&1 && exit 0; sleep 1; done; cat /tmp/xvfb-smoke.log >&2; exit 1'
+  docker_root 'ffmpeg -version | head -n1'
+  docker_root 'convert -version | head -n1'
+  docker_root 'cwebp -version'
+  docker_root 'rsvg-convert --version'
+  docker_root 'pdftotext -v 2>&1 | head -n1'
+  docker_root 'qpdf --version | head -n1'
+  docker_root 'gs --version'
+  docker_root 'file --version | head -n1'
+  docker_root 'xauth -V 2>&1 | head -n1'
+  docker_root 'xdotool version'
+  docker_root 'scrot --version | head -n1'
+  docker_root 'xclip -version 2>&1 | head -n1'
+  docker_root 'wmctrl -V 2>&1 | head -n1'
 }
 
 function check_tooling() {
@@ -186,6 +203,7 @@ function check_tooling() {
   docker_coder 'npm --version'
   docker_coder 'npx --version'
   docker_coder 'corepack --version'
+  docker_coder 'pnpm --version'
 
   bun_version="$(docker_coder 'bun --version')"
   assert_contains "$bun_version" "$bun_expected" "bun version"
@@ -198,6 +216,7 @@ function check_tooling() {
 
   docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; node -e "console.log(\"ok\")" | rg "^ok$" >/dev/null'
   docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; bun -e "console.log(\"ok\")" | rg "^ok$" >/dev/null'
+  docker_coder 'for tool in glow delta lazygit difft typos actionlint taplo dprint sops gitleaks dust dua lazydocker dive crane oras syft trivy grpcurl oha tofu shellcheck shfmt hadolint yq just watchexec hyperfine xh; do command -v "$tool" >/dev/null; done'
 }
 
 function check_variant_common() {
@@ -350,6 +369,7 @@ function check_js() {
   assert_contains "$bun_version" "$bun_expected" "bun version"
 
   docker_coder 'npm --version'
+  docker_coder 'pnpm --version'
   docker_coder 'uv --version'
   docker_coder 'python --version'
   docker_coder 'tmpdir="$(mktemp -d)"; cd "$tmpdir"; node -e "console.log(\"ok\")" | rg "^ok$" >/dev/null'

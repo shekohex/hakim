@@ -2,8 +2,9 @@
 set -e
 
 
-VERSION=${VERSION:-"24.13.0"}
-NODE_GYP_VERSION=${NODE_GYP_VERSION:-${NODEGYPVERSION:-"12.2.0"}}
+VERSION=${VERSION:-"24.18.0"}
+NODE_GYP_VERSION=${NODE_GYP_VERSION:-${NODEGYPVERSION:-"13.0.0"}}
+PNPM_VERSION=${PNPM_VERSION:-${PNPMVERSION:-"11.9.0"}}
 
 echo "Installing Node.js ${VERSION} via Mise..."
 
@@ -25,6 +26,11 @@ mise use --global node@${VERSION}
 
 echo "Node.js installed!"
 
+echo "Enabling pnpm ${PNPM_VERSION} via Corepack..."
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+corepack enable pnpm
+corepack prepare "pnpm@${PNPM_VERSION}" --activate
+
 echo "Installing node-gyp for native module compilation..."
 export NPM_CONFIG_CACHE=/tmp/.npm
 npm install -g "node-gyp@${NODE_GYP_VERSION}"
@@ -34,3 +40,4 @@ echo "Verifying Node.js installation..."
 source /etc/profile.d/mise.sh
 # Run verification as user
 node --version
+pnpm --version
