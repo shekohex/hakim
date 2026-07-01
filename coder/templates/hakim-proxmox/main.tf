@@ -910,8 +910,9 @@ locals {
   nix_store_mount_source    = local.nix_store_offload_enabled ? (local.use_existing_nix_store ? local.nix_store_volume_id : local.nix_store_bind_path) : ""
   nix_store_mount_is_bind   = local.nix_store_offload_enabled && startswith(local.nix_store_mount_source, "/")
 
-  requires_root_session   = local.home_requires_root_session || local.docker_requires_root_session || local.nix_store_mount_is_bind
-  bind_mount_hook_enabled = local.home_disk_enabled || local.docker_bind_mount_enabled || local.nix_store_mount_is_bind
+  lxc_features_require_root_session = true
+  requires_root_session             = local.lxc_features_require_root_session || local.home_requires_root_session || local.docker_requires_root_session || local.nix_store_mount_is_bind
+  bind_mount_hook_enabled           = local.home_disk_enabled || local.docker_bind_mount_enabled || local.nix_store_mount_is_bind
 
   project_dir         = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script    = file("${path.module}/scripts/setup-git.sh")
@@ -1082,7 +1083,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
 
     precondition {
       condition     = !local.requires_root_session || (trimspace(data.coder_parameter.proxmox_username.value) == "root@pam" && trimspace(data.coder_parameter.proxmox_password.value) != "")
-      error_message = "Bind-mounted home/docker paths require root@pam session auth. Set proxmox_username=root@pam and provide proxmox_password."
+      error_message = "LXC feature flags and bind-mounted storage require root@pam session auth. Set proxmox_username=root@pam and provide proxmox_password."
     }
 
     precondition {
