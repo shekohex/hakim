@@ -301,7 +301,6 @@ function check_dotnet() {
   check_variant_common
 
   docker_coder 'command -v dotnet >/dev/null'
-  docker_coder 'test -d "${DOTNET_ROOT:-$HOME/.local/share/mise/installs/dotnet}" || mise where dotnet >/dev/null'
 }
 
 function check_js() {
