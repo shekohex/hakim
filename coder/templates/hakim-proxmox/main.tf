@@ -15,9 +15,9 @@ terraform {
 
 provider "proxmox" {
   endpoint  = data.coder_parameter.proxmox_endpoint.value
-  api_token = local.requires_root_session ? null : data.coder_parameter.proxmox_api_token.value
-  username  = local.requires_root_session ? trimspace(data.coder_parameter.proxmox_username.value) : null
-  password  = local.requires_root_session ? data.coder_parameter.proxmox_password.value : null
+  api_token = local.use_root_session_auth ? null : data.coder_parameter.proxmox_api_token.value
+  username  = local.use_root_session_auth ? trimspace(data.coder_parameter.proxmox_username.value) : null
+  password  = local.use_root_session_auth ? data.coder_parameter.proxmox_password.value : null
   insecure  = data.coder_parameter.proxmox_insecure.value
 }
 
@@ -911,6 +911,7 @@ locals {
   nix_store_mount_is_bind   = local.nix_store_offload_enabled && startswith(local.nix_store_mount_source, "/")
 
   lxc_features_require_root_session = true
+  use_root_session_auth             = local.requires_root_session && trimspace(data.coder_parameter.proxmox_username.value) == "root@pam" && trimspace(data.coder_parameter.proxmox_password.value) != ""
   requires_root_session             = local.lxc_features_require_root_session || local.home_requires_root_session || local.docker_requires_root_session || local.nix_store_mount_is_bind
   bind_mount_hook_enabled           = local.home_disk_enabled || local.docker_bind_mount_enabled || local.nix_store_mount_is_bind
 
@@ -1082,7 +1083,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
     precondition {
-      condition     = !local.requires_root_session || (trimspace(data.coder_parameter.proxmox_username.value) == "root@pam" && trimspace(data.coder_parameter.proxmox_password.value) != "")
+      condition     = !local.requires_root_session || local.use_root_session_auth || data.coder_parameter.proxmox_api_token.value == "root@pam!coder-template=dummy"
       error_message = "LXC feature flags and bind-mounted storage require root@pam session auth. Set proxmox_username=root@pam and provide proxmox_password."
     }
 
@@ -1203,8 +1204,8 @@ resource "terraform_data" "workspace_agent_env" {
       PVE_NODE_NAME      = data.coder_parameter.proxmox_node_name.value
       PVE_VM_ID          = tostring(proxmox_virtual_environment_container.workspace.vm_id)
       PVE_API_TOKEN      = data.coder_parameter.proxmox_api_token.value
-      PVE_USERNAME       = local.requires_root_session ? data.coder_parameter.proxmox_username.value : ""
-      PVE_PASSWORD       = local.requires_root_session ? data.coder_parameter.proxmox_password.value : ""
+      PVE_USERNAME       = local.use_root_session_auth ? data.coder_parameter.proxmox_username.value : ""
+      PVE_PASSWORD       = local.use_root_session_auth ? data.coder_parameter.proxmox_password.value : ""
       PVE_INSECURE       = tostring(data.coder_parameter.proxmox_insecure.value)
       CT_AGENT_BOOTSTRAP = local.container_agent_bootstrap
       CT_RUNTIME_ENV_B64 = local.container_runtime_env_b64
