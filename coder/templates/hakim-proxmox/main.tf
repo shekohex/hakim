@@ -1120,6 +1120,11 @@ resource "proxmox_virtual_environment_container" "workspace" {
     nesting = data.coder_parameter.enable_nesting.value
   }
 
+  device_passthrough {
+    path = "/dev/fuse"
+    mode = "0666"
+  }
+
   initialization {
     hostname = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
 
