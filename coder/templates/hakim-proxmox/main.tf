@@ -942,6 +942,25 @@ resource "coder_agent" "main" {
     fi
     sudo chmod 1777 /dev/shm || true
 
+    if command -v dockerd >/dev/null 2>&1 && command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files docker.service >/dev/null 2>&1; then
+      docker_data_root="$${DOCKER_DATA_ROOT:-/var/lib/docker}"
+      docker_exec_root="$${DOCKER_EXEC_ROOT:-/var/run/docker}"
+      docker_storage_driver="$${DOCKER_STORAGE_DRIVER:-vfs}"
+      docker_opts="--data-root=$${docker_data_root} --exec-root=$${docker_exec_root} --storage-driver=$${docker_storage_driver}"
+
+      sudo install -d -m 0755 /etc/default
+      if ! sudo test -f /etc/default/docker || ! sudo grep -Fqx "DOCKER_OPTS=\"$${docker_opts}\"" /etc/default/docker; then
+        printf 'DOCKER_OPTS="%s"\n' "$${docker_opts}" | sudo tee /etc/default/docker >/dev/null
+        sudo systemctl restart docker || true
+      elif docker info >/dev/null 2>&1; then
+        current_docker_root="$(docker info --format '{{ .DockerRootDir }}' 2>/dev/null || true)"
+        current_storage_driver="$(docker info --format '{{ .Driver }}' 2>/dev/null || true)"
+        if [ "$${current_docker_root}" != "$${docker_data_root}" ] || [ "$${current_storage_driver}" != "$${docker_storage_driver}" ]; then
+          sudo systemctl restart docker || true
+        fi
+      fi
+    fi
+
     mkdir -p ~/.config/mise
     mkdir -p ~/.config
     mkdir -p ~/.local/bin
