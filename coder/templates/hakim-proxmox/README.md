@@ -191,7 +191,7 @@ Use care. This is intentionally manual and irreversible.
 
 Docker data defaults to `/home/coder/.local/share/docker` when home persistence is enabled, so it lives on the same `local-lvm` home volume.
 
-If `enable_docker_data_offload = true`, Docker behavior stays legacy-compatible: Hakim mounts `/tank/hakim-docker/<owner>/<workspace>` at `/home/coder/.local/share/docker` unless `proxmox_docker_volume_id` is set explicitly. This keeps Docker offload on `tank` by design.
+If `enable_docker_data_offload = true`, Hakim mounts `/tank/hakim-docker/<owner>/<workspace>` at `/var/lib/docker` unless `proxmox_docker_volume_id` is set explicitly. This keeps Docker offload on `tank` while using the standard Docker data root.
 
 Manual persistent volume deletion is never part of workspace destroy. To intentionally delete a persistent local-lvm volume, first detach it from every CT and verify registry points to the intended volume:
 
@@ -276,8 +276,8 @@ Q: How do I keep Docker images after workspace reset/rebuild?
 
 - Enable `enable_home_disk = true` so `/home/coder` is persistent.
 - The template automatically sets `DOCKER_DATA_ROOT=/home/coder/.local/share/docker` when home persistence is enabled.
-- For legacy `/tank` Docker offload, enable `enable_docker_data_offload = true`.
-- Verify in workspace: `docker info | rg 'Docker Root Dir'` should show `/home/coder/.local/share/docker`.
+- For `/tank` Docker offload at the standard Docker path, enable `enable_docker_data_offload = true`.
+- Verify in workspace: `docker info | rg 'Docker Root Dir'` should show `/var/lib/docker` when offload is enabled, or `/home/coder/.local/share/docker` when only home persistence is enabled.
 - Pull once (for example `docker pull alpine:latest`), recreate CT, and the image remains available.
 
 Install the default hook script on the Proxmox host once:

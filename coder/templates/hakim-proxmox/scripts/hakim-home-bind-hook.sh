@@ -280,7 +280,7 @@ while IFS= read -r line; do
   fi
 
   case "${mount_path}" in
-    /home/coder|/home/coder/.local/share/docker)
+    /home/coder|/home/coder/.local/share/docker|/var/lib/docker)
       install -d -m 0777 "${source_path}"
       chown 100000:100000 "${source_path}"
       chmod 0777 "${source_path}"

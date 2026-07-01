@@ -756,7 +756,7 @@ data "coder_parameter" "proxmox_home_bind_hook_script_id" {
 data "coder_parameter" "enable_docker_data_offload" {
   name         = "enable_docker_data_offload"
   display_name = "Enable Docker Data Offload"
-  description  = "Persist Docker data root at /home/coder/.local/share/docker using a deterministic host bind mount under /tank."
+  description  = "Persist Docker data root at /var/lib/docker using a deterministic host bind mount under /tank."
   type         = "bool"
   default      = false
   mutable      = true
@@ -858,8 +858,9 @@ locals {
     START_DOCKER_DAEMON   = "1"
     DOCKER_STORAGE_DRIVER = "vfs"
   }
+  docker_data_root = data.coder_parameter.enable_docker_data_offload.value ? "/var/lib/docker" : (data.coder_parameter.enable_home_disk.value ? "/home/coder/.local/share/docker" : "/var/lib/docker")
   docker_data_root_env = (data.coder_parameter.enable_home_disk.value || data.coder_parameter.enable_docker_data_offload.value) ? {
-    DOCKER_DATA_ROOT = "/home/coder/.local/share/docker"
+    DOCKER_DATA_ROOT = local.docker_data_root
   } : {}
   nix_offload_env = data.coder_parameter.enable_nix_store_offload.value ? {
     BOOTSTRAP_NIX_IF_MISSING = "1"
@@ -1193,6 +1194,7 @@ resource "terraform_data" "workspace_agent_env" {
     env_sha         = local.container_runtime_env_sha
     home_attached   = tostring(local.home_disk_enabled)
     docker_source   = local.docker_mount_is_bind ? local.docker_mount_source : ""
+    docker_root     = local.docker_data_root
     nix_source      = local.nix_store_mount_is_bind ? local.nix_store_mount_source : ""
   }
 
@@ -1212,6 +1214,7 @@ resource "terraform_data" "workspace_agent_env" {
       CT_RUNTIME_ENV_SHA = local.container_runtime_env_sha
       PVE_HOME_SOURCE    = ""
       PVE_DOCKER_SOURCE  = local.docker_mount_is_bind ? local.docker_mount_source : ""
+      PVE_DOCKER_TARGET  = local.docker_data_root
       PVE_NIX_SOURCE     = local.nix_store_mount_is_bind ? local.nix_store_mount_source : ""
     }
   }

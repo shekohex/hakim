@@ -21,7 +21,7 @@ Images follow the DevContainer Features model and are also OCI-ready for Proxmox
 - Proxmox template: `coder/templates/hakim-proxmox`
 - GitHub Actions template: `coder/templates/hakim-github-actions`
 
-For Proxmox, templates are pre-pulled into `vztmpl` storage. With `enable_home_disk = true`, `/home/coder` is persisted and Docker data is stored at `/home/coder/.local/share/docker` to survive container rebuilds.
+For Proxmox, templates are pre-pulled into `vztmpl` storage. With `enable_home_disk = true`, `/home/coder` is persisted and Docker data is stored at `/home/coder/.local/share/docker` to survive container rebuilds. With `enable_docker_data_offload = true`, Docker data is mounted from `/tank` at `/var/lib/docker`.
 
 The GitHub Actions template runs the published Hakim GHCR images on GitHub-hosted runners, keeps the workspace step under 350 minutes, and stores encrypted `/home/coder` snapshots as Actions artifacts for restartable one-off workspaces.
 

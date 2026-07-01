@@ -20,6 +20,7 @@ CT_RUNTIME_ENV_B64="${CT_RUNTIME_ENV_B64:-}"
 CT_RUNTIME_ENV_SHA="${CT_RUNTIME_ENV_SHA:-}"
 PVE_HOME_SOURCE="${PVE_HOME_SOURCE:-}"
 PVE_DOCKER_SOURCE="${PVE_DOCKER_SOURCE:-}"
+PVE_DOCKER_TARGET="${PVE_DOCKER_TARGET:-/var/lib/docker}"
 PVE_NIX_SOURCE="${PVE_NIX_SOURCE:-}"
 TASK_TIMEOUT_SEC="${TASK_TIMEOUT_SEC:-180}"
 
@@ -457,14 +458,17 @@ fi
 
 needs_docker_upsert=false
 if [[ -n "${PVE_DOCKER_SOURCE}" ]]; then
-  if ! mount_point_matches "${config_body}" "${PVE_DOCKER_SOURCE}" "/home/coder/.local/share/docker" "0"; then
+  if ! mount_point_matches "${config_body}" "${PVE_DOCKER_SOURCE}" "${PVE_DOCKER_TARGET}" "0"; then
     needs_docker_upsert=true
   fi
 fi
 
 needs_docker_remove=false
-if [[ -z "${PVE_DOCKER_SOURCE}" && -n "${PVE_USERNAME}" && -n "${PVE_PASSWORD}" ]]; then
+if [[ -n "${PVE_USERNAME}" && -n "${PVE_PASSWORD}" ]]; then
   if mount_point_exists "${config_body}" "/home/coder/.local/share/docker"; then
+    needs_docker_remove=true
+  fi
+  if [[ -z "${PVE_DOCKER_SOURCE}" ]] && mount_point_exists "${config_body}" "/var/lib/docker"; then
     needs_docker_remove=true
   fi
 fi
@@ -507,7 +511,7 @@ if [[ "${needs_home_upsert}" == "true" ]]; then
 fi
 
 if [[ "${needs_docker_upsert}" == "true" ]]; then
-  upsert_mount_point "${PVE_DOCKER_SOURCE}" "/home/coder/.local/share/docker" "0"
+  upsert_mount_point "${PVE_DOCKER_SOURCE}" "${PVE_DOCKER_TARGET}" "0"
 fi
 
 if [[ "${needs_nix_upsert}" == "true" ]]; then
@@ -516,6 +520,9 @@ fi
 
 if [[ "${needs_docker_remove}" == "true" ]]; then
   remove_mount_point_by_path "/home/coder/.local/share/docker"
+  if [[ -z "${PVE_DOCKER_SOURCE}" ]]; then
+    remove_mount_point_by_path "/var/lib/docker"
+  fi
 fi
 
 if [[ "${needs_nix_remove}" == "true" ]]; then
