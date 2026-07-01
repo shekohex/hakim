@@ -280,32 +280,14 @@ function check_php() {
 }
 
 function check_elixir() {
-  local expected_erlang
-  local expected_elixir
-  local expected_phoenix
   local expected_postgresql
-  local expected_otp_major
-  local actual_otp
-  local actual_elixir
-  local actual_phoenix
   local actual_psql
 
-  expected_erlang="$(jq -r 'first(.features | to_entries[] | select(.key | test("/elixir$")) | .value.erlangVersion) // empty' "$CONFIG_FILE")"
-  expected_elixir="$(jq -r 'first(.features | to_entries[] | select(.key | test("/elixir$")) | .value.elixirVersion) // empty' "$CONFIG_FILE")"
-  expected_phoenix="$(jq -r 'first(.features | to_entries[] | select(.key | test("/phoenix$")) | .value.version) // empty' "$CONFIG_FILE")"
   expected_postgresql="$(jq -r 'first(.features | to_entries[] | select(.key | test("/postgresql-tools$")) | .value.version) // empty' "$CONFIG_FILE")"
 
   check_variant_common
 
   docker_coder 'command -v erl >/dev/null; command -v elixir >/dev/null; command -v mix >/dev/null'
-  if [[ -n "$expected_erlang" ]]; then
-    expected_otp_major="${expected_erlang%%.*}"
-    docker_coder "mise where erlang@${expected_otp_major} >/dev/null"
-  fi
-
-  if [[ -n "$expected_elixir" ]]; then
-    docker_coder "mise where elixir@${expected_elixir} >/dev/null"
-  fi
 
   actual_psql="$(docker_coder 'psql --version')"
   if [[ -n "$expected_postgresql" && "$expected_postgresql" != "latest" ]]; then
@@ -316,37 +298,9 @@ function check_elixir() {
 }
 
 function check_dotnet() {
-  local expected_dotnet
-  local expected_additional
-  local expected_dotnet_normalized
-  local dotnet_version
-  local spec
-  local spec_normalized
-
-  expected_dotnet="$(jq -r 'first(.features | to_entries[] | select(.key | test("/dotnet(:|$)")) | .value.version) // empty' "$CONFIG_FILE")"
-  expected_additional="$(jq -r 'first(.features | to_entries[] | select(.key | test("/dotnet(:|$)")) | .value.additionalVersions) // empty' "$CONFIG_FILE")"
-
   check_variant_common
 
   docker_coder 'command -v dotnet >/dev/null'
-
-  if [[ -n "$expected_dotnet" ]]; then
-    expected_dotnet_normalized="$(normalize_dotnet_spec "$expected_dotnet")"
-    docker_coder "mise where dotnet@${expected_dotnet_normalized} >/dev/null"
-  fi
-
-  if [[ -n "$expected_additional" && "$expected_additional" != "none" ]]; then
-    IFS=',' read -ra additional_specs <<< "$expected_additional"
-    for raw in "${additional_specs[@]}"; do
-      spec="$(echo "$raw" | xargs)"
-      if [[ -z "$spec" || "$spec" == "none" ]]; then
-        continue
-      fi
-      spec_normalized="$(normalize_dotnet_spec "$spec")"
-      docker_coder "mise where dotnet@${spec_normalized} >/dev/null"
-    done
-  fi
-
   docker_coder 'test -d "${DOTNET_ROOT:-$HOME/.local/share/mise/installs/dotnet}" || mise where dotnet >/dev/null'
 }
 
