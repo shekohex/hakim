@@ -69,12 +69,12 @@ write_systemd_environment_file() {
   done < <(env -0)
 }
 
-bootstrap_nix_if_missing
-
 if [[ "$$" == "1" && -x /sbin/init ]]; then
   write_systemd_environment_file
   exec /sbin/init
 fi
+
+bootstrap_nix_if_missing
 
 if id -u "${CODER_USER}" >/dev/null 2>&1; then
   CODER_UID="$(id -u "${CODER_USER}")"
