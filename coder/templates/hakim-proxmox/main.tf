@@ -1474,7 +1474,7 @@ resource "coder_app" "preview" {
   display_name = "Preview"
   icon         = "/emojis/1f50e.png"
   url          = "http://localhost:${data.coder_parameter.preview_port.value}"
-  share        = "authenticated"
+  share        = "public"
   subdomain    = true
   open_in      = "tab"
   order        = 0
