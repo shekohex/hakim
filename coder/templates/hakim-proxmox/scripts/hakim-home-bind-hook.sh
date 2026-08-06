@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-HOOK_VERSION="2026-07-15.1"
+HOOK_VERSION="2026-07-15.2"
 
 VMID="${1:-}"
 PHASE="${2:-}"
@@ -52,6 +52,24 @@ set_mount_config() {
   rm -f "${temp_config}"
 }
 
+set_lxc_config() {
+  local config_key="$1"
+  local desired_value="$2"
+  local existing_entries current_value temp_config
+
+  existing_entries="$(awk -v key="${config_key}" '$1 == key ":" || $1 == key { count++ } END { print count + 0 }' "${config_file}")"
+  current_value="$(awk -v key="${config_key}" '$1 == key ":" || $1 == key { print $NF }' "${config_file}" | tail -n 1)"
+  if [[ "${existing_entries}" == "1" && "${current_value}" == "${desired_value}" ]]; then
+    return
+  fi
+
+  temp_config="$(mktemp)"
+  awk -v key="${config_key}" '$1 != key ":" && $1 != key { print }' "${config_file}" >"${temp_config}"
+  printf '%s: %s\n' "${config_key}" "${desired_value}" >>"${temp_config}"
+  cp "${temp_config}" "${config_file}"
+  rm -f "${temp_config}"
+}
+
 if [[ "${PHASE}" == "pre-stop" ]]; then
   existing_key="$(home_mount_key)"
   if [[ -n "${existing_key}" ]]; then
@@ -64,6 +82,10 @@ fi
 if [[ "${PHASE}" != "pre-start" ]]; then
   exit 0
 fi
+
+set_lxc_config "lxc.sysctl.net.ipv6.conf.all.disable_ipv6" "1"
+set_lxc_config "lxc.sysctl.net.ipv6.conf.default.disable_ipv6" "1"
+set_lxc_config "lxc.sysctl.net.ipv6.conf.lo.disable_ipv6" "1"
 
 resize_home_volume_if_needed() {
   local mount_key="$1"

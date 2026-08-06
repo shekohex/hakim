@@ -742,10 +742,10 @@ data "coder_parameter" "home_migration_mode" {
 }
 
 data "coder_parameter" "proxmox_home_bind_hook_script_id" {
-  count        = (data.coder_parameter.enable_home_disk.value || data.coder_parameter.enable_docker_data_offload.value || data.coder_parameter.enable_nix_store_offload.value) ? 1 : 0
+  count        = 1
   name         = "proxmox_home_bind_hook_script_id"
-  display_name = "Home Bind Hook Script ID"
-  description  = "Proxmox hookscript volume id used to auto-create bind paths, e.g. local:snippets/hakim-home-bind-hook.sh"
+  display_name = "LXC Hook Script ID"
+  description  = "Proxmox hookscript volume id used to apply LXC defaults and auto-create bind paths, e.g. local:snippets/hakim-home-bind-hook.sh"
   type         = "string"
   default      = "local:snippets/hakim-home-bind-hook.sh"
   mutable      = true
@@ -892,8 +892,8 @@ locals {
   home_workspace_slug        = replace(replace(replace(lower(trimspace(data.coder_workspace.me.name)), "/", "-"), " ", "-"), ":", "-")
   home_mount_is_bind         = local.home_disk_enabled && startswith(local.home_volume_id, "/")
   home_requires_root_session = false
-  home_hook_version          = "2026-07-15.1"
-  home_hook_spec             = local.home_disk_enabled ? "hakim_home=enabled,datastore=${base64encode(local.home_datastore_id)},owner=${local.home_owner_slug},workspace=${local.home_workspace_slug},size=${data.coder_parameter.home_disk_gb[0].value},volume=${base64encode(local.home_volume_id)},migration=${local.home_migration_mode},hook_version=${local.home_hook_version}" : ""
+  home_hook_version          = "2026-07-15.2"
+  home_hook_spec             = local.home_disk_enabled ? "hakim_home=enabled,datastore=${base64encode(local.home_datastore_id)},owner=${local.home_owner_slug},workspace=${local.home_workspace_slug},size=${data.coder_parameter.home_disk_gb[0].value},volume=${base64encode(local.home_volume_id)},migration=${local.home_migration_mode},hook_version=${local.home_hook_version}" : "hakim_home=disabled,hook_version=${local.home_hook_version}"
 
   docker_data_offload_enabled  = data.coder_parameter.enable_docker_data_offload.value
   docker_volume_id             = length(data.coder_parameter.proxmox_docker_volume_id) > 0 ? trimspace(data.coder_parameter.proxmox_docker_volume_id[0].value) : ""
@@ -914,7 +914,6 @@ locals {
   lxc_features_require_root_session = true
   use_root_session_auth             = local.requires_root_session && trimspace(data.coder_parameter.proxmox_username.value) == "root@pam" && trimspace(data.coder_parameter.proxmox_password.value) != ""
   requires_root_session             = local.lxc_features_require_root_session || local.home_requires_root_session || local.docker_requires_root_session || local.nix_store_mount_is_bind
-  bind_mount_hook_enabled           = local.home_disk_enabled || local.docker_bind_mount_enabled || local.nix_store_mount_is_bind
 
   project_dir         = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script    = file("${path.module}/scripts/setup-git.sh")
@@ -1062,7 +1061,7 @@ resource "terraform_data" "workspace_rebuild_generation" {
 }
 
 resource "terraform_data" "proxmox_hook_script" {
-  count = local.bind_mount_hook_enabled ? 1 : 0
+  count = 1
 
   triggers_replace = {
     node_name     = data.coder_parameter.proxmox_node_name.value
@@ -1113,8 +1112,8 @@ resource "proxmox_virtual_environment_container" "workspace" {
     }
 
     precondition {
-      condition     = !local.bind_mount_hook_enabled || trimspace(data.coder_parameter.proxmox_home_bind_hook_script_id[0].value) != ""
-      error_message = "Set proxmox_home_bind_hook_script_id to a valid Proxmox hookscript volume id when using auto bind persistence."
+      condition     = trimspace(data.coder_parameter.proxmox_home_bind_hook_script_id[0].value) != ""
+      error_message = "Set proxmox_home_bind_hook_script_id to a valid Proxmox hookscript volume id."
     }
 
   }
@@ -1167,7 +1166,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
 }
 
 resource "terraform_data" "home_volume_attach" {
-  count = local.bind_mount_hook_enabled ? 1 : 0
+  count = 1
 
   triggers_replace = {
     node_name      = data.coder_parameter.proxmox_node_name.value
