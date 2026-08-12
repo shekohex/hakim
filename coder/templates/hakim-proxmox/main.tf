@@ -19,6 +19,11 @@ provider "proxmox" {
   username  = local.use_root_session_auth ? trimspace(data.coder_parameter.proxmox_username.value) : null
   password  = local.use_root_session_auth ? data.coder_parameter.proxmox_password.value : null
   insecure  = data.coder_parameter.proxmox_insecure.value
+
+  ssh {
+    username = split("@", trimspace(data.coder_parameter.proxmox_username.value))[0]
+    password = trimspace(data.coder_parameter.proxmox_password.value) != "" ? data.coder_parameter.proxmox_password.value : null
+  }
 }
 
 data "coder_workspace" "me" {}
@@ -914,6 +919,12 @@ locals {
   lxc_features_require_root_session = true
   use_root_session_auth             = local.requires_root_session && trimspace(data.coder_parameter.proxmox_username.value) == "root@pam" && trimspace(data.coder_parameter.proxmox_password.value) != ""
   requires_root_session             = local.lxc_features_require_root_session || local.home_requires_root_session || local.docker_requires_root_session || local.nix_store_mount_is_bind
+  bind_mount_hook_enabled           = local.home_disk_enabled || local.docker_bind_mount_enabled || local.nix_store_mount_is_bind
+  configured_hook_script_id         = trimspace(data.coder_parameter.proxmox_home_bind_hook_script_id[0].value)
+  manage_hook_script                = local.configured_hook_script_id == "local:snippets/hakim-home-bind-hook.sh"
+  hook_script_datastore_id          = split(":", local.configured_hook_script_id)[0]
+  hook_script_file_name             = "hakim-home-bind-hook-${substr(sha256("${local.home_owner_slug}/${local.home_workspace_slug}"), 0, 16)}.sh"
+  hook_script_id                    = local.manage_hook_script ? proxmox_virtual_environment_file.workspace_hook_script[0].id : local.configured_hook_script_id
 
   project_dir         = length(module.git-clone) > 0 ? module.git-clone[0].repo_dir : "/home/coder/project"
   git_setup_script    = file("${path.module}/scripts/setup-git.sh")
@@ -1060,32 +1071,23 @@ resource "terraform_data" "workspace_rebuild_generation" {
   ]
 }
 
-resource "terraform_data" "proxmox_hook_script" {
-  count = 1
+resource "proxmox_virtual_environment_file" "workspace_hook_script" {
+  count = local.manage_hook_script ? 1 : 0
 
-  triggers_replace = {
-    node_name     = data.coder_parameter.proxmox_node_name.value
-    hookscript_id = data.coder_parameter.proxmox_home_bind_hook_script_id[0].value
-    script_sha    = filesha256("${path.module}/scripts/hakim-home-bind-hook.sh")
-  }
+  content_type = "snippets"
+  datastore_id = local.hook_script_datastore_id
+  node_name    = data.coder_parameter.proxmox_node_name.value
+  file_mode    = "0755"
+  overwrite    = true
 
-  provisioner "local-exec" {
-    command = "bash ${path.module}/scripts/ensure-proxmox-hook.sh"
-
-    environment = {
-      PVE_ENDPOINT          = trimsuffix(data.coder_parameter.proxmox_endpoint.value, "/")
-      PVE_NODE_NAME         = data.coder_parameter.proxmox_node_name.value
-      PVE_USERNAME          = data.coder_parameter.proxmox_username.value
-      PVE_PASSWORD          = data.coder_parameter.proxmox_password.value
-      PVE_INSECURE          = tostring(data.coder_parameter.proxmox_insecure.value)
-      PVE_HOOKSCRIPT_ID     = data.coder_parameter.proxmox_home_bind_hook_script_id[0].value
-      PVE_HOOKSCRIPT_SOURCE = "${path.module}/scripts/hakim-home-bind-hook.sh"
-    }
+  source_raw {
+    data      = file("${path.module}/scripts/hakim-home-bind-hook.sh")
+    file_name = local.hook_script_file_name
   }
 }
 
 resource "proxmox_virtual_environment_container" "workspace" {
-  hook_script_file_id   = null
+  hook_script_file_id   = local.hook_script_id
   node_name             = data.coder_parameter.proxmox_node_name.value
   vm_id                 = data.coder_parameter.proxmox_vm_id.value > 0 ? data.coder_parameter.proxmox_vm_id.value : null
   pool_id               = trimspace(data.coder_parameter.proxmox_pool_id.value) != "" ? data.coder_parameter.proxmox_pool_id.value : null
@@ -1097,7 +1099,7 @@ resource "proxmox_virtual_environment_container" "workspace" {
   environment_variables = local.container_environment_variables
 
   lifecycle {
-    ignore_changes = [environment_variables, console, mount_point, hook_script_file_id, features]
+    ignore_changes = [environment_variables, console, mount_point, features]
 
     replace_triggered_by = [terraform_data.workspace_rebuild_generation]
 
@@ -1162,11 +1164,10 @@ resource "proxmox_virtual_environment_container" "workspace" {
     ipv4 = true
   }
 
-  depends_on = [terraform_data.proxmox_hook_script]
 }
 
 resource "terraform_data" "home_volume_attach" {
-  count = 1
+  count = local.bind_mount_hook_enabled ? 1 : 0
 
   triggers_replace = {
     node_name      = data.coder_parameter.proxmox_node_name.value
@@ -1177,7 +1178,7 @@ resource "terraform_data" "home_volume_attach" {
     home_volume_id = local.home_volume_id
     size_gb        = length(data.coder_parameter.home_disk_gb) > 0 ? tostring(data.coder_parameter.home_disk_gb[0].value) : "0"
     migration_mode = local.home_migration_mode
-    hookscript_id  = data.coder_parameter.proxmox_home_bind_hook_script_id[0].value
+    hookscript_id  = local.hook_script_id
     transition     = data.coder_workspace.me.transition
   }
 
@@ -1191,8 +1192,7 @@ resource "terraform_data" "home_volume_attach" {
       PVE_USERNAME             = data.coder_parameter.proxmox_username.value
       PVE_PASSWORD             = data.coder_parameter.proxmox_password.value
       PVE_INSECURE             = tostring(data.coder_parameter.proxmox_insecure.value)
-      PVE_HOOKSCRIPT_ID        = data.coder_parameter.proxmox_home_bind_hook_script_id[0].value
-      PVE_HOOKSCRIPT_SOURCE    = "${path.module}/scripts/hakim-home-bind-hook.sh"
+      PVE_HOOKSCRIPT_ID        = local.hook_script_id
       PVE_WORKSPACE_TRANSITION = data.coder_workspace.me.transition
     }
   }

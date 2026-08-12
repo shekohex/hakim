@@ -280,12 +280,9 @@ Q: How do I keep Docker images after workspace reset/rebuild?
 - Verify in workspace: `docker info | rg 'Docker Root Dir'` should show `/var/lib/docker` when offload is enabled, or `/home/coder/.local/share/docker` when only home persistence is enabled.
 - Pull once (for example `docker pull alpine:latest`), recreate CT, and the image remains available.
 
-Install the default hook script on the Proxmox host once:
+The template uploads a workspace-specific hook script to the configured snippets datastore through the Proxmox provider. This requires SSH access to the Proxmox node using `proxmox_username` and `proxmox_password`.
 
-```bash
-install -d -m 0755 /var/lib/vz/snippets
-install -m 0755 coder/templates/hakim-proxmox/scripts/hakim-home-bind-hook.sh /var/lib/vz/snippets/hakim-home-bind-hook.sh
-```
+Set `proxmox_home_bind_hook_script_id` to a custom hook ID only when managing the hook outside Terraform.
 
 Q: What must the bind hook script do?
 
