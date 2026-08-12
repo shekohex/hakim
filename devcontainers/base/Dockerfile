@@ -233,6 +233,7 @@ RUN curl -fsSL https://install.determinate.systems/nix | \
   ln -sf /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh /etc/profile.d/nix.sh
 
 RUN printf 'DISPLAY=:99\nLIBGL_ALWAYS_SOFTWARE=1\nPAGER=less\nLESS=-R\n' >> /etc/environment && \
+  printf 'net.ipv6.conf.all.disable_ipv6 = 1\nnet.ipv6.conf.default.disable_ipv6 = 1\nnet.ipv6.conf.lo.disable_ipv6 = 1\n' >/etc/sysctl.d/99-hakim-disable-ipv6.conf && \
   printf 'export DISPLAY="${DISPLAY:-:99}"\nexport LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"\nexport PAGER="${PAGER:-less}"\nexport LESS="${LESS:--R}"\nif command -v nvim >/dev/null 2>&1; then\n  export EDITOR="${EDITOR:-nvim}"\n  export VISUAL="${VISUAL:-nvim}"\nfi\n' > /etc/profile.d/hakim-headless-display.sh && \
   printf '[Unit]\nDescription=Hakim virtual X display\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nEnvironment=LIBGL_ALWAYS_SOFTWARE=1\nEnvironment=XVFB_SCREEN=1280x1024x24\nEnvironmentFile=-/etc/hakim/xvfb.env\nExecStart=/bin/bash -lc '\''exec /usr/bin/Xvfb :99 -screen 0 "${XVFB_SCREEN}" -nolisten tcp'\''\nRestart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n' >/etc/systemd/system/hakim-xvfb.service && \
   systemctl enable dbus >/dev/null 2>&1 || true && \
