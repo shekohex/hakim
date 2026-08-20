@@ -1225,6 +1225,12 @@ module "shekohex_agent" {
   auth_json = data.coder_parameter.shekohex_agent_auth.value
 }
 
+module "t3code" {
+  count    = local.workspace_agent_count
+  source   = "github.com/shekohex/hakim//coder/modules/t3code?ref=main"
+  agent_id = coder_agent.main[0].id
+}
+
 module "openclaw_node" {
   count = (
     local.workspace_agent_count > 0 &&
