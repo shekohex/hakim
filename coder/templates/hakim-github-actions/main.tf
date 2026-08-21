@@ -336,6 +336,16 @@ data "coder_parameter" "enable_et" {
   order        = 69
 }
 
+data "coder_parameter" "enable_paseo" {
+  name         = "enable_paseo"
+  display_name = "Enable Paseo"
+  description  = "Install Paseo and expose its bundled web UI."
+  type         = "bool"
+  default      = false
+  icon         = "https://app.paseo.sh/apple-touch-icon.png"
+  order        = 70
+}
+
 data "coder_parameter" "shekohex_agent_auth" {
   name         = "shekohex_agent_auth"
   display_name = "Shekohex Agent Auth JSON"
@@ -839,6 +849,13 @@ module "shekohex_agent" {
 module "t3code" {
   count    = data.coder_workspace.me.start_count
   source   = "github.com/shekohex/hakim//coder/modules/t3code?ref=main"
+  agent_id = coder_agent.main.id
+}
+
+module "paseo" {
+  count = data.coder_workspace.me.start_count > 0 && data.coder_parameter.enable_paseo.value ? 1 : 0
+
+  source   = "github.com/shekohex/hakim//coder/modules/paseo?ref=main"
   agent_id = coder_agent.main.id
 }
 
