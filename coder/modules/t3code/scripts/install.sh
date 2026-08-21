@@ -4,6 +4,7 @@ set -euo pipefail
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 export PATH="$HOME/.bun/bin:$PATH"
 
+ARG_ENABLED=${ARG_ENABLED:-true}
 ARG_UPDATE_SCRIPT=${ARG_UPDATE_SCRIPT:-}
 
 command_exists() {
@@ -51,6 +52,21 @@ resolve_t3_bin() {
   fi
 
   return 1
+}
+
+disable_t3code_service() {
+  if ! command_exists sudo; then
+    echo "ERROR: sudo is required to disable the T3 Code systemd service"
+    exit 1
+  fi
+
+  if ! command_exists systemctl; then
+    echo "ERROR: systemd is required to disable T3 Code"
+    exit 1
+  fi
+
+  sudo systemctl disable --now t3code.service > /dev/null 2>&1 || true
+  echo "T3 Code disabled"
 }
 
 install_t3code() {
@@ -133,6 +149,11 @@ EOF
   t3 --help > /dev/null
   echo "T3 Code installed and t3code.service started successfully"
 }
+
+if [ "$ARG_ENABLED" != "true" ]; then
+  disable_t3code_service
+  exit 0
+fi
 
 install_t3code
 install_t3code_service

@@ -352,7 +352,8 @@ data "coder_parameter" "enable_t3code" {
   display_name = "Enable T3 Code"
   description  = "Install T3 Code and expose its web UI."
   type         = "bool"
-  default      = false
+  default      = true
+  mutable      = true
   icon         = "https://t3.codes/apple-touch-icon.png"
   order        = 71
 }
@@ -858,10 +859,11 @@ module "shekohex_agent" {
 }
 
 module "t3code" {
-  count = data.coder_workspace.me.start_count > 0 && data.coder_parameter.enable_t3code.value ? 1 : 0
+  count = data.coder_workspace.me.start_count
 
   source   = "github.com/shekohex/hakim//coder/modules/t3code?ref=main"
   agent_id = coder_agent.main.id
+  enabled  = data.coder_parameter.enable_t3code.value
 }
 
 module "paseo" {

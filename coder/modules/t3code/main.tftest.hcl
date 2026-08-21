@@ -21,12 +21,36 @@ run "defaults_are_correct" {
   }
 
   assert {
-    condition     = coder_app.t3.share == "public"
+    condition     = var.enabled == true
+    error_message = "T3 Code should be enabled by default"
+  }
+
+  assert {
+    condition     = length(coder_app.t3) == 1
+    error_message = "T3 Code app should exist when enabled"
+  }
+
+  assert {
+    condition     = coder_app.t3[0].share == "public"
     error_message = "T3 Code app should be public"
   }
 
   assert {
-    condition     = coder_app.t3.subdomain == true
+    condition     = coder_app.t3[0].subdomain == true
     error_message = "T3 Code app should use a subdomain"
+  }
+}
+
+run "disabled_hides_app" {
+  command = plan
+
+  variables {
+    agent_id = "test-agent"
+    enabled  = false
+  }
+
+  assert {
+    condition     = length(coder_app.t3) == 0
+    error_message = "T3 Code app should not exist when disabled"
   }
 }

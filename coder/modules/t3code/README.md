@@ -14,6 +14,7 @@ Install the T3 Code fork with Bun, run it as `t3code.service`, and expose it thr
 module "t3code" {
   source   = "github.com/shekohex/hakim//coder/modules/t3code?ref=main"
   agent_id = coder_agent.main.id
+  enabled  = true
 }
 ```
 
@@ -32,6 +33,8 @@ t3 serve --host 0.0.0.0 --port 1337
 ```
 
 Coder proxies `http://localhost:1337/` through public `t3` subdomain. T3 Code handles authentication.
+
+Set `enabled = false` to stop and disable `t3code.service` without uninstalling T3 Code.
 
 ## Update
 

@@ -14,6 +14,12 @@ variable "agent_id" {
   description = "The ID of a Coder agent."
 }
 
+variable "enabled" {
+  type        = bool
+  description = "Whether to install and run T3 Code."
+  default     = true
+}
+
 locals {
   app_slug       = "t3"
   icon           = "https://t3.codes/apple-touch-icon.png"
@@ -24,7 +30,7 @@ locals {
 
 resource "coder_script" "t3code_install" {
   agent_id     = var.agent_id
-  display_name = "Install T3 Code"
+  display_name = "Configure T3 Code"
   icon         = local.icon
   script       = <<-EOT
     #!/bin/bash
@@ -40,7 +46,7 @@ resource "coder_script" "t3code_install" {
     echo -n '${base64encode(local.update_script)}' | base64 -d > "$UPDATE_SCRIPT"
     chmod +x "$UPDATE_SCRIPT"
 
-    ARG_UPDATE_SCRIPT="$UPDATE_SCRIPT" bash "$INSTALL_SCRIPT"
+    ARG_ENABLED='${var.enabled}' ARG_UPDATE_SCRIPT="$UPDATE_SCRIPT" bash "$INSTALL_SCRIPT"
 
     rm -f "$INSTALL_SCRIPT" "$UPDATE_SCRIPT"
   EOT
@@ -48,6 +54,8 @@ resource "coder_script" "t3code_install" {
 }
 
 resource "coder_app" "t3" {
+  count = var.enabled ? 1 : 0
+
   slug         = local.app_slug
   display_name = "T3 Code"
   agent_id     = var.agent_id
@@ -64,5 +72,5 @@ resource "coder_app" "t3" {
 }
 
 output "app_id" {
-  value = coder_app.t3.id
+  value = var.enabled ? coder_app.t3[0].id : null
 }
