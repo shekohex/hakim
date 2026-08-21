@@ -14,6 +14,7 @@ Install `@getpaseo/cli@latest` with Bun, run it as `paseo.service`, and expose t
 module "paseo" {
   source   = "github.com/shekohex/hakim//coder/modules/paseo?ref=main"
   agent_id = coder_agent.main.id
+  enabled  = true
 }
 ```
 
@@ -32,3 +33,5 @@ paseo daemon start --foreground --home ~/.paseo --listen 127.0.0.1:6767 --no-rel
 ```
 
 Coder proxies `http://localhost:6767/` through the `paseo` subdomain and handles access control.
+
+Set `enabled = false` to stop and disable `paseo.service` without uninstalling Paseo.

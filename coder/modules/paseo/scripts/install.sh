@@ -4,6 +4,8 @@ set -euo pipefail
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 export PATH="$HOME/.bun/bin:$PATH"
 
+ARG_ENABLED=${ARG_ENABLED:-true}
+
 command_exists() {
   command -v "$1" > /dev/null 2>&1
 }
@@ -79,6 +81,21 @@ resolve_paseo_bin() {
   fi
 
   return 1
+}
+
+disable_paseo_service() {
+  if ! command_exists sudo; then
+    echo "ERROR: sudo is required to disable the Paseo systemd service"
+    exit 1
+  fi
+
+  if ! command_exists systemctl; then
+    echo "ERROR: systemd is required to disable Paseo"
+    exit 1
+  fi
+
+  sudo systemctl disable --now paseo.service > /dev/null 2>&1 || true
+  echo "Paseo disabled"
 }
 
 install_paseo() {
@@ -157,6 +174,11 @@ EOF
   paseo --help > /dev/null
   echo "Paseo installed and paseo.service started successfully"
 }
+
+if [ "$ARG_ENABLED" != "true" ]; then
+  disable_paseo_service
+  exit 0
+fi
 
 install_paseo
 install_paseo_service

@@ -21,12 +21,36 @@ run "defaults_are_correct" {
   }
 
   assert {
-    condition     = coder_app.paseo.share == "owner"
+    condition     = var.enabled == true
+    error_message = "Paseo should be enabled by default"
+  }
+
+  assert {
+    condition     = length(coder_app.paseo) == 1
+    error_message = "Paseo app should exist when enabled"
+  }
+
+  assert {
+    condition     = coder_app.paseo[0].share == "owner"
     error_message = "Paseo app should require workspace owner authentication"
   }
 
   assert {
-    condition     = coder_app.paseo.subdomain == true
+    condition     = coder_app.paseo[0].subdomain == true
     error_message = "Paseo app should use a subdomain"
+  }
+}
+
+run "disabled_hides_app" {
+  command = plan
+
+  variables {
+    agent_id = "test-agent"
+    enabled  = false
+  }
+
+  assert {
+    condition     = length(coder_app.paseo) == 0
+    error_message = "Paseo app should not exist when disabled"
   }
 }

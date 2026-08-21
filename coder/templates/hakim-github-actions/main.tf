@@ -341,7 +341,8 @@ data "coder_parameter" "enable_paseo" {
   display_name = "Enable Paseo"
   description  = "Install Paseo and expose its bundled web UI."
   type         = "bool"
-  default      = false
+  default      = true
+  mutable      = true
   icon         = "https://app.paseo.sh/apple-touch-icon.png"
   order        = 70
 }
@@ -864,10 +865,11 @@ module "t3code" {
 }
 
 module "paseo" {
-  count = data.coder_workspace.me.start_count > 0 && data.coder_parameter.enable_paseo.value ? 1 : 0
+  count = data.coder_workspace.me.start_count
 
   source   = "github.com/shekohex/hakim//coder/modules/paseo?ref=main"
   agent_id = coder_agent.main.id
+  enabled  = data.coder_parameter.enable_paseo.value
 }
 
 module "openclaw_node" {
