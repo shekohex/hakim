@@ -152,7 +152,7 @@ Group=${service_group}
 WorkingDirectory=${HOME}
 Environment=HOME=${HOME}
 Environment=PATH=${HOME}/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/usr/local/bin/paseo daemon start --foreground --home ${HOME}/.paseo --listen 127.0.0.1:6767 --no-relay --web-ui --hostnames true
+ExecStart=/usr/local/bin/paseo daemon start --foreground --home ${HOME}/.paseo --listen 127.0.0.1:6767 --relay --relay-use-tls --web-ui --hostnames true
 Restart=on-failure
 RestartSec=5
 

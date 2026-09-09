@@ -39,6 +39,16 @@ run "defaults_are_correct" {
     condition     = coder_app.paseo[0].subdomain == true
     error_message = "Paseo app should use a subdomain"
   }
+
+  assert {
+    condition     = length(regexall("--relay --relay-use-tls", local.install_script)) == 1
+    error_message = "Paseo service should enable the TLS relay"
+  }
+
+  assert {
+    condition     = length(regexall("--no-relay", local.install_script)) == 0
+    error_message = "Paseo service should not disable the relay"
+  }
 }
 
 run "disabled_hides_app" {

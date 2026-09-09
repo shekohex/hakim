@@ -29,7 +29,7 @@ module "paseo" {
 The module installs and enables `/etc/systemd/system/paseo.service`, running:
 
 ```bash
-paseo daemon start --foreground --home ~/.paseo --listen 127.0.0.1:6767 --no-relay --web-ui --hostnames true
+paseo daemon start --foreground --home ~/.paseo --listen 127.0.0.1:6767 --relay --relay-use-tls --web-ui --hostnames true
 ```
 
 Coder proxies `http://localhost:6767/` through the `paseo` subdomain and handles access control.
