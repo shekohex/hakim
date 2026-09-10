@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-HOOK_VERSION="2026-07-15.1"
+HOOK_VERSION="2026-09-10.1"
 
 VMID="${1:-}"
 PHASE="${2:-}"
@@ -10,7 +10,10 @@ if [[ -z "${VMID}" ]]; then
   exit 0
 fi
 
-config_file="/etc/pve/lxc/${VMID}.conf"
+config_root="${HAKIM_PVE_CONFIG_ROOT:-/etc/pve/lxc}"
+state_root="${HAKIM_STATE_ROOT:-/var/lib/hakim/workspace-volumes}"
+legacy_home_root="${HAKIM_LEGACY_HOME_ROOT:-/var/lib/vz/hakim-homes}"
+config_file="${config_root}/${VMID}.conf"
 if [[ ! -f "${config_file}" ]]; then
   exit 0
 fi
@@ -50,6 +53,14 @@ set_mount_config() {
   printf '%s: %s\n' "${mount_key}" "${mount_value}" >>"${temp_config}"
   cp "${temp_config}" "${config_file}"
   rm -f "${temp_config}"
+}
+
+storage_volume_exists() {
+  local volume_id="$1"
+  local datastore_id="${volume_id%%:*}"
+
+  [[ "${datastore_id}" != "${volume_id}" ]] || return 1
+  pvesm list "${datastore_id}" 2>/dev/null | awk -v expected="${volume_id}" 'NR > 1 && $1 == expected { found = 1 } END { exit found ? 0 : 1 }'
 }
 
 if [[ "${PHASE}" == "pre-stop" ]]; then
@@ -134,11 +145,12 @@ if [[ -n "${home_spec}" ]]; then
     explicit_source="$(decode_base64 "${spec[volume]:-}")"
     migration_mode="${spec[migration]:-copy_keep_source}"
     expected_hook_version="${spec[hook_version]:-}"
-    registry_dir="/var/lib/hakim/workspace-volumes/${owner_slug}/${workspace_slug}"
+    registry_dir="${state_root}/${owner_slug}/${workspace_slug}"
     registry_file="${registry_dir}/home.volume"
     migration_status_file="${registry_dir}/home.migration-status"
     source_path_file="${registry_dir}/home.source-path"
-    legacy_source="/var/lib/vz/hakim-homes/${owner_slug}/${workspace_slug}"
+    legacy_source="${legacy_home_root}/${owner_slug}/${workspace_slug}"
+    prepare_storage_volume=false
 
     [[ -n "${datastore}" ]] || datastore="local-lvm"
 
@@ -154,18 +166,20 @@ if [[ -n "${home_spec}" ]]; then
         chmod 0777 "${volume_id}"
         backup="0"
       else
-        pvesm path "${volume_id}" >/dev/null
+        if ! storage_volume_exists "${volume_id}"; then
+          log "explicit home volume ${volume_id} is missing; refusing to allocate a replacement"
+          exit 1
+        fi
         backup="1"
       fi
-    elif [[ -f "${registry_file}" ]] \
-      && volume_id="$(tr -d '\r\n' <"${registry_file}")" \
-      && volume_path="$(pvesm path "${volume_id}" 2>/dev/null)" \
-      && [[ -e "${volume_path}" ]]; then
+    elif [[ -f "${registry_file}" ]]; then
+      volume_id="$(tr -d '\r\n' <"${registry_file}")"
+      if ! storage_volume_exists "${volume_id}"; then
+        log "registered home volume ${volume_id} is missing; refusing to allocate a replacement"
+        exit 1
+      fi
       backup="1"
     else
-      if [[ -f "${registry_file}" ]]; then
-        log "registered home volume $(tr -d '\r\n' <"${registry_file}") is missing; reallocating"
-      fi
       [[ "${size_gb}" =~ ^[0-9]+$ && "${size_gb}" -gt 0 ]] || size_gb="30"
       if [[ "${migration_mode}" == "disabled" && -d "${legacy_source}" ]]; then
         log "legacy home source exists and migration is disabled: ${legacy_source}"
@@ -183,50 +197,54 @@ if [[ -n "${home_spec}" ]]; then
       volume_name="vm-${VMID}-hakim-home-${owner_slug}-${workspace_slug}"
       volume_name="$(printf '%s' "${volume_name}" | tr -c 'A-Za-z0-9_.-' '-')"
       volume_id="${datastore}:${volume_name}"
-      if ! pvesm path "${volume_id}" >/dev/null 2>&1 || [[ ! -e "$(pvesm path "${volume_id}" 2>/dev/null || true)" ]]; then
-        log "allocating ${volume_id} size=${size_gb}G"
-        pvesm free "${volume_id}" >/dev/null 2>&1 || true
-        pvesm alloc "${datastore}" "${VMID}" "${volume_name}" "${size_gb}G" >/dev/null
-      fi
-
-      volume_path="$(pvesm path "${volume_id}")"
-      if ! blkid "${volume_path}" >/dev/null 2>&1; then
-        log "formatting ${volume_id} as ext4"
-        mkfs.ext4 -F "${volume_path}" >/dev/null
-      fi
-
-      temp_mount="$(mktemp -d /tmp/hakim-home.XXXXXX)"
-      cleanup_temp_mount() {
-        if mountpoint -q "${temp_mount}"; then
-          umount "${temp_mount}"
-        fi
-        rmdir "${temp_mount}" 2>/dev/null || true
-      }
-      trap cleanup_temp_mount EXIT
-      mount "${volume_path}" "${temp_mount}"
-
-      if [[ -d "${legacy_source}" ]] && find "${legacy_source}" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
-        log "copying legacy home ${legacy_source} to ${volume_id}; source stays untouched"
-        if command -v rsync >/dev/null 2>&1; then
-          rsync -aHAX --numeric-ids --exclude='/.local/share/docker' --exclude='/.local/share/docker.old' "${legacy_source}/" "${temp_mount}/"
-        else
-          tar --exclude='./.local/share/docker' --exclude='./.local/share/docker.old' -C "${legacy_source}" -cf - . | tar -C "${temp_mount}" -xf -
-        fi
+      if storage_volume_exists "${volume_id}"; then
+        log "reusing unregistered home volume ${volume_id}"
         install -d -m 0755 "${registry_dir}"
-        printf '%s\n' "${legacy_source}" >"${source_path_file}"
-        printf '%s\n' "copied_keep_source" >"${migration_status_file}"
+        printf '%s\n' "${volume_id}" >"${registry_file}"
       else
-        install -d -m 0755 "${registry_dir}"
-        printf '%s\n' "new_empty_volume" >"${migration_status_file}"
+        log "allocating ${volume_id} size=${size_gb}G"
+        pvesm alloc "${datastore}" "${VMID}" "${volume_name}" "${size_gb}G" >/dev/null
+        prepare_storage_volume=true
+
+        volume_path="$(pvesm path "${volume_id}")"
+        if ! blkid "${volume_path}" >/dev/null 2>&1; then
+          log "formatting ${volume_id} as ext4"
+          mkfs.ext4 -F "${volume_path}" >/dev/null
+        fi
+
+        temp_mount="$(mktemp -d /tmp/hakim-home.XXXXXX)"
+        cleanup_temp_mount() {
+          if mountpoint -q "${temp_mount}"; then
+            umount "${temp_mount}"
+          fi
+          rmdir "${temp_mount}" 2>/dev/null || true
+        }
+        trap cleanup_temp_mount EXIT
+        mount "${volume_path}" "${temp_mount}"
+
+        if [[ -d "${legacy_source}" ]] && find "${legacy_source}" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+          log "copying legacy home ${legacy_source} to ${volume_id}; source stays untouched"
+          if command -v rsync >/dev/null 2>&1; then
+            rsync -aHAX --numeric-ids --exclude='/.local/share/docker' --exclude='/.local/share/docker.old' "${legacy_source}/" "${temp_mount}/"
+          else
+            tar --exclude='./.local/share/docker' --exclude='./.local/share/docker.old' -C "${legacy_source}" -cf - . | tar -C "${temp_mount}" -xf -
+          fi
+          install -d -m 0755 "${registry_dir}"
+          printf '%s\n' "${legacy_source}" >"${source_path_file}"
+          printf '%s\n' "copied_keep_source" >"${migration_status_file}"
+        else
+          install -d -m 0755 "${registry_dir}"
+          printf '%s\n' "new_empty_volume" >"${migration_status_file}"
+        fi
+        sync
+        cleanup_temp_mount
+        trap - EXIT
+        printf '%s\n' "${volume_id}" >"${registry_file}"
       fi
-      sync
-      cleanup_temp_mount
-      trap - EXIT
-      printf '%s\n' "${volume_id}" >"${registry_file}"
       backup="1"
     fi
 
-    if [[ "${volume_id}" != /* ]]; then
+    if [[ "${prepare_storage_volume}" == "true" ]]; then
       prepare_home_volume "$(pvesm path "${volume_id}")"
     fi
 

@@ -174,7 +174,7 @@ pct config <vmid>
 
 Legacy home migration is automatic and conservative. If old home data exists under `/var/lib/vz/hakim-homes/<owner>/<workspace>`, `home_migration_mode = copy_keep_source` copies it into the new `local-lvm` home volume and leaves the old source untouched.
 
-No lifecycle script deletes old home data. Verify the mounted home and registry first, then delete old data manually only when certain:
+Workspace start fails instead of allocating a replacement when a registered home volume is missing. No lifecycle script automatically deletes registered home volumes. Verify the mounted home and registry first, then delete old data manually only when certain:
 
 ```bash
 du -sh /var/lib/vz/hakim-homes/shekohex/hakim-dev
