@@ -59,6 +59,11 @@ run "defaults_are_correct" {
     condition     = length(regexall("\\.local/share/mise/shims:.*\\.cargo/bin:.*\\.dotnet/tools:.*go/bin:.*\\.opencode/bin:.*\\.config/composer/vendor/bin:.*nix/var/nix/profiles/default/bin:.*usr/local/share/mise/shims:", local.install_script)) == 1
     error_message = "Paseo service should expose Hakim toolchain directories"
   }
+
+  assert {
+    condition     = length(regexall("/usr/local/bin:.*usr/local/share/mise/shims:", local.install_script)) == 1
+    error_message = "Paseo service should resolve configured system tool wrappers before global mise shims"
+  }
 }
 
 run "disabled_hides_app" {
