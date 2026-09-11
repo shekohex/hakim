@@ -49,6 +49,16 @@ run "defaults_are_correct" {
     condition     = length(regexall("--no-relay", local.install_script)) == 0
     error_message = "Paseo service should not disable the relay"
   }
+
+  assert {
+    condition     = length(regexall("\\.local/bin:.*\\.npm-global/bin:.*\\.local/share/pnpm:.*\\.local/share/vite-plus/bin:", local.install_script)) == 1
+    error_message = "Paseo service should expose user-managed command directories"
+  }
+
+  assert {
+    condition     = length(regexall("\\.local/share/mise/shims:.*\\.cargo/bin:.*\\.dotnet/tools:.*go/bin:.*\\.opencode/bin:.*\\.config/composer/vendor/bin:.*nix/var/nix/profiles/default/bin:.*usr/local/share/mise/shims:", local.install_script)) == 1
+    error_message = "Paseo service should expose Hakim toolchain directories"
+  }
 }
 
 run "disabled_hides_app" {
