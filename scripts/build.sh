@@ -26,7 +26,7 @@ declare -a BUILT_CUBE_IMAGE_TAGS=()
 declare -a TEMP_CONFIGS=()
 
 function devcontainer() {
-  bunx devcontainer "$@"
+  bunx --package @devcontainers/cli@0.80.2 devcontainer "$@"
 }
 
 function log() {
