@@ -32,7 +32,7 @@ This is the foundational image for the Hakim Coder Template system. It is based 
 - Disable entrypoint-managed Xvfb with `START_XVFB=0` when another display server is provided.
 - Override systemd Xvfb settings with `/etc/hakim/xvfb.env`.
 
-The base image includes core runtime tools needed by headless Electron/AppImage/browser workflows: `libfuse2`, `xvfb`, `xauth`, `x11-utils`, `xdotool`, `scrot`, `xclip`, `wmctrl`, `ffmpeg`, `imagemagick`, `webp`, `librsvg2-bin`, `poppler-utils`, `qpdf`, `ghostscript`, `file`, common desktop MIME utilities, and Noto fonts.
+The base image includes core runtime tools needed by headless Electron/AppImage/browser workflows: `libfuse2`, `libvulkan1`, `mesa-vulkan-drivers`, `xvfb`, `xauth`, `x11-utils`, `xdotool`, `scrot`, `xclip`, `wmctrl`, `ffmpeg`, `imagemagick`, `webp`, `librsvg2-bin`, `poppler-utils`, `qpdf`, `ghostscript`, `file`, common desktop MIME utilities, and Noto fonts.
 
 ## Shell Defaults
 

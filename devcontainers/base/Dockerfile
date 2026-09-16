@@ -189,7 +189,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libc6 libcairo2 libcups2 libdbus-1-3 libdrm2 libexpat1 libfontconfig1 \
     libegl1 libgbm1 libgcc-s1 libgdk-pixbuf-2.0-0 libgl1 libglx-mesa0 libgtk-3-0 \
     libnotify4 libnspr4 libnss3 libstdc++6 libu2f-udev \
-    libvulkan1 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 \
+    libvulkan1 mesa-vulkan-drivers libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 \
     libxext6 libxfixes3 libxi6 libxkbcommon0 libxrandr2 libxrender1 libxshmfence1 \
     libxss1 libxtst6 \
   ) && \
