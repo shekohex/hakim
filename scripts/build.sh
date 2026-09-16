@@ -11,6 +11,7 @@ REGISTRY_HTTP="${REGISTRY_HTTP:-false}"
 CODER_VERSION=""
 CODE_SERVER_VERSION=""
 CHROME_VERSION=""
+CUBE_VARIANTS="${CUBE_VARIANTS:-}"
 FETCH_LATEST=false
 PUSH_IMAGES=false
 DIRECT_PUSH=false
@@ -20,6 +21,7 @@ USE_REGISTRY_CACHE_TO="${USE_REGISTRY_CACHE_TO:-false}"
 
 declare -a BASE_VERSION_ARGS=()
 declare -a BUILT_IMAGE_TAGS=()
+declare -a BUILT_CUBE_IMAGE_TAGS=()
 declare -a TEMP_CONFIGS=()
 
 function devcontainer() {
@@ -87,6 +89,7 @@ Options:
   --coder-version <version>      Specify the version of coder CLI to install
   --code-version <version>       Specify the version of code-server to install
   --chrome-version <version>     Specify the version of Google Chrome to install
+  --cube-variants <list>         Also build cube-hakim-<variant> images (comma list or 'all')
   --fetch-latest                 Fetch and use latest versions for all tools (requires gh CLI)
   --push                         Push built images after local build
   --builder <name>               Use a specific docker buildx builder
@@ -130,6 +133,14 @@ while [[ "$#" -gt 0 ]]; do
     ;;
   --chrome-version)
     CHROME_VERSION="$2"
+    shift
+    ;;
+  --cube-variants)
+    if [[ $# -lt 2 || -z "${2:-}" || "${2:0:1}" = "-" ]]; then
+      echo "--cube-variants requires a value" >&2
+      exit 2
+    fi
+    CUBE_VARIANTS="$2"
     shift
     ;;
   --fetch-latest) FETCH_LATEST=true ;;
@@ -452,6 +463,10 @@ function push_built_images() {
     info "Pushing $image"
     docker push "$image"
   done
+  for image in "${BUILT_CUBE_IMAGE_TAGS[@]}"; do
+    info "Pushing $image"
+    docker push "$image"
+  done
 }
 
 BASE_IMAGE_REF="$REGISTRY/hakim-base:$RUN_REF"
@@ -520,6 +535,57 @@ for variant in devcontainers/.devcontainer/images/*; do
   rm -f "$tmp_config"
   add_image_tags "hakim-$variant_name"
 done
+
+if [ -n "$CUBE_VARIANTS" ]; then
+  if [ "$CUBE_VARIANTS" = "all" ]; then
+    CUBE_VARIANTS="$(printf '%s\n' devcontainers/.devcontainer/images/*/ | xargs -n1 basename | paste -sd, -)"
+  fi
+
+  IFS=',' read -r -a CUBE_VARIANT_LIST <<<"$CUBE_VARIANTS"
+  HAKIM_COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+
+  for cube_variant in "${CUBE_VARIANT_LIST[@]}"; do
+    cube_variant="$(echo "$cube_variant" | xargs)"
+    [ -n "$cube_variant" ] || continue
+    if [ ! -d "devcontainers/.devcontainer/images/$cube_variant" ]; then
+      error "Unknown Cube variant: $cube_variant"
+      exit 1
+    fi
+    if [ "$RUN_REF" = "latest" ]; then
+      error "RUN_REF=latest is not allowed for Cube images; use an immutable ref"
+      exit 1
+    fi
+
+    cube_image_ref="$REGISTRY/cube-hakim-${cube_variant}:$RUN_REF"
+    if [ "$DIRECT_PUSH" = "true" ] || [ "$PUSH_IMAGES" = "true" ]; then
+      if [ "${CUBE_ALLOW_TAG_OVERWRITE:-false}" != "true" ] && \
+        docker buildx imagetools inspect "$cube_image_ref" >/dev/null 2>&1; then
+        error "$cube_image_ref already exists; pick a new immutable RUN_REF"
+        exit 1
+      fi
+    fi
+
+    info "Building Cube Variant: $cube_variant..."
+
+    declare -a CUBE_BUILD_ARGS=()
+    CUBE_BUILD_ARGS+=(--build-arg "HAKIM_IMAGE=$REGISTRY/hakim-${cube_variant}:$RUN_REF")
+    CUBE_BUILD_ARGS+=(--build-arg "HAKIM_VARIANT=$cube_variant")
+    CUBE_BUILD_ARGS+=(--build-arg "HAKIM_COMMIT=$HAKIM_COMMIT")
+    if [ -n "${CUBESANDBOX_BASE:-}" ]; then
+      CUBE_BUILD_ARGS+=(--build-arg "CUBESANDBOX_BASE=$CUBESANDBOX_BASE")
+    fi
+    populate_cache_args "cube-${cube_variant}" CUBE_CACHE_ARGS
+
+    docker buildx build \
+      "${BUILDX_ARGS[@]}" \
+      "${BUILD_OUTPUT_ARGS[@]}" \
+      "${CUBE_CACHE_ARGS[@]}" \
+      "${CUBE_BUILD_ARGS[@]}" \
+      -t "$cube_image_ref" \
+      devcontainers/cube
+    BUILT_CUBE_IMAGE_TAGS+=("$cube_image_ref")
+  done
+fi
 
 if [ "$PUSH_IMAGES" = true ] && [ "$DIRECT_PUSH" != "true" ]; then
   push_built_images

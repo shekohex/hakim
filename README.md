@@ -15,6 +15,25 @@ Images follow the DevContainer Features model and are also OCI-ready for Proxmox
 | `hakim-js` | JS | `nodejs:lts`, `bun:latest` | JavaScript workspace with Node.js LTS and Bun. |
 | `hakim-elixir` | Elixir | `elixir`, `phoenix`, `postgresql-tools`, `nodejs`, `bun` | Elixir/Phoenix workspace with PostgreSQL client tools and JS runtimes. |
 
+## CubeSandbox Images
+
+`cube-hakim-<variant>` images add the CubeSandbox data plane (`envd`, the
+upstream entrypoint, tini, and supervisor) on top of the matching
+`hakim-<variant>` image. They use Xvfb and Vulkan packages already present in
+Hakim's base image. Normal `hakim-*` images and Coder workflows are unchanged.
+
+```sh
+scripts/build-cube-images.sh \
+  --registry ghcr.io/shekohex \
+  --variants js \
+  --hakim-tag <immutable-hakim-tag>
+```
+
+The cube entrypoint starts only the Docker daemon and Xvfb, then delegates the
+`envd` lifecycle to the upstream CubeSandbox entrypoint, and stops everything in
+order on `SIGTERM`. See [docs/cube-images.md](docs/cube-images.md) for the image
+contract, build/publish commands, baked-tool contract and validation gates.
+
 ## Templates
 
 - Docker template: `coder/templates/hakim`
@@ -114,6 +133,12 @@ Build all images:
 
 ```sh
 ./scripts/build.sh
+```
+
+Build all images plus CubeSandbox adapters:
+
+```sh
+./scripts/build.sh --cube-variants js
 ```
 
 ## Extending Hakim
