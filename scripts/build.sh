@@ -11,6 +11,7 @@ REGISTRY_HTTP="${REGISTRY_HTTP:-false}"
 CODER_VERSION=""
 CODE_SERVER_VERSION=""
 CHROME_VERSION=""
+HAKIM_VARIANTS="${HAKIM_VARIANTS:-all}"
 CUBE_VARIANTS="${CUBE_VARIANTS:-}"
 FETCH_LATEST=false
 PUSH_IMAGES=false
@@ -89,6 +90,7 @@ Options:
   --coder-version <version>      Specify the version of coder CLI to install
   --code-version <version>       Specify the version of code-server to install
   --chrome-version <version>     Specify the version of Google Chrome to install
+  --variants <list>              Build hakim-<variant> images (comma list or 'all'; default: all)
   --cube-variants <list>         Also build cube-hakim-<variant> images (comma list or 'all')
   --fetch-latest                 Fetch and use latest versions for all tools (requires gh CLI)
   --push                         Push built images after local build
@@ -133,6 +135,14 @@ while [[ "$#" -gt 0 ]]; do
     ;;
   --chrome-version)
     CHROME_VERSION="$2"
+    shift
+    ;;
+  --variants)
+    if [[ $# -lt 2 || -z "${2:-}" || "${2:0:1}" = "-" ]]; then
+      echo "--variants requires a value" >&2
+      exit 2
+    fi
+    HAKIM_VARIANTS="$2"
     shift
     ;;
   --cube-variants)
@@ -184,6 +194,28 @@ if [[ "$CACHE_REPO" =~ ^https?:// ]]; then
 fi
 CACHE_REPO="${CACHE_REPO%/}"
 CACHE_REPO_HOST="${CACHE_REPO%%/*}"
+
+declare -a VARIANT_PATHS=()
+if [ "$HAKIM_VARIANTS" = "all" ]; then
+  VARIANT_PATHS=(devcontainers/.devcontainer/images/*)
+else
+  IFS=',' read -r -a REQUESTED_VARIANTS <<<"$HAKIM_VARIANTS"
+  for variant_name in "${REQUESTED_VARIANTS[@]}"; do
+    variant_name="$(echo "$variant_name" | xargs)"
+    [ -n "$variant_name" ] || continue
+    variant_path="devcontainers/.devcontainer/images/$variant_name"
+    if [ ! -d "$variant_path" ]; then
+      error "Unknown Hakim variant: $variant_name"
+      exit 2
+    fi
+    VARIANT_PATHS+=("$variant_path")
+  done
+fi
+
+if [ ${#VARIANT_PATHS[@]} -eq 0 ]; then
+  error "No Hakim variants selected"
+  exit 2
+fi
 
 if [ "$FETCH_LATEST" = true ]; then
   if ! command -v gh &>/dev/null; then
@@ -505,7 +537,7 @@ docker buildx build \
   devcontainers/tooling
 add_image_tags "hakim-tooling"
 
-for variant in devcontainers/.devcontainer/images/*; do
+for variant in "${VARIANT_PATHS[@]}"; do
   variant_name=$(basename "$variant")
   info "Building Variant: $variant_name..."
 
@@ -538,7 +570,7 @@ done
 
 if [ -n "$CUBE_VARIANTS" ]; then
   if [ "$CUBE_VARIANTS" = "all" ]; then
-    CUBE_VARIANTS="$(printf '%s\n' devcontainers/.devcontainer/images/*/ | xargs -n1 basename | paste -sd, -)"
+    CUBE_VARIANTS="$(printf '%s\n' "${VARIANT_PATHS[@]}" | xargs -n1 basename | paste -sd, -)"
   fi
 
   IFS=',' read -r -a CUBE_VARIANT_LIST <<<"$CUBE_VARIANTS"
@@ -550,6 +582,17 @@ if [ -n "$CUBE_VARIANTS" ]; then
     if [ ! -d "devcontainers/.devcontainer/images/$cube_variant" ]; then
       error "Unknown Cube variant: $cube_variant"
       exit 1
+    fi
+    cube_source_selected=false
+    for selected_variant_path in "${VARIANT_PATHS[@]}"; do
+      if [ "$(basename "$selected_variant_path")" = "$cube_variant" ]; then
+        cube_source_selected=true
+        break
+      fi
+    done
+    if [ "$cube_source_selected" != "true" ]; then
+      error "Cube variant '$cube_variant' must also be selected by --variants"
+      exit 2
     fi
     if [ "$RUN_REF" = "latest" ]; then
       error "RUN_REF=latest is not allowed for Cube images; use an immutable ref"
