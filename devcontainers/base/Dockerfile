@@ -8,9 +8,9 @@
 # - Prefer adding new stages over modifying shared ones.
 # =============================================================================
 
-ARG DEBIAN_IMAGE=debian:trixie-slim@sha256:f6e2cfac5cf956ea044b4bd75e6397b4372ad88fe00908045e9a0d21712ae3ba
-ARG DEBIAN_SNAPSHOT=20260201T000000Z
-ARG DOCKER_CLI_IMAGE=docker:28.3.3-cli@sha256:0135662b510037ea581d99c2e5929c5e01185139c0b86986a418bd4da0b98a44
+ARG DEBIAN_IMAGE=debian:trixie-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132
+ARG DEBIAN_SNAPSHOT=20260915T000000Z
+ARG DOCKER_CLI_IMAGE=docker:29.8.1-cli@sha256:9f36dfce2d1fd053d700a4eca00c358df79bf7d8cb69d4a9e8d9981af18834ea
 
 # =============================================================================
 # Stage 1: Base system packages (rarely changes)
@@ -72,7 +72,7 @@ RUN curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_S
 
 FROM base-system AS git-credential-libsecret-builder
 
-ARG GIT_SOURCE_TAG=v2.52.0
+ARG GIT_SOURCE_TAG=v2.55.0
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -90,7 +90,7 @@ RUN git clone --depth 1 --branch "$GIT_SOURCE_TAG" https://github.com/git/git /t
 FROM base-system AS docker-compose-downloader
 
 ARG TARGETARCH=amd64
-ARG DOCKER_COMPOSE_VERSION=2.29.7
+ARG DOCKER_COMPOSE_VERSION=5.5.1
 
 WORKDIR /downloads
 
@@ -103,7 +103,7 @@ RUN ARCH=$(case ${TARGETARCH} in amd64) echo "x86_64" ;; arm64) echo "aarch64" ;
 FROM base-system AS docker-buildx-downloader
 
 ARG TARGETARCH=amd64
-ARG DOCKER_BUILDX_VERSION=0.29.1
+ARG DOCKER_BUILDX_VERSION=0.37.1
 
 WORKDIR /downloads
 
@@ -134,9 +134,9 @@ FROM ${DOCKER_CLI_IMAGE} AS docker-cli
 # =============================================================================
 FROM base-system AS mise-installer
 
-ARG MISE_VERSION=2026.2.1
-ARG MISE_SHA256_X64=436d726c4046dd9e2681831830de5063c336d8a8164a9801de4c221bf5a8f846
-ARG MISE_SHA256_ARM64=6726622825e5b79d4608e74f0ee5b4f1173c39ba3d0548e8d66dfeafdc4f46a0
+ARG MISE_VERSION=2026.9.10
+ARG MISE_SHA256_X64=cf6c0d4713932cf47da67f4f753348bc1ccf9a22d4d1e3c76d3c23a6187a853c
+ARG MISE_SHA256_ARM64=efbfab6beaac07f933b63a95cb8746bbb7b2d48b70f636c19eb03a38f5786361
 
 ENV MISE_DATA_DIR=/usr/local/share/mise \
   MISE_CONFIG_DIR=/etc/mise \

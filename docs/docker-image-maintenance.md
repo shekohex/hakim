@@ -57,13 +57,13 @@ Use a single date and keep the same for `debian`, `debian-updates`, and `debian-
 File: `devcontainers/base/Dockerfile`
 
 ```bash
-docker buildx imagetools inspect docker:28.3.3-cli
+docker buildx imagetools inspect docker:29.8.1-cli
 ```
 
 Set:
 
 ```
-ARG DOCKER_CLI_IMAGE=docker:28.3.3-cli@sha256:<digest>
+ARG DOCKER_CLI_IMAGE=docker:29.8.1-cli@sha256:<digest>
 ```
 
 ### 4) Update Mise version (if needed)

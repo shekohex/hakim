@@ -14,17 +14,17 @@
                 "20",
                 "18"
             ],
-            "default": "24.18.0",
+            "default": "24.21.0",
             "description": "Select the version of Node.js to install."
         },
         "nodeGypVersion": {
             "type": "string",
-            "default": "13.0.0",
+            "default": "13.0.2",
             "description": "Select the version of node-gyp to install."
         },
         "pnpmVersion": {
             "type": "string",
-            "default": "11.9.0",
+            "default": "12.4.2",
             "description": "Select the version of pnpm to activate with Corepack."
         }
     },

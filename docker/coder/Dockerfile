@@ -3,7 +3,7 @@ ARG HAKIM_PROVIDER_VERSION=0.1.0
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 
-FROM golang:1.24-alpine AS provider-builder
+FROM golang:1.27-alpine AS provider-builder
 
 ARG HAKIM_PROVIDER_VERSION=0.1.0
 ARG TARGETOS=linux

@@ -10,12 +10,12 @@
         "3.12",
         "latest"
       ],
-      "default": "3.12.12",
+      "default": "3.12.14",
       "description": "Select the Python version to install via uv."
     },
     "uvVersion": {
       "type": "string",
-      "default": "0.9.28",
+      "default": "0.12.15",
       "description": "Select the uv version to install."
     }
   },

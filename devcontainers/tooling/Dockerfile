@@ -25,9 +25,9 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   MISE_DATA_DIR=/usr/local/share/mise MISE_CONFIG_DIR=/etc/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/tooling.toml \
   /usr/local/bin/hakim-expose-mise-tools
 
-ARG NODE_VERSION=24.18.0
-ARG NODE_GYP_VERSION=13.0.0
-ARG PNPM_VERSION=11.9.0
+ARG NODE_VERSION=24.21.0
+ARG NODE_GYP_VERSION=13.0.2
+ARG PNPM_VERSION=12.4.2
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   --mount=type=secret,id=github_token \
   if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi && \
@@ -47,7 +47,7 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   [ "$success" -eq 1 ] && \
   rm -rf /tmp/.npm /root/.npm
 
-ARG BUN_VERSION=1.3.9
+ARG BUN_VERSION=1.4.2
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   --mount=type=secret,id=github_token \
   if [ -f /run/secrets/github_token ]; then export GITHUB_TOKEN=$(cat /run/secrets/github_token); fi && \
@@ -56,8 +56,8 @@ RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   MISE_GLOBAL_CONFIG_FILE=/etc/mise/tools.toml && \
   mise use --global bun@${BUN_VERSION}
 
-ARG UV_VERSION=0.9.24
-ARG UV_PYTHON_VERSION=3.12.12
+ARG UV_VERSION=0.12.15
+ARG UV_PYTHON_VERSION=3.12.14
 RUN --mount=type=cache,target=/root/.cache/mise,sharing=locked \
   --mount=type=secret,id=github_token \
   --mount=type=cache,target=/root/.cache/uv,sharing=locked \
