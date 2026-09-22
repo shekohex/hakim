@@ -7,7 +7,7 @@ export PATH="$HOME/.bun/bin:$PATH"
 ARG_ENABLED=${ARG_ENABLED:-true}
 
 command_exists() {
-  command -v "$1" > /dev/null 2>&1
+  command -v "$1" >/dev/null 2>&1
 }
 
 resolve_bun_bin() {
@@ -50,7 +50,7 @@ run_with_bun_lock() {
   local elapsed=0
   local timeout=600
 
-  while ! mkdir "$lock_dir" 2> /dev/null; do
+  while ! mkdir "$lock_dir" 2>/dev/null; do
     sleep 1
     elapsed=$((elapsed + 1))
     if [ "$elapsed" -ge "$timeout" ]; then
@@ -94,14 +94,14 @@ disable_paseo_service() {
     exit 1
   fi
 
-  sudo systemctl disable --now paseo.service > /dev/null 2>&1 || true
+  sudo systemctl disable --now paseo.service >/dev/null 2>&1 || true
   echo "Paseo disabled"
 }
 
 install_paseo() {
   local bun_bin
 
-  bun_bin="$(resolve_bun_bin 2> /dev/null || true)"
+  bun_bin="$(resolve_bun_bin 2>/dev/null || true)"
   if [ -z "$bun_bin" ]; then
     echo "ERROR: Bun is required to install Paseo"
     exit 1
@@ -126,7 +126,7 @@ install_paseo_service() {
     exit 1
   fi
 
-  paseo_bin="$(resolve_paseo_bin 2> /dev/null || true)"
+  paseo_bin="$(resolve_paseo_bin 2>/dev/null || true)"
   if [ -z "$paseo_bin" ]; then
     echo "ERROR: Paseo is not installed"
     exit 1
@@ -136,10 +136,10 @@ install_paseo_service() {
   service_user="$(id -un)"
   service_group="$(id -gn)"
 
-  sudo systemctl stop paseo.service 2> /dev/null || true
-  paseo daemon stop --home "$HOME/.paseo" > /dev/null 2>&1 || true
+  sudo systemctl stop paseo.service 2>/dev/null || true
+  paseo daemon stop --home "$HOME/.paseo" >/dev/null 2>&1 || true
 
-  sudo tee /etc/systemd/system/paseo.service > /dev/null <<EOF
+  sudo tee /etc/systemd/system/paseo.service >/dev/null <<EOF
 [Unit]
 Description=Paseo daemon
 After=network-online.target
@@ -152,7 +152,7 @@ Group=${service_group}
 WorkingDirectory=${HOME}
 Environment=HOME=${HOME}
 Environment=PATH=${HOME}/.local/bin:${HOME}/.local/share/mise/shims:${HOME}/.bun/bin:${HOME}/.npm-global/bin:${HOME}/.local/share/pnpm:${HOME}/.cargo/bin:${HOME}/.dotnet/tools:${HOME}/go/bin:${HOME}/.opencode/bin:${HOME}/.local/share/vite-plus/bin:${HOME}/.config/composer/vendor/bin:/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/local/share/mise/shims:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/usr/local/bin/paseo daemon start --foreground --home ${HOME}/.paseo --listen 127.0.0.1:6767 --relay --relay-use-tls --web-ui --hostnames true
+ExecStart=/usr/local/bin/paseo daemon run --home ${HOME}/.paseo
 Restart=on-failure
 RestartSec=5
 
@@ -161,7 +161,7 @@ WantedBy=multi-user.target
 EOF
 
   sudo systemctl daemon-reload
-  sudo systemctl enable paseo.service > /dev/null
+  sudo systemctl enable paseo.service >/dev/null
   sudo systemctl restart paseo.service
 
   sleep 1
@@ -171,7 +171,7 @@ EOF
     exit 1
   fi
 
-  paseo --help > /dev/null
+  paseo --help >/dev/null
   echo "Paseo installed and paseo.service started successfully"
 }
 
