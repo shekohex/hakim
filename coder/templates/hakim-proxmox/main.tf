@@ -958,6 +958,10 @@ resource "coder_agent" "main" {
     #!/bin/bash
     set -e
 
+    if [ -d /run/systemd/system ]; then
+      sudo loginctl enable-linger coder
+    fi
+
     sudo mkdir -p /dev/shm
     if ! grep -qsE '^[^ ]+ /dev/shm tmpfs ' /proc/mounts; then
       sudo mount -t tmpfs -o rw,nosuid,nodev,noexec,relatime,size=1g,mode=1777 tmpfs /dev/shm || true
