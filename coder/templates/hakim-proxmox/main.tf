@@ -395,6 +395,17 @@ data "coder_parameter" "enable_t3code" {
   order        = 71
 }
 
+data "coder_parameter" "enable_mdns" {
+  name         = "enable_mdns"
+  display_name = "Enable mDNS"
+  description  = "Advertise the workspace hostname as <hostname>.local on the LAN, including after IP changes."
+  type         = "bool"
+  default      = true
+  mutable      = true
+  icon         = "/icon/network.svg"
+  order        = 72
+}
+
 data "coder_parameter" "shekohex_agent_auth" {
   name         = "shekohex_agent_auth"
   display_name = "Shekohex Agent Auth JSON"
@@ -1257,6 +1268,14 @@ module "t3code" {
   source   = "github.com/shekohex/hakim//coder/modules/t3code?ref=main"
   agent_id = coder_agent.main[0].id
   enabled  = data.coder_parameter.enable_t3code.value
+}
+
+module "avahi" {
+  count = local.workspace_agent_count
+
+  source   = "github.com/shekohex/hakim//coder/modules/avahi?ref=main"
+  agent_id = coder_agent.main[0].id
+  enabled  = data.coder_parameter.enable_mdns.value
 }
 
 module "paseo" {

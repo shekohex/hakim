@@ -29,6 +29,12 @@ Provisions Hakim workspaces on Proxmox LXC using OCI templates pulled from GHCR.
 - Keep security defaults conservative (`unprivileged = true`, nesting off by default).
 - Remove SSH bootstrap and rely on coder-agent-native containers.
 
+## mDNS Hostnames
+
+`enable_mdns` defaults to `true`. The [Avahi module](../../modules/avahi/README.md) installs and enables `avahi-daemon`, advertising the container's existing hostname as `coder-<owner>-<workspace>.local` on the LAN. Address records follow IP changes automatically.
+
+Clients must support mDNS and share a multicast-capable network with the workspace (UDP 5353). Set `enable_mdns = false` to stop and disable the service and socket.
+
 ## ET SSH Mode
 
 `enable_et` is enabled by default and runs loopback `etserver` (`127.0.0.1:2022`) plus internal hardened `sshd` (`127.0.0.1:2244`) inside the workspace.
