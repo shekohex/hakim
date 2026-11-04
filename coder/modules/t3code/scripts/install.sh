@@ -2,9 +2,10 @@
 set -euo pipefail
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
-export PATH="$HOME/.bun/bin:$PATH"
+export PATH="$HOME/.bun/bin:/usr/local/share/mise/shims:$HOME/.local/share/mise/shims:$PATH"
 
 ARG_ENABLED=${ARG_ENABLED:-true}
+ARG_PORT=${ARG_PORT:-3157}
 ARG_UPDATE_SCRIPT=${ARG_UPDATE_SCRIPT:-}
 
 command_exists() {
@@ -28,26 +29,6 @@ resolve_bun_bin() {
 
   if command_exists bun; then
     command -v bun
-    return 0
-  fi
-
-  return 1
-}
-
-resolve_t3_bin() {
-  local candidate
-
-  for candidate in \
-    "$HOME/.bun/bin/t3" \
-    /usr/local/bin/t3; do
-    if [ -x "$candidate" ]; then
-      printf '%s\n' "$candidate"
-      return 0
-    fi
-  done
-
-  if command_exists t3; then
-    command -v t3
     return 0
   fi
 
@@ -80,7 +61,7 @@ install_t3code() {
 
   export PATH="$(dirname "$bun_bin"):$PATH"
 
-  curl -fsSL https://github.com/shekohex/t3code/releases/download/fork-preview/install-github-package.sh | bash -s -- --bun
+  bun install --global t3@nightly
 }
 
 install_t3code_service() {
@@ -103,14 +84,15 @@ install_t3code_service() {
     exit 1
   fi
 
-  t3_bin="$(resolve_t3_bin 2> /dev/null || true)"
-  if [ -z "$t3_bin" ]; then
+  t3_bin="$(bun pm --global bin)/t3"
+  if [ ! -x "$t3_bin" ]; then
     echo "ERROR: T3 Code is not installed"
     exit 1
   fi
 
   sudo ln -sf "$t3_bin" /usr/local/bin/t3
   sudo install -m 0755 "$ARG_UPDATE_SCRIPT" /usr/local/bin/t3-update
+  "$t3_bin" --help > /dev/null
   service_user="$(id -un)"
   service_group="$(id -gn)"
 
@@ -126,8 +108,10 @@ User=${service_user}
 Group=${service_group}
 WorkingDirectory=${HOME}
 Environment=HOME=${HOME}
-Environment=PATH=${HOME}/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/usr/local/bin/t3 serve --host 0.0.0.0 --port 1337
+Environment="PATH=${PATH}"
+ExecStart=/usr/local/bin/t3 serve --host 0.0.0.0 --lan --port ${ARG_PORT} --no-browser
+StandardOutput=journal
+StandardError=journal
 Restart=on-failure
 RestartSec=5
 
@@ -146,7 +130,6 @@ EOF
     exit 1
   fi
 
-  t3 --help > /dev/null
   echo "T3 Code installed and t3code.service started successfully"
 }
 

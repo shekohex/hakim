@@ -11,8 +11,8 @@ run "defaults_are_correct" {
   }
 
   assert {
-    condition     = local.port == 1337
-    error_message = "T3 Code port should be 1337"
+    condition     = var.port == 3157 && coder_app.t3[0].url == "http://localhost:3157/"
+    error_message = "T3 Code should use port 3157 by default"
   }
 
   assert {
@@ -39,6 +39,58 @@ run "defaults_are_correct" {
     condition     = coder_app.t3[0].subdomain == true
     error_message = "T3 Code app should use a subdomain"
   }
+}
+
+run "custom_port" {
+  command = plan
+
+  variables {
+    agent_id = "test-agent"
+    port     = 4321
+  }
+
+  assert {
+    condition     = coder_app.t3[0].url == "http://localhost:4321/" && one(coder_app.t3[0].healthcheck).url == "http://localhost:4321/"
+    error_message = "App and healthcheck should use the configured port"
+  }
+
+  assert {
+    condition     = strcontains(coder_script.t3code_install.script, "ARG_PORT='4321'") && coder_script.t3code_install.run_on_start
+    error_message = "Workspace startup should configure the service with the custom port"
+  }
+}
+
+run "reject_zero_port" {
+  command = plan
+
+  variables {
+    agent_id = "test-agent"
+    port     = 0
+  }
+
+  expect_failures = [var.port]
+}
+
+run "reject_out_of_range_port" {
+  command = plan
+
+  variables {
+    agent_id = "test-agent"
+    port     = 65536
+  }
+
+  expect_failures = [var.port]
+}
+
+run "reject_fractional_port" {
+  command = plan
+
+  variables {
+    agent_id = "test-agent"
+    port     = 3157.5
+  }
+
+  expect_failures = [var.port]
 }
 
 run "disabled_hides_app" {

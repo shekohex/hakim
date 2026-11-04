@@ -20,10 +20,20 @@ variable "enabled" {
   default     = true
 }
 
+variable "port" {
+  type        = number
+  description = "Port for the T3 Code server."
+  default     = 3157
+
+  validation {
+    condition     = var.port >= 1 && var.port <= 65535 && floor(var.port) == var.port
+    error_message = "Port must be an integer between 1 and 65535."
+  }
+}
+
 locals {
   app_slug       = "t3"
   icon           = "https://t3.codes/apple-touch-icon.png"
-  port           = 1337
   install_script = file("${path.module}/scripts/install.sh")
   update_script  = file("${path.module}/scripts/update.sh")
 }
@@ -46,7 +56,7 @@ resource "coder_script" "t3code_install" {
     echo -n '${base64encode(local.update_script)}' | base64 -d > "$UPDATE_SCRIPT"
     chmod +x "$UPDATE_SCRIPT"
 
-    ARG_ENABLED='${var.enabled}' ARG_UPDATE_SCRIPT="$UPDATE_SCRIPT" bash "$INSTALL_SCRIPT"
+    ARG_ENABLED='${var.enabled}' ARG_PORT='${var.port}' ARG_UPDATE_SCRIPT="$UPDATE_SCRIPT" bash "$INSTALL_SCRIPT"
 
     rm -f "$INSTALL_SCRIPT" "$UPDATE_SCRIPT"
   EOT
@@ -59,13 +69,13 @@ resource "coder_app" "t3" {
   slug         = local.app_slug
   display_name = "T3 Code"
   agent_id     = var.agent_id
-  url          = "http://localhost:${local.port}/"
+  url          = "http://localhost:${var.port}/"
   icon         = local.icon
   share        = "public"
   subdomain    = true
 
   healthcheck {
-    url       = "http://localhost:${local.port}/"
+    url       = "http://localhost:${var.port}/"
     interval  = 5
     threshold = 30
   }

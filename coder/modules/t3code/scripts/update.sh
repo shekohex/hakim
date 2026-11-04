@@ -13,7 +13,8 @@ if ! command -v sudo > /dev/null 2>&1; then
   exit 1
 fi
 
-curl -fsSL https://github.com/shekohex/t3code/releases/download/fork-preview/install-github-package.sh | bash -s -- --bun
+bun install --global t3@nightly
+t3 --help > /dev/null
 
 sudo systemctl restart t3code.service
 
