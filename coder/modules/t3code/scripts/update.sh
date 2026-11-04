@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-export PATH="$HOME/.bun/bin:/usr/local/share/mise/shims:$HOME/.local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/local/share/mise/shims:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+export PATH="$HOME/.bun/bin:$HOME/.local/share/mise/shims:$PATH"
 
 if ! command -v bun > /dev/null 2>&1; then
   echo "ERROR: Bun is required to update T3 Code"

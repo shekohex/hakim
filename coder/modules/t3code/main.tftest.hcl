@@ -41,6 +41,22 @@ run "defaults_are_correct" {
   }
 }
 
+run "system_wrappers_precede_global_mise_shims" {
+  command = plan
+
+  variables {
+    agent_id = "test-agent"
+  }
+
+  assert {
+    condition = alltrue([
+      for script in [local.install_script, local.update_script] :
+      length(regexall("export PATH=\"[^\"\n]*/usr/local/bin:[^\"\n]*/usr/local/share/mise/shims:", script)) == 1
+    ])
+    error_message = "Install, service, and update must resolve configured system wrappers before global mise shims"
+  }
+}
+
 run "custom_port" {
   command = plan
 

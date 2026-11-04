@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
-export PATH="$HOME/.bun/bin:/usr/local/share/mise/shims:$HOME/.local/share/mise/shims:$PATH"
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/local/share/mise/shims:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+export PATH="$HOME/.bun/bin:$HOME/.local/share/mise/shims:$PATH"
 
 ARG_ENABLED=${ARG_ENABLED:-true}
 ARG_PORT=${ARG_PORT:-3157}
